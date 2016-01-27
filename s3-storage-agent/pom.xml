@@ -19,8 +19,22 @@
 
     <dependency>
       <groupId>org.jetbrains.teamcity</groupId>
+      <artifactId>common-api</artifactId>
+      <version>${teamcity-version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jetbrains.teamcity</groupId>
       <artifactId>agent-api</artifactId>
       <version>${teamcity-version}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jetbrains.teamcity.internal</groupId>
+      <artifactId>agent</artifactId>
+      <version>10.0-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
 
