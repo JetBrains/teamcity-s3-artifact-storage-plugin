@@ -6,7 +6,7 @@
   <version>1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <properties>
-      <teamcity-version>9.0.3</teamcity-version>
+      <teamcity-version>10.0-SNAPSHOT</teamcity-version>
   </properties>
   <repositories>
     <repository>
@@ -36,7 +36,7 @@
                   <artifactId>teamcity-sdk-maven-plugin</artifactId>
                   <version>RELEASE</version>
                   <configuration>
-                      <!-- <teamcityDir>/path/to/tc/distro</teamcityDir> -->
+                      <teamcityDir>${tc-10-dir}</teamcityDir>
                   </configuration>
               </plugin>
           </plugins>
