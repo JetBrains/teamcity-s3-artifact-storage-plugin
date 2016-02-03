@@ -1,9 +1,11 @@
 package jetbrains.buildServer.artifacts.s3;
 
+import com.intellij.util.Function;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
+import jetbrains.buildServer.util.StringUtil;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -21,6 +23,7 @@ public class ArtifactsListPublisher implements ArtifactsPublisher {
   private final static Logger LOG = Logger.getLogger(ArtifactsListPublisher.class);
 
   private final WebPublisher myWebPublisher;
+  private final Map<File, String> myAllFiles = new HashMap<File, String>();
 
   public ArtifactsListPublisher(@NotNull final WebPublisher webPublisher,
                                 @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher) {
@@ -28,30 +31,51 @@ public class ArtifactsListPublisher implements ArtifactsPublisher {
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
+        resetArtifactsList();
+      }
+
+      @Override
+      public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
+        publishArtifactsList();
       }
     });
   }
 
-  @Override
-  public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
-    File tempFile = null;
+  private void resetArtifactsList() {
+    myAllFiles.clear();
+  }
+
+  private void publishArtifactsList() {
+    File tempDir = null;
     try {
-      tempFile = File.createTempFile("artifacts", "list.txt");
-      for (Map.Entry<File, String> entry : map.entrySet()) {
-        FileUtil.writeFile(tempFile, entry.getKey().getName() + " -> " + entry.getValue(), "UTF-8");
-      }
+      tempDir = FileUtil.createTempDirectory("artifacts", "list");
+      final File tempFile = new File(tempDir, "artifacts_list.txt");
+
+      final String text = StringUtil.join(myAllFiles.entrySet(), new Function<Map.Entry<File, String>, String>() {
+        @Override
+        public String fun(Map.Entry<File, String> entry) {
+          return entry.getKey().getName() + " -> " + entry.getValue();
+        }
+      }, "\n");
+
+      FileUtil.writeFile(tempFile, text, "UTF-8");
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
-      newArtifacts.put(tempFile, ".teamcity/artifactsLists");
-
+      newArtifacts.put(tempFile, ".teamcity");
       myWebPublisher.publishFiles(newArtifacts);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     } finally {
-      if (tempFile != null) {
-        tempFile.delete();
+      if (tempDir != null) {
+        FileUtil.delete(tempDir);
       }
+      myAllFiles.clear();
     }
+  }
+
+  @Override
+  public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
+    myAllFiles.putAll(map);
     return map.size();
   }
 
