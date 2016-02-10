@@ -62,7 +62,7 @@ public class ArtifactsListPublisher implements ArtifactsPublisher {
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
       newArtifacts.put(tempFile, ".teamcity");
-      myWebPublisher.publishFiles(newArtifacts);
+      myWebPublisher.publishFiles(newArtifacts, true);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     } finally {
@@ -74,7 +74,7 @@ public class ArtifactsListPublisher implements ArtifactsPublisher {
   }
 
   @Override
-  public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
+  public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
     myAllFiles.putAll(map);
     return map.size();
   }

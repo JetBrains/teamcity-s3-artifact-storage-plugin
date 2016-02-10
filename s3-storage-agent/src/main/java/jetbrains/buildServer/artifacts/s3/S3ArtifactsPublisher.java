@@ -30,7 +30,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private final static Logger LOG = Logger.getLogger(ArtifactsListPublisher.class);
 
   private static final String BUCKET_NAME = "test.1.jetbrains.buildserver.artifacts.s3";
-  private static final String S3_ARTIFACTS_LIST = "s3_artifacts_list.txt";
 
   private final WebPublisher myWebPublisher;
   private final AmazonS3 myS3 = new AmazonS3Client();
@@ -57,7 +56,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   @Override
-  public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
+  public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
+    if (isInternalPublishing) {
+      return 0;
+    }
+
     String prefix = String.valueOf(myRunningBuild.getBuildId());
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
@@ -95,7 +98,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     try {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
-      final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
+      final File tempFile = new File(tempDir, jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST);
 
       final String text = StringUtil.join(filesList.entrySet(), new Function<Map.Entry<String, String>, String>() {
         @Override
@@ -107,8 +110,8 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       FileUtil.writeFile(tempFile, text, "UTF-8");
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
-      newArtifacts.put(tempFile, ".teamcity");
-      myWebPublisher.publishFiles(newArtifacts);
+      newArtifacts.put(tempFile, "");
+      myWebPublisher.publishFiles(newArtifacts, true);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     } finally {
