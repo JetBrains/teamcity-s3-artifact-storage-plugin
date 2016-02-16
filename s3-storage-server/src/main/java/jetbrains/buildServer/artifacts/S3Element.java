@@ -81,4 +81,8 @@ public class S3Element implements Element {
   public Browser getBrowser() {
     return myBrowser;
   }
+
+  public String getUrl() {
+    return myUrl;
+  }
 }

@@ -7,8 +7,8 @@ import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifacts;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactsViewMode;
 import jetbrains.buildServer.util.FileUtil;
-import jetbrains.buildServer.util.browser.Browser;
-import jetbrains.buildServer.util.browser.BrowserProvider;
+import jetbrains.buildServer.util.browser.ArtifactBrowserProvider;
+import jetbrains.buildServer.util.browser.ArtifactsBrowser;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
@@ -22,10 +22,10 @@ import java.util.stream.Collectors;
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class S3ArtifactsListBrowserProvider implements BrowserProvider {
+public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
   private static final Logger LOG = Logger.getLogger(S3ArtifactsListBrowserProvider.class);
   @Override
-  public Browser getOrCreateBrowser(@NotNull Build build) {
+  public ArtifactsBrowser getOrCreateBrowser(@NotNull Build build) {
     final SBuild sBuild = (SBuild) build;
     final BuildArtifacts artifacts = sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL);
     final BuildArtifactHolder artifact = artifacts.findArtifact(Constants.S3_ARTIFACTS_LIST);
