@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts;
 
-import com.intellij.openapi.util.io.StreamUtil;
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
@@ -14,9 +13,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Created by Nikita.Skvortsov
@@ -33,11 +30,7 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
       InputStream is = null;
       try {
         is = artifact.getArtifact().getInputStream();
-        final String data = StreamUtil.readText(is);
-        Map<String, String> pathsToUrls = Arrays.stream(data.split("\n"))
-            .map(s -> s.split("->"))
-            .filter(array -> array.length == 2)
-            .collect(Collectors.toMap(array -> array[0].trim(), array -> array[1].trim()));
+        Map<String, String> pathsToUrls = S3Util.readArtifactsUrls(is);
 
         if (pathsToUrls.size() > 0) {
           return new S3ArtifactsListBrowser(pathsToUrls);
@@ -51,4 +44,5 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
     }
     return null;
   }
+
 }
