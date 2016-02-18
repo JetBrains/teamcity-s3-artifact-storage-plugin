@@ -1,6 +1,9 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.util.browser.*;
+import jetbrains.buildServer.util.browser.Behaviour;
+import jetbrains.buildServer.util.browser.Browser;
+import jetbrains.buildServer.util.browser.BrowserException;
+import jetbrains.buildServer.util.browser.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -12,7 +15,7 @@ import java.util.stream.Collectors;
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class S3ArtifactsListBrowser implements ArtifactsBrowser {
+public class S3ArtifactsListBrowser implements Browser {
 
   private final Map<String, String> myPathsToUrls;
 
@@ -53,11 +56,5 @@ public class S3ArtifactsListBrowser implements ArtifactsBrowser {
         .distinct()
         .map(k -> new S3Element(k, myPathsToUrls.get(k), this))
         .collect(Collectors.toSet());
-  }
-
-  @Nullable
-  @Override
-  public String getArtifactUrl(@NotNull Element element) {
-    return ((S3Element) element).getUrl();
   }
 }
