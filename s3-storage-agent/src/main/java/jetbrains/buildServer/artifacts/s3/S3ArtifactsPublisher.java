@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.AmazonServiceException;
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
@@ -8,6 +9,7 @@ import com.amazonaws.services.s3.model.*;
 import com.intellij.util.Function;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
+import jetbrains.buildServer.artifacts.Constants;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -29,11 +31,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final static Logger LOG = Logger.getLogger(ArtifactsListPublisher.class);
 
-  private static final String BUCKET_NAME = "test.1.jetbrains.buildserver.artifacts.s3";
-
   private final WebPublisher myWebPublisher;
-  private final AmazonS3 myS3 = new AmazonS3Client();
   private AgentRunningBuild myRunningBuild;
+  private String myBucketName;
 
   public S3ArtifactsPublisher(@NotNull WebPublisher webPublisher,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher) {
@@ -43,20 +43,33 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myRunningBuild = runningBuild;
+        myBucketName = runningBuild.getSharedConfigParameters().get(Constants.S3_BUCKET_NAME);
       }
 
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        publishArtifactsList();
+        final AmazonS3 s3Client = createAmazonClient(myRunningBuild);
+        publishArtifactsList(s3Client);
       }
     });
+  }
 
+  private AmazonS3 createAmazonClient(AgentRunningBuild build) {
+    final Map<String, String> params = build.getSharedConfigParameters();
+    final String accessKeyId = params.get(Constants.S3_USER_NAME);
+    final String secretAccessKey = params.get(Constants.S3_SECRET_KEY);
+    params.get(Constants.S3_BUCKET_NAME);
     Region usWest2 = Region.getRegion(US_WEST_2);
-    myS3.setRegion(usWest2);
+
+    AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKeyId, secretAccessKey));
+    s3client.setRegion(usWest2);
+    return s3client;
   }
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
+
+    final AmazonS3 myS3 = createAmazonClient(myRunningBuild);
     if (isInternalPublishing) {
       return 0;
     }
@@ -66,7 +79,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       for (Map.Entry<File, String> entry : map.entrySet()) {
         final File file = entry.getKey();
         final String path = entry.getValue();
-        myS3.putObject(new PutObjectRequest(BUCKET_NAME, prefix + "/" + path + "/" + file.getName(), file)
+        myS3.putObject(new PutObjectRequest(myBucketName, prefix + "/" + path + "/" + file.getName(), file)
             .withCannedAcl(CannedAccessControlList.PublicRead));
       }
     } catch (AmazonServiceException ase) {
@@ -81,19 +94,19 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
 
-  private void publishArtifactsList() {
+  private void publishArtifactsList(@NotNull AmazonS3 s3client) {
     File tempDir = null;
     Map<String, String> filesList = new HashMap<String, String>();
 
-    ObjectListing objectListing = myS3.listObjects(new ListObjectsRequest()
-        .withBucketName(BUCKET_NAME)
+    ObjectListing objectListing = s3client.listObjects(new ListObjectsRequest()
+        .withBucketName(myBucketName)
         .withPrefix(String.valueOf(myRunningBuild.getBuildId())));
 
     for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
       final String key = objectSummary.getKey();
       final String path = key.substring(key.indexOf("/") + 1);
 
-      filesList.put(path, "https://s3-" + US_WEST_2.getName() + ".amazonaws.com/" + BUCKET_NAME + "/" + key);
+      filesList.put(path, "https://s3-" + US_WEST_2.getName() + ".amazonaws.com/" + myBucketName + "/" + key);
     }
 
     try {
