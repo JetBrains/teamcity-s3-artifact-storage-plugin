@@ -22,7 +22,7 @@ public class S3StorageType implements StorageType {
   @NotNull
   @Override
   public String getType() {
-    return "S3_storage";
+    return Constants.S3_STORAGE_TYPE;
   }
 
   @NotNull

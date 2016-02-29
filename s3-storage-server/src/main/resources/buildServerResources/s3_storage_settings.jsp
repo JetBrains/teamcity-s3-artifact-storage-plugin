@@ -8,19 +8,19 @@
 <table class="runnerFormTable">
     <l:settingsGroup title="S3 Parameters">
         <tr>
-            <th><label for="storage.s3.username">S3 User: </label></th>
-            <td><props:textProperty name="<%=Constants.S3_USER_NAME%>"  className="longField" maxlength="256"/>
+            <th><label for="storage.s3.keyId">S3 Access Key ID: </label></th>
+            <td><props:textProperty name="<%=Constants.S3_KEY_ID%>" className="longField" maxlength="256"/>
                 <span class="smallNote">S3 username</span>
             </td>
         </tr>
         <tr>
-            <th><label for="storage.s3.secretkey">S3 Key: </label></th>
+            <th><label for="storage.s3.secretkey">S3 Secret Access Key: </label></th>
             <td><props:passwordProperty name="<%=Constants.S3_SECRET_KEY%>"  className="longField" maxlength="256"/>
                 <span class="smallNote">S3 secret key</span>
             </td>
         </tr>
         <tr>
-            <th><label for="storage.s3.bucket.name">S3 Bucket: </label></th>
+            <th><label for="storage.s3.bucket.name">S3 Bucket Name: </label></th>
             <td><props:textProperty name="<%=Constants.S3_BUCKET_NAME%>"  className="longField" maxlength="256"/>
                 <span class="smallNote">S3 bucket name</span>
             </td>
