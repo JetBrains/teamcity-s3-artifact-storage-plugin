@@ -56,7 +56,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private AmazonS3 createAmazonClient(AgentRunningBuild build) {
     final Map<String, String> params = build.getSharedConfigParameters();
-    final String accessKeyId = params.get(Constants.S3_USER_NAME);
+    final String accessKeyId = params.get(Constants.S3_KEY_ID);
     final String secretAccessKey = params.get(Constants.S3_SECRET_KEY);
     params.get(Constants.S3_BUCKET_NAME);
     Region usWest2 = Region.getRegion(US_WEST_2);
@@ -68,6 +68,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
+    if (!Constants.S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type"))) {
+      return 0;
+    }
 
     final AmazonS3 myS3 = createAmazonClient(myRunningBuild);
     if (isInternalPublishing) {
