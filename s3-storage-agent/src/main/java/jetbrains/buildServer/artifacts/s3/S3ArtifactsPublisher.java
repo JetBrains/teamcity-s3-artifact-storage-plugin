@@ -68,7 +68,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
-    if (!Constants.S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type"))) {
+    if (!Constants.S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type")) || isInternalPublishing) {
       return 0;
     }
 
