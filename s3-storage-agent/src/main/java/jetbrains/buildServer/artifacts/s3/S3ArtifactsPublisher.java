@@ -82,7 +82,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       for (Map.Entry<File, String> entry : map.entrySet()) {
         final File file = entry.getKey();
         final String path = entry.getValue();
-        myS3.putObject(new PutObjectRequest(myBucketName, prefix + "/" + path + "/" + file.getName(), file)
+        myS3.putObject(new PutObjectRequest(myBucketName, prefix + "/" + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
             .withCannedAcl(CannedAccessControlList.PublicRead));
       }
     } catch (AmazonServiceException ase) {
