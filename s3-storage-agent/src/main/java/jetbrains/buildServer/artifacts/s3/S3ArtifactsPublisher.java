@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
+import static jetbrains.buildServer.artifacts.Constants.*;
+import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST;
 
 /**
  * Created by Nikita.Skvortsov
@@ -43,7 +45,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myRunningBuild = runningBuild;
-        myBucketName = runningBuild.getSharedConfigParameters().get(Constants.S3_BUCKET_NAME);
+        myBucketName = runningBuild.getSharedConfigParameters().get(S3_BUCKET_NAME);
       }
 
       @Override
@@ -56,9 +58,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private AmazonS3 createAmazonClient(AgentRunningBuild build) {
     final Map<String, String> params = build.getSharedConfigParameters();
-    final String accessKeyId = params.get(Constants.S3_KEY_ID);
-    final String secretAccessKey = params.get(Constants.S3_SECRET_KEY);
-    params.get(Constants.S3_BUCKET_NAME);
+    final String accessKeyId = params.get(S3_KEY_ID);
+    final String secretAccessKey = params.get(S3_SECRET_KEY);
+    params.get(S3_BUCKET_NAME);
     Region usWest2 = Region.getRegion(US_WEST_2);
 
     AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKeyId, secretAccessKey));
@@ -68,7 +70,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
-    if (!Constants.S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type")) || isInternalPublishing) {
+    if (!S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type")) || isInternalPublishing) {
       return 0;
     }
 
@@ -114,7 +116,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     try {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
-      final File tempFile = new File(tempDir, jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST);
+      final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
       final String text = StringUtil.join(filesList.entrySet(), new Function<Map.Entry<String, String>, String>() {
         @Override
@@ -126,7 +128,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       FileUtil.writeFile(tempFile, text, "UTF-8");
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
-      newArtifacts.put(tempFile, "");
+      newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);
       myWebPublisher.publishFiles(newArtifacts, true);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);

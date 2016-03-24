@@ -15,6 +15,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
+import static jetbrains.buildServer.artifacts.Constants.*;
+
 /**
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
@@ -25,7 +27,7 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
   public Browser getOrCreateBrowser(@NotNull Build build) {
     final SBuild sBuild = (SBuild) build;
     final BuildArtifacts artifacts = sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL);
-    final BuildArtifactHolder artifact = artifacts.findArtifact(Constants.S3_ARTIFACTS_LIST);
+    final BuildArtifactHolder artifact = artifacts.findArtifact(S3_ARTIFACTS_LIST_PATH + "/" + S3_ARTIFACTS_LIST);
     if (artifact.isAvailable()) {
       InputStream is = null;
       try {

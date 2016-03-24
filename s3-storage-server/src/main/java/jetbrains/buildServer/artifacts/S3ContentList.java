@@ -16,6 +16,9 @@ import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Map;
 
+import static jetbrains.buildServer.artifacts.Constants.*;
+import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST_PATH;
+
 /**
  * Created by Nikita.Skvortsov
  * date: 18.02.2016.
@@ -35,7 +38,7 @@ public class S3ContentList extends SimplePageExtension {
   @Override
   public boolean isAvailable(@NotNull HttpServletRequest request) {
     final SBuild sBuild = BuildDataExtensionUtil.retrieveBuild(request, myServer);
-    return sBuild != null && sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(Constants.S3_ARTIFACTS_LIST).isAvailable();
+    return sBuild != null && sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(S3_ARTIFACTS_LIST_PATH + "/" + S3_ARTIFACTS_LIST).isAvailable();
   }
 
   @Override
@@ -45,7 +48,7 @@ public class S3ContentList extends SimplePageExtension {
     if (sBuild == null) {
       return;
     }
-    final BuildArtifactHolder artifact = sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(Constants.S3_ARTIFACTS_LIST);
+    final BuildArtifactHolder artifact = sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(S3_ARTIFACTS_LIST_PATH + "/" + S3_ARTIFACTS_LIST);
     if (!artifact.isAvailable()) {
       return;
     } else {
