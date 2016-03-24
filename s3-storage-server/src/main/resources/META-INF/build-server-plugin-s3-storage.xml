@@ -6,5 +6,6 @@
   <bean class="jetbrains.buildServer.artifacts.S3ArtifactsListBrowserProvider"/>
   <bean class="jetbrains.buildServer.artifacts.S3ElementRendererProvider"/>
   <bean class="jetbrains.buildServer.artifacts.S3ContentList"/>
+  <bean class="jetbrains.buildServer.artifacts.S3PopupList"/>
   <bean class="jetbrains.buildServer.artifacts.S3StorageType"/>
 </beans>
