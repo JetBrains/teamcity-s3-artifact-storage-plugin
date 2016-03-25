@@ -6,10 +6,8 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
-import com.intellij.util.Function;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
-import jetbrains.buildServer.artifacts.Constants;
 import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
@@ -19,12 +17,13 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
 import static jetbrains.buildServer.artifacts.Constants.*;
-import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST;
 
 /**
  * Created by Nikita.Skvortsov
@@ -37,6 +36,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private final WebPublisher myWebPublisher;
   private AgentRunningBuild myRunningBuild;
   private String myBucketName;
+  private String myPathPrefix;
 
   public S3ArtifactsPublisher(@NotNull WebPublisher webPublisher,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher) {
@@ -47,6 +47,10 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myRunningBuild = runningBuild;
         myBucketName = runningBuild.getSharedConfigParameters().get(S3_BUCKET_NAME);
+        String pathPrefix = runningBuild.getSharedConfigParameters().get(S3_PATH_PREFIX);
+        pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
+        pathPrefix = pathPrefix.startsWith("/") ? pathPrefix.substring(1) : pathPrefix;
+        myPathPrefix = pathPrefix;
       }
 
       @Override
@@ -80,12 +84,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       return 0;
     }
 
-    String prefix = String.valueOf(myRunningBuild.getBuildId());
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
         final File file = entry.getKey();
         final String path = entry.getValue();
-        myS3.putObject(new PutObjectRequest(myBucketName, prefix + "/" + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
+        myS3.putObject(new PutObjectRequest(myBucketName, myPathPrefix + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
             .withCannedAcl(CannedAccessControlList.PublicRead));
       }
     } catch (AmazonServiceException ase) {
@@ -106,21 +109,25 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     ObjectListing objectListing = s3client.listObjects(new ListObjectsRequest()
         .withBucketName(myBucketName)
-        .withPrefix(String.valueOf(myRunningBuild.getBuildId())));
+        .withPrefix(myPathPrefix));
 
     try {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
       final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
       final StringBuilder sb = new StringBuilder();
-      final String prefix =  "https://s3-" + US_WEST_2.getName() + ".amazonaws.com/" + myBucketName + "/";
+      final String host = "s3-" + US_WEST_2.getName() + ".amazonaws.com";
 
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
         final String key = objectSummary.getKey();
-        final String path = key.substring(key.indexOf("/") + 1);
+        final String path = key.substring(myPathPrefix.length());
         final Long size = objectSummary.getSize();
 
-        sb.append(new S3Artifact(path, prefix + key, size).toSerialized()).append("\n");
+        try {
+          sb.append(new S3Artifact(path, new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), size).toSerialized()).append("\n");
+        } catch (URISyntaxException e) {
+          LOG.warn("Failed to write object [" + key + "] to index", e);
+        }
       }
 
       FileUtil.writeFile(tempFile, sb.toString(), "UTF-8");
