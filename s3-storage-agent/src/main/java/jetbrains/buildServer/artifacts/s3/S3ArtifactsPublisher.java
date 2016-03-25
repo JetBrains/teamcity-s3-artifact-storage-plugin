@@ -10,6 +10,7 @@ import com.intellij.util.Function;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.Constants;
+import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -107,25 +108,22 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         .withBucketName(myBucketName)
         .withPrefix(String.valueOf(myRunningBuild.getBuildId())));
 
-    for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-      final String key = objectSummary.getKey();
-      final String path = key.substring(key.indexOf("/") + 1);
-
-      filesList.put(path, "https://s3-" + US_WEST_2.getName() + ".amazonaws.com/" + myBucketName + "/" + key);
-    }
-
     try {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
       final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
-      final String text = StringUtil.join(filesList.entrySet(), new Function<Map.Entry<String, String>, String>() {
-        @Override
-        public String fun(Map.Entry<String, String> entry) {
-          return entry.getKey() + " -> " + entry.getValue();
-        }
-      }, "\n");
+      final StringBuilder sb = new StringBuilder();
+      final String prefix =  "https://s3-" + US_WEST_2.getName() + ".amazonaws.com/" + myBucketName + "/";
 
-      FileUtil.writeFile(tempFile, text, "UTF-8");
+      for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+        final String key = objectSummary.getKey();
+        final String path = key.substring(key.indexOf("/") + 1);
+        final Long size = objectSummary.getSize();
+
+        sb.append(new S3Artifact(path, prefix + key, size).toSerialized()).append("\n");
+      }
+
+      FileUtil.writeFile(tempFile, sb.toString(), "UTF-8");
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
       newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);

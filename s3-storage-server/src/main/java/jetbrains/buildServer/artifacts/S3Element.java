@@ -9,23 +9,23 @@ import org.jetbrains.annotations.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static org.aspectj.weaver.tools.cache.SimpleCacheFactory.path;
+
 /**
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
 public class S3Element implements Element {
 
-  @NotNull
-  private final String myPath;
+  @NotNull private final S3ArtifactsListBrowser myBrowser;
+  @NotNull private final String myPath;
+  @Nullable private final String myUrl;
   private final String myName;
-  @Nullable
-  private final String myUrl;
-  @NotNull
-  private final S3ArtifactsListBrowser myBrowser;
+  private final long mySize;
 
-  public S3Element(@NotNull String path, @Nullable String url, @NotNull S3ArtifactsListBrowser browser) {
+  public S3Element(@NotNull String path, @Nullable S3Artifact delegate, @NotNull S3ArtifactsListBrowser browser) {
+
     myPath = path;
-
     final int i = path.lastIndexOf("/");
     if (i > -1) {
       myName = path.substring(i + 1);
@@ -33,7 +33,8 @@ public class S3Element implements Element {
       myName = path;
     }
 
-    myUrl = url;
+    myUrl = delegate == null ? null : delegate.getUrl();
+    mySize = delegate == null ? 0 : delegate.getSize();
     myBrowser = browser;
   }
 
@@ -73,7 +74,7 @@ public class S3Element implements Element {
 
   @Override
   public long getSize() {
-    return 0;
+    return mySize;
   }
 
   @NotNull

@@ -1,8 +1,8 @@
-classes/my/guinea/pig/maven/App.class -> http://some.host.nowhere/storage/1746/classes/my/guinea/pig/maven/App.class
-.teamcity/maven-build-info.xml.gz -> http://some.host.nowhere/storage/1746/.teamcity/maven-build-info.xml.gz
-surefire-reports/TEST-my.guinea.pig.maven.AppTest.xml -> http://some.host.nowhere/storage/1746/surefire-reports/TEST-my.guinea.pig.maven.AppTest.xml
-classes.zip -> http://some.host.nowhere/storage/1746/classes.zip
-.teamcity/properties/build.finish.properties.gz -> http://some.host.nowhere/storage/1746/.teamcity/properties/build.finish.properties.gz
-.teamcity/properties/build.start.properties.gz -> http://some.host.nowhere/storage/1746/.teamcity/properties/build.start.properties.gz
-test-classes/my/guinea/pig/maven/AppTest.class -> http://some.host.nowhere/storage/1746/test-classes/my/guinea/pig/maven/AppTest.class
-surefire-reports/my.guinea.pig.maven.AppTest.txt -> http://some.host.nowhere/storage/1746/surefire-reports/my.guinea.pig.maven.AppTest.txt
+classes/my/guinea/pig/maven/App.class -> http://some.host.nowhere/storage/1746/classes/my/guinea/pig/maven/App.class 42
+.teamcity/maven-build-info.xml.gz -> http://some.host.nowhere/storage/1746/.teamcity/maven-build-info.xml.gz 43
+surefire-reports/TEST-my.guinea.pig.maven.AppTest.xml -> http://some.host.nowhere/storage/1746/surefire-reports/TEST-my.guinea.pig.maven.AppTest.xml 44
+classes.zip -> http://some.host.nowhere/storage/1746/classes.zip 45
+.teamcity/properties/build.finish.properties.gz -> http://some.host.nowhere/storage/1746/.teamcity/properties/build.finish.properties.gz 46
+.teamcity/properties/build.start.properties.gz -> http://some.host.nowhere/storage/1746/.teamcity/properties/build.start.properties.gz 47
+test-classes/my/guinea/pig/maven/AppTest.class -> http://some.host.nowhere/storage/1746/test-classes/my/guinea/pig/maven/AppTest.class 48
+surefire-reports/my.guinea.pig.maven.AppTest.txt -> http://some.host.nowhere/storage/1746/surefire-reports/my.guinea.pig.maven.AppTest.txt 49

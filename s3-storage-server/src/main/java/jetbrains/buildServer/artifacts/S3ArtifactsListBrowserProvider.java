@@ -13,6 +13,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.Constants.*;
@@ -32,10 +33,10 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
       InputStream is = null;
       try {
         is = artifact.getArtifact().getInputStream();
-        Map<String, String> pathsToUrls = S3Util.readArtifactsUrls(is);
+        List<S3Artifact> artifactList = S3Util.readS3Artifacts(is);
 
-        if (pathsToUrls.size() > 0) {
-          return new S3ArtifactsListBrowser(pathsToUrls);
+        if (artifactList.size() > 0) {
+          return new S3ArtifactsListBrowser(artifactList);
         }
 
       } catch (IOException e) {

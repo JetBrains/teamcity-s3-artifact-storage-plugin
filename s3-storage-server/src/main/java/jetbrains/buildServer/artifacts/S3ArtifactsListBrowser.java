@@ -7,8 +7,10 @@ import jetbrains.buildServer.util.browser.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -17,28 +19,28 @@ import java.util.stream.Collectors;
  */
 public class S3ArtifactsListBrowser implements Browser {
 
-  private final Map<String, String> myPathsToUrls;
+  private final Map<String, S3Artifact> myPathToArtifact;
 
-  public S3ArtifactsListBrowser(Map<String, String> pathsToUrls) {
-    myPathsToUrls = Collections.unmodifiableMap(pathsToUrls);
+  public S3ArtifactsListBrowser(List<S3Artifact> artifacts) {
+    myPathToArtifact = artifacts.stream().collect(Collectors.toMap(S3Artifact::getPath, Function.identity()));
   }
 
   @NotNull
   @Override
   public Element getRoot() throws BrowserException {
-    return new S3Element("", null, this);
+    return new S3Element("", new S3Artifact("", null, 0), this);
   }
 
   @Nullable
   @Override
-  public Element getElement(@NotNull String s) throws BrowserException {
-    final String key = myPathsToUrls.keySet().stream()
-        .filter(k -> k.startsWith(s) && (k.length() == s.length() || k.charAt(s.length()) == '/'))
+  public Element getElement(@NotNull String prefix) throws BrowserException {
+    final String path = myPathToArtifact.keySet().stream()
+        .filter(k -> k.startsWith(prefix) && (k.length() == prefix.length() || k.charAt(prefix.length()) == '/'))
         .findFirst().orElse(null);
-    if (key == null) {
+    if (path == null) {
       return null;
     } else {
-      return new S3Element(key, myPathsToUrls.get(key), this);
+      return new S3Element(prefix, myPathToArtifact.get(prefix), this);
     }
   }
 
@@ -49,12 +51,12 @@ public class S3ArtifactsListBrowser implements Browser {
   }
 
   public Iterable<Element> getChildren(String path) {
-    return myPathsToUrls.keySet().stream()
+    return myPathToArtifact.keySet().stream()
         .filter(k -> k.startsWith(path) && (path.length() == 0 || k.length() == path.length() || k.charAt(path.length()) == '/'))
         .collect(Collectors.toSet()).stream()
         .map(k -> k.indexOf("/", path.length() + 1) > -1 ? k.substring(0, k.indexOf("/", path.length() + 1)) : k)
         .distinct()
-        .map(k -> new S3Element(k, myPathsToUrls.get(k), this))
+        .map(k -> new S3Element(k, myPathToArtifact.get(k), this))
         .collect(Collectors.toSet());
   }
 }
