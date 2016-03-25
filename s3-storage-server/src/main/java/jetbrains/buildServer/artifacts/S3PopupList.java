@@ -54,8 +54,8 @@ public class S3PopupList extends SimplePageExtension {
       return;
     } else {
       try {
-        final Map<String, String> urlsToNames = S3Util.readArtifactsUrls(artifact.getArtifact().getInputStream()).entrySet().stream().collect(Collectors.toMap(Map.Entry::getValue,
-            entry -> entry.getKey().substring(entry.getKey().lastIndexOf("/") + 1)));
+        final Map<String, String> urlsToNames = S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
+            .stream().collect(Collectors.toMap(S3Artifact::getUrl, S3Artifact::getName));
         model.put("urlsToNames", urlsToNames);
       } catch (IOException e) {
         Loggers.SERVER.warnAndDebugDetails("Failed to read s3 artifacts list for build " + sBuild.getBuildDescription() + ". See debug logs for details", e);

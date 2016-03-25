@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import javax.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static jetbrains.buildServer.artifacts.Constants.*;
 import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST_PATH;
@@ -53,7 +54,8 @@ public class S3ContentList extends SimplePageExtension {
       return;
     } else {
       try {
-        final Map<String, String> pathsWithUrls = S3Util.readArtifactsUrls(artifact.getArtifact().getInputStream());
+        final Map<String, String> pathsWithUrls = S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
+            .stream().collect(Collectors.toMap(S3Artifact::getPath, S3Artifact::getUrl));
         model.put("pathsWithUrls", pathsWithUrls);
       } catch (IOException e) {
         Loggers.SERVER.warnAndDebugDetails("Failed to read s3 artifacts list for build " + sBuild.getBuildDescription() + ". See debug logs for details", e);
