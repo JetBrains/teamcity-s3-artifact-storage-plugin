@@ -27,7 +27,7 @@
         </tr>
         <tr>
             <th><label for="storage.s3.path.prefix">Path to build artifacts: </label></th>
-            <td><props:textProperty name="<%=Constants.S3_PATH_PREFIX%>"  className="longField" maxlength="256"/>
+            <td><props:textProperty name="<%=Constants.S3_PATH_PREFIX%>"  className="longField buildTypeParams" maxlength="256"/>
                 <span class="smallNote">Path to build artifacts, e.g. storage/%teamcity.build.id%</span>
             </td>
         </tr>
