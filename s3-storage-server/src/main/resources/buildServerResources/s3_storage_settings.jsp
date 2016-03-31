@@ -15,7 +15,7 @@
         </tr>
         <tr>
             <th><label for="storage.s3.secretkey">S3 Secret Access Key: </label></th>
-            <td><props:passwordProperty name="<%=Constants.S3_SECRET_KEY%>"  className="longField" maxlength="256"/>
+            <td><props:textProperty name="<%=Constants.S3_SECRET_KEY%>"  className="longField buildTypeParams" maxlength="256"/>
                 <span class="smallNote">S3 secret key</span>
             </td>
         </tr>
