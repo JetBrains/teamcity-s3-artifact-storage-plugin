@@ -1,6 +1,8 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.Build;
+import jetbrains.buildServer.artifacts.S3Artifact;
+import jetbrains.buildServer.artifacts.utils.S3Util;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifacts;
@@ -14,7 +16,6 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.Constants.*;
 

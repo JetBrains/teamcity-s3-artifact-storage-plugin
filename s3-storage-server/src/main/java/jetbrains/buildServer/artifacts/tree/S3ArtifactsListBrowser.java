@@ -1,5 +1,6 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.tree;
 
+import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.browser.Behaviour;
 import jetbrains.buildServer.util.browser.Browser;
 import jetbrains.buildServer.util.browser.BrowserException;
@@ -9,7 +10,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 

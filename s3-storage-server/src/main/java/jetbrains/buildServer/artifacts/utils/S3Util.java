@@ -1,6 +1,7 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.utils;
 
 import com.intellij.openapi.util.io.StreamUtil;
+import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.StringUtil;
 
 import java.io.IOException;
@@ -15,7 +16,7 @@ import java.util.stream.Collectors;
  * date: 18.02.2016.
  */
 public class S3Util {
-  static Map<String, String> readArtifactsUrls(InputStream is) throws IOException {
+  public static Map<String, String> readArtifactsUrls(InputStream is) throws IOException {
     final String data = StreamUtil.readText(is);
     return Arrays.stream(data.split("\n"))
         .map(s -> s.split("->"))
@@ -23,7 +24,7 @@ public class S3Util {
         .collect(Collectors.toMap(array -> array[0].trim(), array -> array[1].trim()));
   }
 
-  static List<S3Artifact> readS3Artifacts(InputStream is) throws IOException {
+  public static List<S3Artifact> readS3Artifacts(InputStream is) throws IOException {
     final String data = StreamUtil.readText(is);
     return Arrays.stream(data.split("\n"))
         .filter(StringUtil::isNotEmpty)

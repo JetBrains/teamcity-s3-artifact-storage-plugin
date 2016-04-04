@@ -3,9 +3,9 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
-  <bean class="jetbrains.buildServer.artifacts.S3ArtifactsListBrowserProvider"/>
-  <bean class="jetbrains.buildServer.artifacts.S3ElementRendererProvider"/>
-  <bean class="jetbrains.buildServer.artifacts.S3ContentList"/>
-  <bean class="jetbrains.buildServer.artifacts.S3PopupList"/>
-  <bean class="jetbrains.buildServer.artifacts.S3StorageType"/>
+  <bean class="jetbrains.buildServer.artifacts.tree.S3ArtifactsListBrowserProvider"/>
+  <bean class="jetbrains.buildServer.artifacts.tree.S3ElementRendererProvider"/>
+  <bean class="jetbrains.buildServer.artifacts.lists.S3ContentList"/>
+  <bean class="jetbrains.buildServer.artifacts.lists.S3PopupList"/>
+  <bean class="jetbrains.buildServer.artifacts.settings.S3StorageType"/>
 </beans>

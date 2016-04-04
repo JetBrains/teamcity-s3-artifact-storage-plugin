@@ -1,5 +1,6 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.tree;
 
+import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.browser.Browser;
 import jetbrains.buildServer.util.browser.BrowserException;
 import jetbrains.buildServer.util.browser.Element;
@@ -8,8 +9,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
-
-import static org.aspectj.weaver.tools.cache.SimpleCacheFactory.path;
 
 /**
  * Created by Nikita.Skvortsov

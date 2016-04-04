@@ -1,10 +1,10 @@
 package jetbrains.buildServer.artifacts;
 
+import jetbrains.buildServer.artifacts.tree.S3ArtifactsListBrowser;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;

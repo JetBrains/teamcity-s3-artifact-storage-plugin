@@ -1,5 +1,6 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.settings;
 
+import jetbrains.buildServer.artifacts.Constants;
 import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;

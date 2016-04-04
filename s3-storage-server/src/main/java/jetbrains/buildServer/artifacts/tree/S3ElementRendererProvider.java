@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.web.util.lazytree.LazyTreeElementRenderer;
