@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.utils;
 
 import com.intellij.openapi.util.io.StreamUtil;
-import jetbrains.buildServer.artifacts.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import jetbrains.buildServer.util.StringUtil;
 
 import java.io.IOException;

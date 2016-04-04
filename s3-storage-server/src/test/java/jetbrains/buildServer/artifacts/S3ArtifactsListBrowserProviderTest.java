@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts;
 
+import jetbrains.buildServer.artifacts.s3.Constants;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowserProvider;
 import jetbrains.buildServer.serverSide.SBuild;

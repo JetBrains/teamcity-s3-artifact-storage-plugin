@@ -17,8 +17,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
-import static jetbrains.buildServer.artifacts.Constants.S3_KEY_ID;
-import static jetbrains.buildServer.artifacts.Constants.S3_SECRET_KEY;
+import static jetbrains.buildServer.artifacts.s3.Constants.S3_KEY_ID;
+import static jetbrains.buildServer.artifacts.s3.Constants.S3_SECRET_KEY;
 
 /**
  * Created by Nikita.Skvortsov

@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts;
 
+import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

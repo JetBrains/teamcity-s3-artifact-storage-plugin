@@ -8,7 +8,7 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
-import jetbrains.buildServer.artifacts.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
-import static jetbrains.buildServer.artifacts.Constants.*;
+import static jetbrains.buildServer.artifacts.s3.Constants.*;
 
 /**
  * Created by Nikita.Skvortsov

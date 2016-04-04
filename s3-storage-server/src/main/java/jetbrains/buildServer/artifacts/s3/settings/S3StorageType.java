@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.settings;
 
-import jetbrains.buildServer.artifacts.Constants;
+import jetbrains.buildServer.artifacts.s3.Constants;
 import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;

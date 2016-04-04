@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts;
+package jetbrains.buildServer.artifacts.s3;
 
 /**
  * Created by Nikita.Skvortsov

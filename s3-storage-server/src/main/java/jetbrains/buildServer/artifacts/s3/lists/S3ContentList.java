@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.lists;
 
-import jetbrains.buildServer.artifacts.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.controllers.BuildDataExtensionUtil;
 import jetbrains.buildServer.log.Loggers;
@@ -19,8 +19,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static jetbrains.buildServer.artifacts.Constants.*;
-import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST_PATH;
+import static jetbrains.buildServer.artifacts.s3.Constants.*;
+import static jetbrains.buildServer.artifacts.s3.Constants.S3_ARTIFACTS_LIST_PATH;
 
 /**
  * Created by Nikita.Skvortsov
