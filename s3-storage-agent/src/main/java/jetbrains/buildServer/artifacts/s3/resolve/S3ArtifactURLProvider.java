@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.resolve;
 
 import jetbrains.buildServer.artifacts.ArtifactDependency;
 import jetbrains.buildServer.artifacts.ArtifactURLProvider;

@@ -4,7 +4,7 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
-  <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactsPublisher"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.S3TransportFactory"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.S3UrlProviderFactory"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisher"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.resolve.S3TransportFactory"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.resolve.S3UrlProviderFactory"/>
 </beans>

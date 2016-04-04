@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.intellij.util.Function;
 import jetbrains.buildServer.agent.*;

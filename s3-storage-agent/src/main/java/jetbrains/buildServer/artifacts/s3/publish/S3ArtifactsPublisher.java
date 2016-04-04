@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.BasicAWSCredentials;

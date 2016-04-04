@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.resolve;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
@@ -17,7 +17,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
-import static jetbrains.buildServer.artifacts.Constants.S3_BUCKET_NAME;
 import static jetbrains.buildServer.artifacts.Constants.S3_KEY_ID;
 import static jetbrains.buildServer.artifacts.Constants.S3_SECRET_KEY;
 

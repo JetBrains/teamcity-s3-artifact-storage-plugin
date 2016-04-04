@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.resolve;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
