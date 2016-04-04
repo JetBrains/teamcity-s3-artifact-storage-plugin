@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.tree;
+package jetbrains.buildServer.artifacts.s3.tree;
 
 import jetbrains.buildServer.artifacts.S3Artifact;
 import jetbrains.buildServer.util.browser.Behaviour;

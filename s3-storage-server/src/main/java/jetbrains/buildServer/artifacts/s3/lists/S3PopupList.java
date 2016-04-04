@@ -1,7 +1,7 @@
-package jetbrains.buildServer.artifacts.lists;
+package jetbrains.buildServer.artifacts.s3.lists;
 
 import jetbrains.buildServer.artifacts.S3Artifact;
-import jetbrains.buildServer.artifacts.utils.S3Util;
+import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.controllers.BuildDataExtensionUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -19,21 +19,21 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static jetbrains.buildServer.artifacts.Constants.*;
+import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST;
 import static jetbrains.buildServer.artifacts.Constants.S3_ARTIFACTS_LIST_PATH;
 
 /**
  * Created by Nikita.Skvortsov
  * date: 18.02.2016.
  */
-public class S3ContentList extends SimplePageExtension {
+public class S3PopupList extends SimplePageExtension {
 
   private final SBuildServer myServer;
 
-  public S3ContentList(@NotNull PagePlaces pagePlaces,
-                       @NotNull SBuildServer server,
-                       @NotNull PluginDescriptor descriptor) {
-    super(pagePlaces, PlaceId.BUILD_ARTIFACTS_FRAGMENT, "s3_list", descriptor.getPluginResourcesPath("s3_list.jsp"));
+  public S3PopupList(@NotNull PagePlaces pagePlaces,
+                     @NotNull SBuildServer server,
+                     @NotNull PluginDescriptor descriptor) {
+    super(pagePlaces, PlaceId.BUILD_ARTIFACTS_POPUP_FRAGMENT, "s3_popup", descriptor.getPluginResourcesPath("s3_popup.jsp"));
     myServer = server;
     register();
   }
@@ -56,14 +56,12 @@ public class S3ContentList extends SimplePageExtension {
       return;
     } else {
       try {
-        final Map<String, String> pathsWithUrls = S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
-            .stream().collect(Collectors.toMap(S3Artifact::getPath, S3Artifact::getUrl));
-        model.put("pathsWithUrls", pathsWithUrls);
+        final Map<String, String> urlsToNames = S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
+            .stream().collect(Collectors.toMap(S3Artifact::getUrl, S3Artifact::getName));
+        model.put("urlsToNames", urlsToNames);
       } catch (IOException e) {
         Loggers.SERVER.warnAndDebugDetails("Failed to read s3 artifacts list for build " + sBuild.getBuildDescription() + ". See debug logs for details", e);
       }
     }
-
-
   }
 }

@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.artifacts.tree.S3ArtifactsListBrowser;
-import jetbrains.buildServer.artifacts.tree.S3Element;
+import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
+import jetbrains.buildServer.artifacts.s3.tree.S3Element;
 import jetbrains.buildServer.util.browser.Element;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;

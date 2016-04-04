@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.settings;
+package jetbrains.buildServer.artifacts.s3.settings;
 
 import jetbrains.buildServer.artifacts.Constants;
 import jetbrains.buildServer.serverSide.storage.StorageType;

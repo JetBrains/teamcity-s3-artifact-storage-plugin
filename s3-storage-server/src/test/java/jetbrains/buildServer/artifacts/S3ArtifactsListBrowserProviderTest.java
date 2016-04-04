@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.artifacts.tree.S3ArtifactsListBrowser;
-import jetbrains.buildServer.artifacts.tree.S3ArtifactsListBrowserProvider;
+import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
+import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowserProvider;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifact;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;

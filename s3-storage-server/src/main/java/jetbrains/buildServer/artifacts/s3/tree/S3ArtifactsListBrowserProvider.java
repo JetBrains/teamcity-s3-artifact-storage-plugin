@@ -1,8 +1,8 @@
-package jetbrains.buildServer.artifacts.tree;
+package jetbrains.buildServer.artifacts.s3.tree;
 
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.artifacts.S3Artifact;
-import jetbrains.buildServer.artifacts.utils.S3Util;
+import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifacts;
