@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.settings;
 
-import jetbrains.buildServer.artifacts.s3.Constants;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
@@ -23,7 +23,7 @@ public class S3StorageType implements StorageType {
   @NotNull
   @Override
   public String getType() {
-    return Constants.S3_STORAGE_TYPE;
+    return S3Constants.S3_STORAGE_TYPE;
   }
 
   @NotNull

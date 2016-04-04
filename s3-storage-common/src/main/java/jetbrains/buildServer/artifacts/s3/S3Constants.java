@@ -4,7 +4,7 @@ package jetbrains.buildServer.artifacts.s3;
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class Constants {
+public class S3Constants {
   public static final String S3_ARTIFACTS_LIST = "s3_artifacts_list.txt";
   public static final String S3_ARTIFACTS_LIST_PATH = ".teamcity/s3";
   public static final String S3_KEY_ID = "storage.s3.keyId";

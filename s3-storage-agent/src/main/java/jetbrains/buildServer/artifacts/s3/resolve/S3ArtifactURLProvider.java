@@ -2,7 +2,7 @@ package jetbrains.buildServer.artifacts.s3.resolve;
 
 import jetbrains.buildServer.artifacts.ArtifactDependency;
 import jetbrains.buildServer.artifacts.ArtifactURLProvider;
-import jetbrains.buildServer.artifacts.s3.Constants;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.util.StringUtil;
@@ -26,7 +26,7 @@ import java.util.List;
 public class S3ArtifactURLProvider implements ArtifactURLProvider {
 
   private static final String S3_ARTIFACTS_LIST = "[URL]/httpAuth/repository/download/[module]/[revision]/"
-      + Constants.S3_ARTIFACTS_LIST_PATH + "/" + Constants.S3_ARTIFACTS_LIST;
+      + S3Constants.S3_ARTIFACTS_LIST_PATH + "/" + S3Constants.S3_ARTIFACTS_LIST;
   @NotNull
   private final HttpClient client;
 

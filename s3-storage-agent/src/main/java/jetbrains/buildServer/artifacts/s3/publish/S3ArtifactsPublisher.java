@@ -23,7 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
-import static jetbrains.buildServer.artifacts.s3.Constants.*;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 /**
  * Created by Nikita.Skvortsov

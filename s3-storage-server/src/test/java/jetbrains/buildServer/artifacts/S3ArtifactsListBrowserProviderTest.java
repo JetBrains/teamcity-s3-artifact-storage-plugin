@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.artifacts.s3.Constants;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowserProvider;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -48,7 +48,7 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testEmptyFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/empty_list/" + Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/empty_list/" + S3Constants.S3_ARTIFACTS_LIST)));
     }});
 
     assertThat(browserProvider.getOrCreateBrowser(myBuild)).isNull();
@@ -56,7 +56,7 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testSimpleFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/simple_list/" + Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/simple_list/" + S3Constants.S3_ARTIFACTS_LIST)));
     }});
 
     final S3ArtifactsListBrowser browser = (S3ArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);
@@ -69,7 +69,7 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testBiggerFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/bigger_list/" + Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/bigger_list/" + S3Constants.S3_ARTIFACTS_LIST)));
     }});
 
     final S3ArtifactsListBrowser browser = (S3ArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);

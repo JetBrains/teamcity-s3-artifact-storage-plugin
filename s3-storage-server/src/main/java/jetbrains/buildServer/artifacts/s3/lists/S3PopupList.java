@@ -19,8 +19,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static jetbrains.buildServer.artifacts.s3.Constants.S3_ARTIFACTS_LIST;
-import static jetbrains.buildServer.artifacts.s3.Constants.S3_ARTIFACTS_LIST_PATH;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ARTIFACTS_LIST;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ARTIFACTS_LIST_PATH;
 
 /**
  * Created by Nikita.Skvortsov

@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import static jetbrains.buildServer.artifacts.s3.Constants.*;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 /**
  * Created by Nikita.Skvortsov
