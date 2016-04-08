@@ -1,13 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
+import jetbrains.buildServer.artifacts.ArtifactTransportFactory;
 import jetbrains.buildServer.artifacts.ArtifactURLProvider;
 import jetbrains.buildServer.artifacts.DependencyResolverContext;
 import jetbrains.buildServer.artifacts.URLProviderFactoryExtension;
-import jetbrains.buildServer.http.HttpUtil;
-import org.apache.commons.httpclient.Credentials;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
-import org.apache.commons.httpclient.auth.AuthScope;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Created by Nikita.Skvortsov
@@ -15,21 +12,16 @@ import org.apache.commons.httpclient.auth.AuthScope;
  */
 public class S3UrlProviderFactory implements URLProviderFactoryExtension {
 
+  @NotNull
+  private final ArtifactTransportFactory myDefaultTransport;
+
+  public S3UrlProviderFactory(@NotNull ArtifactTransportFactory defaultTransport) {
+    myDefaultTransport = defaultTransport;
+  }
 
   @Override
   public ArtifactURLProvider getUrlProvider(DependencyResolverContext dependencyResolverContext) {
-    return new S3ArtifactURLProvider(createHttpClient(dependencyResolverContext));
-  }
-
-
-  public HttpClient createHttpClient(final DependencyResolverContext context) {
-    HttpClient client = HttpUtil.createHttpClient(context.getConnectionTimeout());
-    client.getParams().setAuthenticationPreemptive(true);
-    Credentials defaultcreds = new UsernamePasswordCredentials(context.getUsername(), context.getPassword());
-    client.getState().setCredentials(new AuthScope(AuthScope.ANY_HOST,
-            AuthScope.ANY_PORT,
-            AuthScope.ANY_REALM),
-        defaultcreds);
-    return client;
+    return new S3ArtifactURLProvider(myDefaultTransport.getTransport(dependencyResolverContext),
+        myDefaultTransport.getUrlProvider(dependencyResolverContext));
   }
 }

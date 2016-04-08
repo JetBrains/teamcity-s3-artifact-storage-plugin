@@ -2,18 +2,16 @@ package jetbrains.buildServer.artifacts.s3.resolve;
 
 import jetbrains.buildServer.artifacts.ArtifactDependency;
 import jetbrains.buildServer.artifacts.ArtifactURLProvider;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.log.Loggers;
-import jetbrains.buildServer.util.StringUtil;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.methods.GetMethod;
+import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -25,13 +23,16 @@ import java.util.List;
  */
 public class S3ArtifactURLProvider implements ArtifactURLProvider {
 
-  private static final String S3_ARTIFACTS_LIST = "[URL]/httpAuth/repository/download/[module]/[revision]/"
-      + S3Constants.S3_ARTIFACTS_LIST_PATH + "/" + S3Constants.S3_ARTIFACTS_LIST;
-  @NotNull
-  private final HttpClient client;
 
-  public S3ArtifactURLProvider(@NotNull  HttpClient client) {
-    this.client = client;
+  @NotNull
+  private final URLContentRetriever myContentRetriever;
+  @NotNull
+  private final ArtifactURLProvider myURLProvider;
+
+  public S3ArtifactURLProvider(@NotNull URLContentRetriever defaultContentRetriever,
+                               @NotNull ArtifactURLProvider defaultURLProvider) {
+    myContentRetriever = defaultContentRetriever;
+    myURLProvider = defaultURLProvider;
   }
 
   @Nullable
@@ -41,26 +42,13 @@ public class S3ArtifactURLProvider implements ArtifactURLProvider {
                                @NotNull String revision,
                                @NotNull String sourcePath,
                                @Nullable String branch) {
-    String filledUrl = StringUtil.replace(S3_ARTIFACTS_LIST, "[URL]", baseURL);
-    String filledModule = StringUtil.replace(filledUrl, "[module]", urlEncode(module));
-    String filledRevision = StringUtil.replace(filledModule, "[revision]", urlEncode(revision));
-    if (branch != null) {
-      filledRevision = filledRevision + "?branch=" + urlEncode(branch);
-    }
-    final GetMethod getDescriptor = new GetMethod(filledRevision);
-    try {
-      final int responseCode = client.executeMethod(getDescriptor);
-      if (responseCode == 200) {
-        String[] data = getDescriptor.getResponseBodyAsString().split("\n");
-        for (String record : data) {
-          final S3Artifact s3Artifact = new S3Artifact(record);
-          if (sourcePath.equals(s3Artifact.getPath())) {
-            return s3Artifact.getUrl();
-          }
-        }
+
+    final List<String> data = getS3Index(baseURL, module, revision, branch);
+    for (String record : data) {
+      final S3Artifact s3Artifact = new S3Artifact(record);
+      if (sourcePath.equals(s3Artifact.getPath())) {
+        return s3Artifact.getUrl();
       }
-    } catch (IOException e) {
-      Loggers.AGENT.warnAndDebugDetails("Error retrieving s3 index: " + e.getMessage(), e);
     }
     return null;
   }
@@ -68,38 +56,39 @@ public class S3ArtifactURLProvider implements ArtifactURLProvider {
   @NotNull
   @Override
   public Collection<String> getArtifactSourcePathList(@NotNull String baseUrl, @NotNull ArtifactDependency dep) {
-    String filledUrl = StringUtil.replace(S3_ARTIFACTS_LIST, "[URL]", baseUrl);
-    String filledModule = StringUtil.replace(filledUrl, "[module]", urlEncode(dep.getSourceExternalId()));
-    String filledRevision = StringUtil.replace(filledModule, "[revision]", urlEncode(dep.getRevisionRule().getRevision()));
-    if (dep.getRevisionRule().getBranch() != null) {
-      filledRevision = filledRevision + "?branch=" + urlEncode(dep.getRevisionRule().getBranch());
+    final List<String> data = getS3Index(baseUrl,
+        dep.getSourceExternalId(),
+        dep.getRevisionRule().getRevision(),
+        dep.getRevisionRule().getBranch());
+
+    List<String> result = new ArrayList<String>(data.size());
+    for (String record : data) {
+      result.add(new S3Artifact(record).getPath());
     }
-    final GetMethod getDescriptor = new GetMethod(filledRevision);
-    try {
-      final int responseCode = client.executeMethod(getDescriptor);
-      if (responseCode == 200) {
-        String[] data = getDescriptor.getResponseBodyAsString().split("\n");
-        List<String> result = new ArrayList<String>(data.length);
-        for (String record : data) {
-          result.add(new S3Artifact(record).getPath());
-        }
-        return result;
-      }
-    } catch (IOException e) {
-      Loggers.AGENT.warnAndDebugDetails("Error retrieving s3 index: " + e.getMessage(), e);
-    }
-    return Collections.emptySet();
+    return result;
   }
 
+  private List<String> getS3Index(@NotNull String baseUrl,
+                                  @NotNull String sourceExternalId,
+                                  @NotNull String revision,
+                                  @Nullable String branch) {
+    final String s3indexURL = myURLProvider.getArtifactUrl(baseUrl, sourceExternalId, revision,
+        S3Constants.S3_ARTIFACTS_LIST_PATH + "/" + S3Constants.S3_ARTIFACTS_LIST, branch);
 
-  @NotNull
-  private static String urlEncode(@NotNull final String text) {
-    try {
-      return URLEncoder.encode(text, "UTF-8");
-    } catch (UnsupportedEncodingException e) {
-      Loggers.AGENT.warn(e.toString());
-      Loggers.AGENT.debug(e);
+    if (s3indexURL != null) {
+      File tempFile = null;
+      try {
+        tempFile = FileUtil.createTempFile("s3", "index");
+        myContentRetriever.downloadUrlTo(s3indexURL, tempFile);
+        return FileUtil.readFile(tempFile);
+      } catch (IOException e) {
+        Loggers.AGENT.warnAndDebugDetails("Error retrieving s3 index: " + e.getMessage(), e);
+      } finally {
+        if (tempFile != null) {
+          FileUtil.delete(tempFile);
+        }
+      }
     }
-    return text;
+    return Collections.emptyList();
   }
 }
