@@ -28,7 +28,7 @@ public class S3ArtifactsListBrowser implements Browser {
   @NotNull
   @Override
   public Element getRoot() throws BrowserException {
-    return new S3Element("", new S3Artifact("", null, 0), this);
+    return new S3Element("", new S3Artifact("", null, 0, ""), this);
   }
 
   @Nullable

@@ -26,7 +26,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testSingleFile() throws Exception {
-    myList.add(new S3Artifact("file.txt", "http://fake.url.nowhere", 1));
+    myList.add(new S3Artifact("file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getRoot().getChildren())
@@ -36,7 +36,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testSinglePath() throws Exception {
-    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1));
+    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getChildren("")).extracting("name", "fullName", "leaf").containsOnly(tuple("some", "some", false));
@@ -45,7 +45,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testPartialPathPrefix() throws Exception {
-    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1));
+    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getElement("som")).isNull();
@@ -57,10 +57,10 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testMultiplePaths() throws Exception {
-    myList.add(new S3Artifact("some/path/file1.txt", "http://fake.url.nowhere", 1));
-    myList.add(new S3Artifact("some/path/file2.txt", "http://fake.url.nowhere", 1));
-    myList.add(new S3Artifact("some/file3.txt", "http://fake.url.nowhere", 1));
-    myList.add(new S3Artifact("file4.txt", "http://fake.url.nowhere", 1));
+    myList.add(new S3Artifact("some/path/file1.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new S3Artifact("some/path/file2.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new S3Artifact("some/file3.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new S3Artifact("file4.txt", "http://fake.url.nowhere", 1, "emptyKey"));
 
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 

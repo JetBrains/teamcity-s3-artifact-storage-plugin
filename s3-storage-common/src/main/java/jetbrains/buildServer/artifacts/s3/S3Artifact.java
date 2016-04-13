@@ -17,25 +17,13 @@ public class S3Artifact {
   @Nullable private final String myUrl;
   @NotNull private final String myName;
   private final long mySize;
+  @NotNull private final String myKey;
 
-  public S3Artifact(@NotNull String serialized) {
-    String[] tmp = serialized.split("->");
-    myPath = tmp[0].trim();
-    final int i = myPath.lastIndexOf("/");
-    if (i > -1) {
-      myName = myPath.substring(i + 1);
-    } else {
-      myName = myPath;
-    }
-
-    String[] urlSize = tmp[1].trim().split(" ");
-    myUrl = urlSize[0];
-    mySize = Long.valueOf(urlSize[1]);
-  }
 
   public S3Artifact(@NotNull final String path,
                     @Nullable final String url,
-                    final long size) {
+                    final long size,
+                    @NotNull final String key) {
     myPath = path;
     myUrl = url;
     mySize = size;
@@ -45,6 +33,7 @@ public class S3Artifact {
     } else {
       myName = path;
     }
+    myKey = key;
   }
 
   @NotNull
@@ -68,23 +57,6 @@ public class S3Artifact {
 
   @NotNull
   public String getKey() {
-    if (myUrl == null) {
-      return "";
-    }
-    try {
-      final URL url = new URL(myUrl);
-      final String path = URLDecoder.decode(url.getPath(), "UTF-8");
-      return path.substring(path.indexOf("/", 1) + 1);
-    } catch (MalformedURLException e) {
-      // should not happen
-    } catch (UnsupportedEncodingException e) {
-      // should not happen
-    }
-    return "";
-  }
-
-  @NotNull
-  public String toSerialized() {
-    return myPath + "->" + myUrl + " " + mySize;
+    return myKey;
   }
 }

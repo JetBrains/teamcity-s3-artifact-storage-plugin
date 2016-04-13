@@ -5,12 +5,20 @@ import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.StreamUtil;
 import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +31,9 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
  * date: 18.02.2016.
  */
 public class S3Util {
+
+  private static final Logger LOG = Logger.getInstance(S3Util.class.getName());
+
   public static Map<String, String> readArtifactsUrls(InputStream is) throws IOException {
     final String data = StreamUtil.readText(is);
     final Map<String, String> result = new HashMap<String, String>();
@@ -36,17 +47,19 @@ public class S3Util {
   }
 
   public static List<S3Artifact> readS3Artifacts(InputStream is) throws IOException {
-    final List<S3Artifact> result = new ArrayList<S3Artifact>();
-    StringUtil.processLines(is, new StringUtil.LineProcessor() {
-      @Override
-      public boolean processLine(String s) {
-        if (StringUtil.isNotEmpty(s)) {
-          result.add(new S3Artifact(s));
-        }
-        return false;
-      }
-    });
-    return result;
+    final Gson gson = new Gson();
+    Type artifactsList = new TypeToken<List<S3Artifact>>() {}.getType();
+    String json = StreamUtil.readText(is);
+    return gson.fromJson(json, artifactsList);
+  }
+
+  public static void writeS3Artifacts(@NotNull final List<S3Artifact> artifacts, @NotNull final File file) {
+    final Gson gson = new GsonBuilder().setPrettyPrinting().create();
+    try {
+      FileUtil.writeFile(file, gson.toJson(artifacts), "UTF-8");
+    } catch (IOException e) {
+      LOG.warnAndDebugDetails("Failed to write s3 artifact info to file [" + file.getAbsolutePath() + "]: " + e.getMessage(), e);
+    }
   }
 
   public static AmazonS3 createAmazonClient(Map<String, String> params) {

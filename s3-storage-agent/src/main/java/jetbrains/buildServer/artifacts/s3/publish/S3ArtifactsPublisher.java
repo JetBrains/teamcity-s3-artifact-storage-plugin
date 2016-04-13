@@ -17,7 +17,9 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static com.amazonaws.regions.Regions.US_WEST_2;
@@ -103,6 +105,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
       final StringBuilder sb = new StringBuilder();
       final String host = "s3-" + US_WEST_2.getName() + ".amazonaws.com";
+      final List<S3Artifact> artifacts = new ArrayList<S3Artifact>();
 
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
         final String key = objectSummary.getKey();
@@ -110,13 +113,13 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         final Long size = objectSummary.getSize();
 
         try {
-          sb.append(new S3Artifact(path, new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), size).toSerialized()).append("\n");
+          artifacts.add(new S3Artifact(path, new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), size, key));
         } catch (URISyntaxException e) {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
       }
 
-      FileUtil.writeFile(tempFile, sb.toString(), "UTF-8");
+      S3Util.writeS3Artifacts(artifacts, tempFile);
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
       newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);
