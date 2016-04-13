@@ -38,7 +38,7 @@
       <type>war</type>
       <scope>provided</scope>
     </dependency>
-
+    
     <dependency>
       <groupId>org.jetbrains.teamcity</groupId>
       <artifactId>tests-support</artifactId>

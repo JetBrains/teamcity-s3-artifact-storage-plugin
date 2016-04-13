@@ -3,6 +3,11 @@ package jetbrains.buildServer.artifacts.s3;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLDecoder;
+
 /**
  * Created by Nikita.Skvortsov
  * date: 24.03.2016.
@@ -59,6 +64,23 @@ public class S3Artifact {
   @NotNull
   public String getName() {
     return myName;
+  }
+
+  @NotNull
+  public String getKey() {
+    if (myUrl == null) {
+      return "";
+    }
+    try {
+      final URL url = new URL(myUrl);
+      final String path = URLDecoder.decode(url.getPath(), "UTF-8");
+      return path.substring(path.indexOf("/", 1) + 1);
+    } catch (MalformedURLException e) {
+      // should not happen
+    } catch (UnsupportedEncodingException e) {
+      // should not happen
+    }
+    return "";
   }
 
   @NotNull

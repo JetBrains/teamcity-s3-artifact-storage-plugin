@@ -1,14 +1,12 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.auth.BasicAWSCredentials;
-import com.amazonaws.regions.Region;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -55,22 +53,10 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        final AmazonS3 s3Client = createAmazonClient(myRunningBuild);
+        final AmazonS3 s3Client = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
         publishArtifactsList(s3Client);
       }
     });
-  }
-
-  private AmazonS3 createAmazonClient(AgentRunningBuild build) {
-    final Map<String, String> params = build.getSharedConfigParameters();
-    final String accessKeyId = params.get(S3_KEY_ID);
-    final String secretAccessKey = params.get(S3_SECRET_KEY);
-    params.get(S3_BUCKET_NAME);
-    Region usWest2 = Region.getRegion(US_WEST_2);
-
-    AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKeyId, secretAccessKey));
-    s3client.setRegion(usWest2);
-    return s3client;
   }
 
   @Override
@@ -79,7 +65,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       return 0;
     }
 
-    final AmazonS3 myS3 = createAmazonClient(myRunningBuild);
+    final AmazonS3 myS3 = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
     if (isInternalPublishing) {
       return 0;
     }
