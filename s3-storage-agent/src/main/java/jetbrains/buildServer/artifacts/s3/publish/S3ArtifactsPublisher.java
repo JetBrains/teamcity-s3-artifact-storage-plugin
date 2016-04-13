@@ -62,32 +62,35 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   @Override
-  public int publishFiles(@NotNull Map<File, String> map, boolean isInternalPublishing) throws ArtifactPublishingFailedException {
-    if (!S3_STORAGE_TYPE.equals(myRunningBuild.getSharedConfigParameters().get("teamcity.storage.type")) || isInternalPublishing) {
-      return 0;
-    }
-
+  public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
     final AmazonS3 myS3 = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
-    if (isInternalPublishing) {
-      return 0;
-    }
-
+    int count = 0;
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
         final File file = entry.getKey();
         final String path = entry.getValue();
+        if (path.startsWith(".teamcity/")) {
+          continue; // do not publish internal artifacts of the build
+        }
         myS3.putObject(new PutObjectRequest(myBucketName, myPathPrefix + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
             .withCannedAcl(CannedAccessControlList.PublicRead));
+        count++;
       }
     } catch (AmazonServiceException ase) {
       throw new ArtifactPublishingFailedException("Put object request was rejected.", false, ase);
     }
-    return map.size();
+    return count;
   }
 
   @Override
   public boolean isEnabled() {
     return true;
+  }
+
+  @NotNull
+  @Override
+  public String getType() {
+    return S3_STORAGE_TYPE;
   }
 
 
@@ -123,7 +126,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
       newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);
-      myWebPublisher.publishFiles(newArtifacts, true);
+      myWebPublisher.publishFiles(newArtifacts);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     } finally {
