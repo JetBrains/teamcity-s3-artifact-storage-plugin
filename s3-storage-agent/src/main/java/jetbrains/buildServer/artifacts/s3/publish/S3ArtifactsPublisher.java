@@ -96,8 +96,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private void publishArtifactsList(@NotNull AmazonS3 s3client) {
     File tempDir = null;
-    Map<String, String> filesList = new HashMap<String, String>();
-
     ObjectListing objectListing = s3client.listObjects(new ListObjectsRequest()
         .withBucketName(myBucketName)
         .withPrefix(myPathPrefix));
@@ -106,7 +104,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
       final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
-      final StringBuilder sb = new StringBuilder();
       final String host = "s3-" + US_WEST_2.getName() + ".amazonaws.com";
       final List<S3Artifact> artifacts = new ArrayList<S3Artifact>();
 
@@ -133,7 +130,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       if (tempDir != null) {
         FileUtil.delete(tempDir);
       }
-      filesList.clear();
     }
   }
 }
