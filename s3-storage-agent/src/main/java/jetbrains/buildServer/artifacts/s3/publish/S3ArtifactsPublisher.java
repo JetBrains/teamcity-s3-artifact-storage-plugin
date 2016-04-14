@@ -31,7 +31,7 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
  */
 public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
-  private final static Logger LOG = Logger.getLogger(ArtifactsListPublisher.class);
+  private final static Logger LOG = Logger.getLogger(S3ArtifactsPublisher.class);
 
   private final WebPublisher myWebPublisher;
   private AgentRunningBuild myRunningBuild;
