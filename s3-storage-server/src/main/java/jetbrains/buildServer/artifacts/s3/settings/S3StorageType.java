@@ -5,6 +5,10 @@ import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Created by Nikita.Skvortsov
@@ -42,5 +46,13 @@ public class S3StorageType implements StorageType {
   @Override
   public String getEditStorageSettingsJspFilePath() {
     return mySettingsJSP;
+  }
+
+  @Nullable
+  @Override
+  public Map<String, String> getDefaultSettings() {
+    Map<String, String> result = new HashMap<>();
+    result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%teamcity.build.id%");
+    return result;
   }
 }
