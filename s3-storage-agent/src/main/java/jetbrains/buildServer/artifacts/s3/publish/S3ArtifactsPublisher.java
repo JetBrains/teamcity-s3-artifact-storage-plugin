@@ -22,7 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static com.amazonaws.regions.Regions.US_WEST_2;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 /**
@@ -64,6 +63,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   @Override
   public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
     final AmazonS3 myS3 = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
+    final boolean isPublic = Boolean.valueOf(myRunningBuild.getSharedConfigParameters().get(S3_ALLOW_PUBLIC));
     int count = 0;
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
@@ -73,7 +73,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           continue; // do not publish internal artifacts of the build
         }
         myS3.putObject(new PutObjectRequest(myBucketName, myPathPrefix + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
-            .withCannedAcl(CannedAccessControlList.PublicRead));
+            .withCannedAcl(isPublic ? CannedAccessControlList.PublicRead : CannedAccessControlList.Private));
         count++;
       }
     } catch (AmazonServiceException ase) {
@@ -104,7 +104,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
       final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
-      final String host = "s3-" + US_WEST_2.getName() + ".amazonaws.com";
+      final String host = getHost(myRunningBuild.getSharedConfigParameters().get(S3_REGION));
       final List<S3Artifact> artifacts = new ArrayList<S3Artifact>();
 
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
@@ -131,5 +131,13 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         FileUtil.delete(tempDir);
       }
     }
+  }
+
+  @NotNull
+  private String getHost(String regionName) {
+    if ("us-east-1".equals(regionName)) {
+      return "s3.amazonaws.com";
+    }
+    return "s3-" + regionName + ".amazonaws.com";
   }
 }

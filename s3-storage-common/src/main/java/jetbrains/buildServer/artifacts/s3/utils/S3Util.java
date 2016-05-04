@@ -11,6 +11,7 @@ import com.google.gson.reflect.TypeToken;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.StreamUtil;
 import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -65,11 +66,10 @@ public class S3Util {
   public static AmazonS3 createAmazonClient(Map<String, String> params) {
     final String accessKeyId = params.get(S3_KEY_ID);
     final String secretAccessKey = params.get(S3_SECRET_KEY);
-    params.get(S3_BUCKET_NAME);
-    Region usWest2 = Region.getRegion(Regions.US_WEST_2);
+    final Region region = Region.getRegion(Regions.fromName(params.get(S3_REGION)));
 
     AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKeyId, secretAccessKey));
-    s3client.setRegion(usWest2);
+    s3client.setRegion(region);
     return s3client;
   }
 }
