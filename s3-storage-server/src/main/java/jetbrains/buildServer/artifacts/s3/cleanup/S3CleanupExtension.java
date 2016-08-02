@@ -3,7 +3,6 @@ package jetbrains.buildServer.artifacts.s3.cleanup;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.log.Loggers;
@@ -58,9 +57,9 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
 
             final String bucketName = cfg.get(S3Constants.S3_BUCKET_NAME);
             final DeleteObjectsResult result = amazonClient.deleteObjects(new DeleteObjectsRequest(bucketName)
-                .withKeys(S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
+                .withKeys(S3Util.readExternalArtifacts(artifact.getArtifact().getInputStream())
                     .stream()
-                    .map(S3Artifact::getKey)
+                    .map(ea -> ea.getProperties().get(S3Constants.S3_KEY))
                     .map(DeleteObjectsRequest.KeyVersion::new)
                     .collect(Collectors.toList())));
 

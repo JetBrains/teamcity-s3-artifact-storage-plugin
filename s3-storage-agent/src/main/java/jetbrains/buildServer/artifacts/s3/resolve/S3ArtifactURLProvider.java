@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import jetbrains.buildServer.artifacts.ArtifactDependency;
 import jetbrains.buildServer.artifacts.ArtifactURLProvider;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.util.FileUtil;
@@ -46,9 +46,9 @@ public class S3ArtifactURLProvider implements ArtifactURLProvider {
     Gson gson = new Gson();
     final List<String> data = getS3Index(baseURL, module, revision, branch);
     for (String record : data) {
-      final S3Artifact s3Artifact = gson.fromJson(record, S3Artifact.class);
-      if (sourcePath.equals(s3Artifact.getPath())) {
-        return s3Artifact.getUrl();
+      final ExternalArtifact externalArtifact = gson.fromJson(record, ExternalArtifact.class);
+      if (sourcePath.equals(externalArtifact.getPath())) {
+        return externalArtifact.getUrl();
       }
     }
     return null;
@@ -65,7 +65,7 @@ public class S3ArtifactURLProvider implements ArtifactURLProvider {
     Gson gson = new Gson();
     List<String> result = new ArrayList<String>(data.size());
     for (String record : data) {
-      result.add(gson.fromJson(record, S3Artifact.class).getPath());
+      result.add(gson.fromJson(record, ExternalArtifact.class).getPath());
     }
     return result;
   }

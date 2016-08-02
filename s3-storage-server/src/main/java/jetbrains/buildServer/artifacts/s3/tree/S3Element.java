@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.tree;
 
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.browser.Browser;
 import jetbrains.buildServer.util.browser.BrowserException;
 import jetbrains.buildServer.util.browser.Element;
@@ -22,7 +22,7 @@ public class S3Element implements Element {
   private final String myName;
   private final long mySize;
 
-  public S3Element(@NotNull String path, @Nullable S3Artifact delegate, @NotNull S3ArtifactsListBrowser browser) {
+  public S3Element(@NotNull String path, @Nullable ExternalArtifact delegate, @NotNull S3ArtifactsListBrowser browser) {
 
     myPath = path;
     final int i = path.lastIndexOf("/");

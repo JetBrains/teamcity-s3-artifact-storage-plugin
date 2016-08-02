@@ -5,7 +5,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
@@ -105,21 +106,20 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
 
       final String host = getHost(myRunningBuild.getSharedConfigParameters().get(S3_REGION));
-      final List<S3Artifact> artifacts = new ArrayList<S3Artifact>();
+      final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
 
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
         final String key = objectSummary.getKey();
         final String path = key.substring(myPathPrefix.length());
         final Long size = objectSummary.getSize();
-
         try {
-          artifacts.add(new S3Artifact(path, new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), size, key));
+          artifacts.add(new ExternalArtifact(new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), path, size, S3Constants.S3_KEY, key));
         } catch (URISyntaxException e) {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
       }
 
-      S3Util.writeS3Artifacts(artifacts, tempFile);
+      S3Util.writeExternalArtifacts(artifacts, tempFile);
 
       final Map<File, String> newArtifacts = new HashMap<File, String>();
       newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);

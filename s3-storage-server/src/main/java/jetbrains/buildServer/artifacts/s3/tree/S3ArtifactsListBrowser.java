@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.tree;
 
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.browser.Behaviour;
 import jetbrains.buildServer.util.browser.Browser;
 import jetbrains.buildServer.util.browser.BrowserException;
@@ -19,16 +19,16 @@ import java.util.stream.Collectors;
  */
 public class S3ArtifactsListBrowser implements Browser {
 
-  private final Map<String, S3Artifact> myPathToArtifact;
+  private final Map<String, ExternalArtifact> myPathToArtifact;
 
-  public S3ArtifactsListBrowser(List<S3Artifact> artifacts) {
-    myPathToArtifact = artifacts.stream().collect(Collectors.toMap(S3Artifact::getPath, Function.identity()));
+  public S3ArtifactsListBrowser(List<ExternalArtifact> artifacts) {
+    myPathToArtifact = artifacts.stream().collect(Collectors.toMap(ExternalArtifact::getPath, Function.identity()));
   }
 
   @NotNull
   @Override
   public Element getRoot() throws BrowserException {
-    return new S3Element("", new S3Artifact("", null, 0, ""), this);
+    return new S3Element("", new ExternalArtifact(null, "", 0), this);
   }
 
   @Nullable

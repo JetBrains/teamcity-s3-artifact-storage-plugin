@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.lists;
 
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.controllers.BuildDataExtensionUtil;
 import jetbrains.buildServer.log.Loggers;
@@ -56,8 +56,8 @@ public class S3PopupList extends SimplePageExtension {
       return;
     } else {
       try {
-        final Map<String, String> urlsToNames = S3Util.readS3Artifacts(artifact.getArtifact().getInputStream())
-            .stream().collect(Collectors.toMap(S3Artifact::getUrl, S3Artifact::getName));
+        final Map<String, String> urlsToNames = S3Util.readExternalArtifacts(artifact.getArtifact().getInputStream())
+            .stream().collect(Collectors.toMap(ExternalArtifact::getUrl, ExternalArtifact::getName));
         model.put("urlsToNames", urlsToNames);
       } catch (IOException e) {
         Loggers.SERVER.warnAndDebugDetails("Failed to read s3 artifacts list for build " + sBuild.getBuildDescription() + ". See debug logs for details", e);

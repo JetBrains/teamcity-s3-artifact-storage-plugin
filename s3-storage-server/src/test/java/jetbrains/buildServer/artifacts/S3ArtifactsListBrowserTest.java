@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.tuple;
 @Test
 public class S3ArtifactsListBrowserTest {
 
-  private List<S3Artifact> myList;
+  private List<ExternalArtifact> myList;
 
   @BeforeMethod
   public void setUp() throws Exception {
@@ -26,7 +26,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testSingleFile() throws Exception {
-    myList.add(new S3Artifact("file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getRoot().getChildren())
@@ -36,7 +36,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testSinglePath() throws Exception {
-    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getChildren("")).extracting("name", "fullName", "leaf").containsOnly(tuple("some", "some", false));
@@ -45,7 +45,7 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testPartialPathPrefix() throws Exception {
-    myList.add(new S3Artifact("some/path/file.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 
     assertThat(browser.getElement("som")).isNull();
@@ -57,10 +57,10 @@ public class S3ArtifactsListBrowserTest {
   }
 
   public void testMultiplePaths() throws Exception {
-    myList.add(new S3Artifact("some/path/file1.txt", "http://fake.url.nowhere", 1, "emptyKey"));
-    myList.add(new S3Artifact("some/path/file2.txt", "http://fake.url.nowhere", 1, "emptyKey"));
-    myList.add(new S3Artifact("some/file3.txt", "http://fake.url.nowhere", 1, "emptyKey"));
-    myList.add(new S3Artifact("file4.txt", "http://fake.url.nowhere", 1, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file1.txt", 1, S3Constants.S3_KEY, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file2.txt", 1, S3Constants.S3_KEY, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/file3.txt", 1, S3Constants.S3_KEY, "emptyKey"));
+    myList.add(new ExternalArtifact("http://fake.url.nowhere", "file4.txt", 1, S3Constants.S3_KEY, "emptyKey"));
 
     final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
 

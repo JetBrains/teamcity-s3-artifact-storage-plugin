@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.tree;
 
 import jetbrains.buildServer.Build;
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.utils.S3Util;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
@@ -34,7 +34,7 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
       InputStream is = null;
       try {
         is = artifact.getArtifact().getInputStream();
-        List<S3Artifact> artifactList = S3Util.readS3Artifacts(is);
+        List<ExternalArtifact> artifactList = S3Util.readExternalArtifacts(is);
 
         if (artifactList.size() > 0) {
           return new S3ArtifactsListBrowser(artifactList);

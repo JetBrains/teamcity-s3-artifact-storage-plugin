@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts;
 
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
 import jetbrains.buildServer.artifacts.s3.tree.S3Element;
 import jetbrains.buildServer.util.browser.Element;
@@ -27,20 +27,20 @@ public class S3ElementTest {
   }
 
   public void testIsLeaf() throws Exception {
-    Element el = new S3Element("path", new S3Artifact("path", null, 0, ""), myS3Browser);
+    Element el = new S3Element("path", new ExternalArtifact(null, "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.isLeaf()).isFalse();
 
-    el = new S3Element("path", new S3Artifact("path", "url", 0, ""), myS3Browser);
+    el = new S3Element("path", new ExternalArtifact("url", "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.isLeaf()).isTrue();
   }
 
   public void testPathAndName() throws Exception {
-    Element el = new S3Element("f.txt", new S3Artifact("f.txt", null, 0, ""), myS3Browser);
+    Element el = new S3Element("f.txt", new ExternalArtifact(null, "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
 
     assertThat(el.getName()).isEqualTo("f.txt");
     assertThat(el.getFullName()).isEqualTo("f.txt");
 
-    el = new S3Element("some/path/file.txt", new S3Artifact("some/path/file.txt", null, 0, ""), myS3Browser);
+    el = new S3Element("some/path/file.txt", new ExternalArtifact(null, "some/path/file.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
 
     assertThat(el.getName()).isEqualTo("file.txt");
     assertThat(el.getFullName()).isEqualTo("some/path/file.txt");
@@ -48,7 +48,7 @@ public class S3ElementTest {
 
   @Test(expectedExceptions = IllegalStateException.class)
   public void testIllegalThrowForInputStream() throws Exception {
-    Element el = new S3Element("f.txt", new S3Artifact("f.txt", "url", 0, ""), myS3Browser);
+    Element el = new S3Element("f.txt", new ExternalArtifact("url", "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.getSize()).isEqualTo(0);
 
     el.getInputStream();

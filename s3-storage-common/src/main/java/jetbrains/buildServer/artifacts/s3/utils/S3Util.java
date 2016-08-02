@@ -10,17 +10,14 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.StreamUtil;
-import jetbrains.buildServer.artifacts.s3.S3Artifact;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.FileUtil;
-import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,14 +44,14 @@ public class S3Util {
     return result;
   }
 
-  public static List<S3Artifact> readS3Artifacts(InputStream is) throws IOException {
+  public static List<ExternalArtifact> readExternalArtifacts(InputStream is) throws IOException {
     final Gson gson = new Gson();
-    Type artifactsList = new TypeToken<List<S3Artifact>>() {}.getType();
+    Type artifactsList = new TypeToken<List<ExternalArtifact>>() {}.getType();
     String json = StreamUtil.readText(is);
     return gson.fromJson(json, artifactsList);
   }
 
-  public static void writeS3Artifacts(@NotNull final List<S3Artifact> artifacts, @NotNull final File file) {
+  public static void writeExternalArtifacts(@NotNull final List<ExternalArtifact> artifacts, @NotNull final File file) {
     final Gson gson = new GsonBuilder().setPrettyPrinting().create();
     try {
       FileUtil.writeFile(file, gson.toJson(artifacts), "UTF-8");
