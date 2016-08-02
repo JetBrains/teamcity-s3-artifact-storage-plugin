@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.utils;
 
+import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.ArtifactsPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.FileUtil;
@@ -36,10 +37,10 @@ public class AgentExternalArtifactUtil {
     File tempDir = null;
     try {
       tempDir = FileUtil.createTempDirectory("artifacts", "list");
-      final File tempFile = new File(tempDir, "external_artifacts_list.txt");
+      final File tempFile = new File(tempDir, ExternalArtifactUtil.EXTERNAL_ARTIFACTS_LIST_NAME);
       ExternalArtifactUtil.writeExternalArtifacts(artifacts, tempFile);
       final Map<File, String> newArtifacts = new HashMap<File, String>();
-      newArtifacts.put(tempFile, ".teamcity");
+      newArtifacts.put(tempFile, ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR);
       publisher.publishFiles(newArtifacts);
     } finally {
       if (tempDir != null) {

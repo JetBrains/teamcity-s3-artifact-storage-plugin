@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.publish;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
+import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
@@ -69,7 +70,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       for (Map.Entry<File, String> entry : map.entrySet()) {
         final File file = entry.getKey();
         final String path = entry.getValue();
-        if (path.startsWith(".teamcity/")) {
+        if (path.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR)) {
           continue; // do not publish internal artifacts of the build
         }
         myS3.putObject(new PutObjectRequest(myBucketName, myPathPrefix + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)

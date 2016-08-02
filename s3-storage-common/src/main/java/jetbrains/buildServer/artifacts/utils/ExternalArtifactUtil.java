@@ -23,6 +23,7 @@ import java.util.Map;
  */
 public class ExternalArtifactUtil {
 
+  public static final String EXTERNAL_ARTIFACTS_LIST_NAME = "external_artifacts_list.txt";
   private static final Logger LOG = Logger.getInstance(ExternalArtifactUtil.class.getName());
 
   public static List<ExternalArtifact> readExternalArtifacts(InputStream is) throws IOException {

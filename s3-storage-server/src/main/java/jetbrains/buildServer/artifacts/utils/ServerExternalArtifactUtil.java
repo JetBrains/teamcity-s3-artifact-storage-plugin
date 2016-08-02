@@ -1,15 +1,13 @@
 package jetbrains.buildServer.artifacts.utils;
 
+import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.utils.ExternalArtifactUtil;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifacts;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactsViewMode;
-import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,7 +33,7 @@ public class ServerExternalArtifactUtil {
     InputStream is = null;
     try {
       final BuildArtifacts artifacts = build.getArtifacts(BuildArtifactsViewMode.VIEW_ALL);
-      final BuildArtifactHolder artifact = artifacts.findArtifact(".teamcity" + "/" + "external_artifacts_list.txt");
+      final BuildArtifactHolder artifact = artifacts.findArtifact(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR + "/" + ExternalArtifactUtil.EXTERNAL_ARTIFACTS_LIST_NAME);
       if (artifact.isAvailable()) {
         is = artifact.getArtifact().getInputStream();
         return ExternalArtifactUtil.readExternalArtifacts(is);
