@@ -10,19 +10,40 @@ import java.util.Map;
 /**
  * Created by Nikita.Skvortsov
  * date: 02.08.2016.
+ *
+ * @since 10.0
+ *
+ * Information about external artifact.
  */
 public class ExternalArtifact {
-  @NotNull
-  protected final String myPath;
-  @Nullable
-  protected final String myUrl;
-  @NotNull
-  protected final String myName;
-  protected final long mySize;
-  @NotNull
-  private final Map<String, String> myProperties;
+  @NotNull   private final String myPath;
+  @Nullable  private final String myUrl;
+  @NotNull   private final String myName;
+  @NotNull   private final Map<String, String> myProperties;
+  private final long mySize;
 
+  /**
+   * Create new instance
+   * @param url - url to artifact location at external storage, will be rendered to artifacts tree in Web UI
+   * @param path - relative path to artifact inside build artifacts, including the artifact file name
+   * @param size - size (bytes) of artifact
+   * @param properties - additional properties map. Content of map will be copied.
+   */
+  public ExternalArtifact(@Nullable final String url,
+                          @NotNull final String path,
+                          final long size,
+                          @NotNull  Map<String, String> properties) {
+    this(url, path, size);
+    getProperties().putAll(properties);
+  }
 
+  /**
+   * Create new instance
+   * @param url - url to artifact location at external storage, will be rendered to artifacts tree in Web UI
+   * @param path - relative path to artifact inside build artifacts, including the artifact file name
+   * @param size - size (bytes) of artifact
+   * @param properties - additional properties in format "key1", "value1", "key2", "value2"...
+   */
   public ExternalArtifact(@Nullable final String url,
                           @NotNull final String path,
                           final long size, String... properties) {
