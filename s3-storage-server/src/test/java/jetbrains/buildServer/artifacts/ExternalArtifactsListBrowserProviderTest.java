@@ -1,8 +1,8 @@
 package jetbrains.buildServer.artifacts;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
-import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowserProvider;
+import jetbrains.buildServer.artifacts.tree.ExternalArtifactsListBrowser;
+import jetbrains.buildServer.artifacts.tree.ExternalArtifactsListBrowserProvider;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifact;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
@@ -23,9 +23,9 @@ import static org.assertj.core.api.Assertions.tuple;
  * date: 08.02.2016.
  */
 @Test
-public class S3ArtifactsListBrowserProviderTest {
+public class ExternalArtifactsListBrowserProviderTest {
 
-  private final S3ArtifactsListBrowserProvider browserProvider = new S3ArtifactsListBrowserProvider();
+  private final ExternalArtifactsListBrowserProvider browserProvider = new ExternalArtifactsListBrowserProvider();
   private Mockery myCtx;
   private SBuild myBuild;
   private BuildArtifact myArtifact;
@@ -48,7 +48,7 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testEmptyFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/empty_list/" + S3Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/empty_list/" + "external_artifacts_list.txt")));
     }});
 
     assertThat(browserProvider.getOrCreateBrowser(myBuild)).isNull();
@@ -56,10 +56,10 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testSimpleFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/simple_list/" + S3Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/simple_list/" + "external_artifacts_list.txt")));
     }});
 
-    final S3ArtifactsListBrowser browser = (S3ArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);
+    final ExternalArtifactsListBrowser browser = (ExternalArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);
     assertThat(browser).isNotNull();
 
     assertThat(browser.getChildren("")).extracting("name", "fullName", "leaf").containsOnly(tuple("some", "some", false));
@@ -69,10 +69,10 @@ public class S3ArtifactsListBrowserProviderTest {
 
   public void testBiggerFile() throws Exception {
     myCtx.checking(new Expectations(){{
-      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/bigger_list/" + S3Constants.S3_ARTIFACTS_LIST)));
+      allowing(myArtifact).getInputStream(); will(returnValue(new FileInputStream("src/test/resources/bigger_list/" + "external_artifacts_list.txt")));
     }});
 
-    final S3ArtifactsListBrowser browser = (S3ArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);
+    final ExternalArtifactsListBrowser browser = (ExternalArtifactsListBrowser)browserProvider.getOrCreateBrowser(myBuild);
     assertThat(browser).isNotNull();
 
     assertThat(browser.getChildren(".teamcity/properties")).hasSize(2);

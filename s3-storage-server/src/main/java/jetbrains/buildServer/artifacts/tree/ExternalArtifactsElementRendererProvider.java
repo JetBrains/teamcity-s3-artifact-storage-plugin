@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.tree;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.web.util.lazytree.LazyTreeElementRenderer;
@@ -10,10 +10,10 @@ import org.jetbrains.annotations.Nullable;
  * Created by Nikita.Skvortsov
  * date: 17.02.2016.
  */
-public class S3ElementRendererProvider implements TreeRendererProvider {
+public class ExternalArtifactsElementRendererProvider implements TreeRendererProvider {
   @Nullable
   @Override
   public LazyTreeElementRenderer getOrCreateArtifactRenderer(@NotNull Build build) {
-    return new S3ElementRenderer();
+    return new ExternalArtifactElementRenderer();
   }
 }

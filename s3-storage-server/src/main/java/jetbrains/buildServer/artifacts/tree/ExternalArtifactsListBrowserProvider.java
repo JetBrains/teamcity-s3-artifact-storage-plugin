@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.tree;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
@@ -17,19 +17,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
-
 /**
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
-  private static final Logger LOG = Logger.getLogger(S3ArtifactsListBrowserProvider.class);
+public class ExternalArtifactsListBrowserProvider implements ArtifactBrowserProvider {
+  private static final Logger LOG = Logger.getLogger(ExternalArtifactsListBrowserProvider.class);
   @Override
   public Browser getOrCreateBrowser(@NotNull Build build) {
     final SBuild sBuild = (SBuild) build;
     final BuildArtifacts artifacts = sBuild.getArtifacts(BuildArtifactsViewMode.VIEW_ALL);
-    final BuildArtifactHolder artifact = artifacts.findArtifact(S3_ARTIFACTS_LIST_PATH + "/" + S3_ARTIFACTS_LIST);
+    final BuildArtifactHolder artifact = artifacts.findArtifact(".teamcity" + "/" + "external_artifacts_list.txt");
     if (artifact.isAvailable()) {
       InputStream is = null;
       try {
@@ -37,7 +35,7 @@ public class S3ArtifactsListBrowserProvider implements ArtifactBrowserProvider {
         List<ExternalArtifact> artifactList = S3Util.readExternalArtifacts(is);
 
         if (artifactList.size() > 0) {
-          return new S3ArtifactsListBrowser(artifactList);
+          return new ExternalArtifactsListBrowser(artifactList);
         }
 
       } catch (IOException e) {

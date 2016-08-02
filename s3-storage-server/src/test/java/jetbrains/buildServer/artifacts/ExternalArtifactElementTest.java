@@ -1,8 +1,8 @@
 package jetbrains.buildServer.artifacts;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
-import jetbrains.buildServer.artifacts.s3.tree.S3Element;
+import jetbrains.buildServer.artifacts.tree.ExternalArtifactsListBrowser;
+import jetbrains.buildServer.artifacts.tree.ExternalArtifactElement;
 import jetbrains.buildServer.util.browser.Element;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -17,30 +17,30 @@ import static org.assertj.core.api.Assertions.assertThat;
  * date: 08.02.2016.
  */
 @Test
-public class S3ElementTest {
+public class ExternalArtifactElementTest {
 
-  private S3ArtifactsListBrowser myS3Browser;
+  private ExternalArtifactsListBrowser myS3Browser;
 
   @BeforeMethod
   public void setUp() throws Exception {
-    myS3Browser = new S3ArtifactsListBrowser(new ArrayList<>());
+    myS3Browser = new ExternalArtifactsListBrowser(new ArrayList<>());
   }
 
   public void testIsLeaf() throws Exception {
-    Element el = new S3Element("path", new ExternalArtifact(null, "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
+    Element el = new ExternalArtifactElement("path", new ExternalArtifact(null, "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.isLeaf()).isFalse();
 
-    el = new S3Element("path", new ExternalArtifact("url", "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
+    el = new ExternalArtifactElement("path", new ExternalArtifact("url", "path", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.isLeaf()).isTrue();
   }
 
   public void testPathAndName() throws Exception {
-    Element el = new S3Element("f.txt", new ExternalArtifact(null, "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
+    Element el = new ExternalArtifactElement("f.txt", new ExternalArtifact(null, "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
 
     assertThat(el.getName()).isEqualTo("f.txt");
     assertThat(el.getFullName()).isEqualTo("f.txt");
 
-    el = new S3Element("some/path/file.txt", new ExternalArtifact(null, "some/path/file.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
+    el = new ExternalArtifactElement("some/path/file.txt", new ExternalArtifact(null, "some/path/file.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
 
     assertThat(el.getName()).isEqualTo("file.txt");
     assertThat(el.getFullName()).isEqualTo("some/path/file.txt");
@@ -48,7 +48,7 @@ public class S3ElementTest {
 
   @Test(expectedExceptions = IllegalStateException.class)
   public void testIllegalThrowForInputStream() throws Exception {
-    Element el = new S3Element("f.txt", new ExternalArtifact("url", "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
+    Element el = new ExternalArtifactElement("f.txt", new ExternalArtifact("url", "f.txt", 0, S3Constants.S3_KEY, ""), myS3Browser);
     assertThat(el.getSize()).isEqualTo(0);
 
     el.getInputStream();

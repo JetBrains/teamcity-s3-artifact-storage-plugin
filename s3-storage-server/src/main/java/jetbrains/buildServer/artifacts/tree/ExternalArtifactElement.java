@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.tree;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.browser.Browser;
@@ -14,15 +14,15 @@ import java.io.InputStream;
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class S3Element implements Element {
+public class ExternalArtifactElement implements Element {
 
-  @NotNull private final S3ArtifactsListBrowser myBrowser;
+  @NotNull private final ExternalArtifactsListBrowser myBrowser;
   @NotNull private final String myPath;
   @Nullable private final String myUrl;
   private final String myName;
   private final long mySize;
 
-  public S3Element(@NotNull String path, @Nullable ExternalArtifact delegate, @NotNull S3ArtifactsListBrowser browser) {
+  public ExternalArtifactElement(@NotNull String path, @Nullable ExternalArtifact delegate, @NotNull ExternalArtifactsListBrowser browser) {
 
     myPath = path;
     final int i = path.lastIndexOf("/");
@@ -68,7 +68,7 @@ public class S3Element implements Element {
   @NotNull
   @Override
   public InputStream getInputStream() throws IllegalStateException, IOException, BrowserException {
-    throw new IllegalStateException("Can not provide an input stream for S3 artifact");
+    throw new IllegalStateException("Can not provide an input stream for external artifact");
   }
 
   @Override

@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.tree.S3ArtifactsListBrowser;
+import jetbrains.buildServer.artifacts.tree.ExternalArtifactsListBrowser;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.tuple;
  * date: 08.02.2016.
  */
 @Test
-public class S3ArtifactsListBrowserTest {
+public class ExternalArtifactsListBrowserTest {
 
   private List<ExternalArtifact> myList;
 
@@ -27,7 +27,7 @@ public class S3ArtifactsListBrowserTest {
 
   public void testSingleFile() throws Exception {
     myList.add(new ExternalArtifact("http://fake.url.nowhere", "file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
-    final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
+    final ExternalArtifactsListBrowser browser = new ExternalArtifactsListBrowser(myList);
 
     assertThat(browser.getRoot().getChildren())
         .extracting("name", "fullName", "leaf")
@@ -37,7 +37,7 @@ public class S3ArtifactsListBrowserTest {
 
   public void testSinglePath() throws Exception {
     myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
-    final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
+    final ExternalArtifactsListBrowser browser = new ExternalArtifactsListBrowser(myList);
 
     assertThat(browser.getChildren("")).extracting("name", "fullName", "leaf").containsOnly(tuple("some", "some", false));
     assertThat(browser.getChildren("some")).extracting("name", "fullName", "leaf").containsOnly(tuple("path", "some/path", false));
@@ -46,7 +46,7 @@ public class S3ArtifactsListBrowserTest {
 
   public void testPartialPathPrefix() throws Exception {
     myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/path/file.txt", 1, S3Constants.S3_KEY, "emptyKey"));
-    final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
+    final ExternalArtifactsListBrowser browser = new ExternalArtifactsListBrowser(myList);
 
     assertThat(browser.getElement("som")).isNull();
     assertThat(browser.getChildren("som")).isEmpty();
@@ -62,7 +62,7 @@ public class S3ArtifactsListBrowserTest {
     myList.add(new ExternalArtifact("http://fake.url.nowhere", "some/file3.txt", 1, S3Constants.S3_KEY, "emptyKey"));
     myList.add(new ExternalArtifact("http://fake.url.nowhere", "file4.txt", 1, S3Constants.S3_KEY, "emptyKey"));
 
-    final S3ArtifactsListBrowser browser = new S3ArtifactsListBrowser(myList);
+    final ExternalArtifactsListBrowser browser = new ExternalArtifactsListBrowser(myList);
 
     assertThat(browser.getRoot().getChildren()).extracting("name").containsOnly("some", "file4.txt");
     assertThat(browser.getChildren("some")).extracting("fullName").containsOnly("some/path", "some/file3.txt");

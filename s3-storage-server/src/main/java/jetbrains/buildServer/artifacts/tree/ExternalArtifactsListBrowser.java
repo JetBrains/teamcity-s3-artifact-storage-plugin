@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.tree;
+package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.util.browser.Behaviour;
@@ -17,18 +17,18 @@ import java.util.stream.Collectors;
  * Created by Nikita.Skvortsov
  * date: 08.02.2016.
  */
-public class S3ArtifactsListBrowser implements Browser {
+public class ExternalArtifactsListBrowser implements Browser {
 
   private final Map<String, ExternalArtifact> myPathToArtifact;
 
-  public S3ArtifactsListBrowser(List<ExternalArtifact> artifacts) {
+  public ExternalArtifactsListBrowser(List<ExternalArtifact> artifacts) {
     myPathToArtifact = artifacts.stream().collect(Collectors.toMap(ExternalArtifact::getPath, Function.identity()));
   }
 
   @NotNull
   @Override
   public Element getRoot() throws BrowserException {
-    return new S3Element("", new ExternalArtifact(null, "", 0), this);
+    return new ExternalArtifactElement("", new ExternalArtifact(null, "", 0), this);
   }
 
   @Nullable
@@ -40,7 +40,7 @@ public class S3ArtifactsListBrowser implements Browser {
     if (path == null) {
       return null;
     } else {
-      return new S3Element(prefix, myPathToArtifact.get(prefix), this);
+      return new ExternalArtifactElement(prefix, myPathToArtifact.get(prefix), this);
     }
   }
 
@@ -56,7 +56,7 @@ public class S3ArtifactsListBrowser implements Browser {
         .collect(Collectors.toSet()).stream()
         .map(k -> k.indexOf("/", path.length() + 1) > -1 ? k.substring(0, k.indexOf("/", path.length() + 1)) : k)
         .distinct()
-        .map(k -> new S3Element(k, myPathToArtifact.get(k), this))
+        .map(k -> new ExternalArtifactElement(k, myPathToArtifact.get(k), this))
         .collect(Collectors.toSet());
   }
 }
