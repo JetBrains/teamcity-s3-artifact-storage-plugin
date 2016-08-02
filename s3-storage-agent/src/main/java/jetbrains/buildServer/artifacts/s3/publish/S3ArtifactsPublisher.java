@@ -7,9 +7,9 @@ import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.utils.S3Util;
+import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.utils.AgentExternalArtifactUtil;
 import jetbrains.buildServer.util.EventDispatcher;
-import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -96,15 +95,10 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
 
   private void publishArtifactsList(@NotNull AmazonS3 s3client) {
-    File tempDir = null;
     ObjectListing objectListing = s3client.listObjects(new ListObjectsRequest()
         .withBucketName(myBucketName)
         .withPrefix(myPathPrefix));
-
     try {
-      tempDir = FileUtil.createTempDirectory("artifacts", "list");
-      final File tempFile = new File(tempDir, S3_ARTIFACTS_LIST);
-
       final String host = getHost(myRunningBuild.getSharedConfigParameters().get(S3_REGION));
       final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
 
@@ -118,18 +112,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
       }
-
-      S3Util.writeExternalArtifacts(artifacts, tempFile);
-
-      final Map<File, String> newArtifacts = new HashMap<File, String>();
-      newArtifacts.put(tempFile, S3_ARTIFACTS_LIST_PATH);
-      myWebPublisher.publishFiles(newArtifacts);
+      AgentExternalArtifactUtil.publishExternalArtifactsInfo(artifacts, myWebPublisher);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
-    } finally {
-      if (tempDir != null) {
-        FileUtil.delete(tempDir);
-      }
     }
   }
 

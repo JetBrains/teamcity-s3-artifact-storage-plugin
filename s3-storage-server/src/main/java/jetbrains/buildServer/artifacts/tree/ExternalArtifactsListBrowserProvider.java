@@ -2,7 +2,7 @@ package jetbrains.buildServer.artifacts.tree;
 
 import jetbrains.buildServer.Build;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.s3.utils.S3Util;
+import jetbrains.buildServer.artifacts.utils.ExternalArtifactUtil;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifactHolder;
 import jetbrains.buildServer.serverSide.artifacts.BuildArtifacts;
@@ -32,7 +32,7 @@ public class ExternalArtifactsListBrowserProvider implements ArtifactBrowserProv
       InputStream is = null;
       try {
         is = artifact.getArtifact().getInputStream();
-        List<ExternalArtifact> artifactList = S3Util.readExternalArtifacts(is);
+        List<ExternalArtifact> artifactList = ExternalArtifactUtil.readExternalArtifacts(is);
 
         if (artifactList.size() > 0) {
           return new ExternalArtifactsListBrowser(artifactList);

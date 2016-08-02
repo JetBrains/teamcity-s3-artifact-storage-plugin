@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.lists;
 
 import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.s3.utils.S3Util;
+import jetbrains.buildServer.artifacts.utils.ExternalArtifactUtil;
 import jetbrains.buildServer.controllers.BuildDataExtensionUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -56,7 +56,7 @@ public class S3ContentList extends SimplePageExtension {
       return;
     } else {
       try {
-        final Map<String, String> pathsWithUrls = S3Util.readExternalArtifacts(artifact.getArtifact().getInputStream())
+        final Map<String, String> pathsWithUrls = ExternalArtifactUtil.readExternalArtifacts(artifact.getArtifact().getInputStream())
             .stream().collect(Collectors.toMap(ExternalArtifact::getPath, ExternalArtifact::getUrl));
         model.put("pathsWithUrls", pathsWithUrls);
       } catch (IOException e) {
