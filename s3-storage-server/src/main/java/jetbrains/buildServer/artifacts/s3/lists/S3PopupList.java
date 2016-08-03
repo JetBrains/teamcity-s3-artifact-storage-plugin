@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.lists;
 
 import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.utils.ExternalArtifactUtil;
+import jetbrains.buildServer.artifacts.util.ExternalArtifactUtil;
 import jetbrains.buildServer.controllers.BuildDataExtensionUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;

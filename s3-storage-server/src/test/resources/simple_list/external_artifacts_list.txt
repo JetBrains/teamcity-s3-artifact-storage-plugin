@@ -1,9 +1,0 @@
-[
-  {
-    "myPath": "some/path/file.txt",
-    "myUrl": "http://some.host.nowhere/storage/1/some/path/file.txt",
-    "myName": "file.txt",
-    "mySize": 50,
-    "myKey": "1/some/path/file.txt"
-  }
-]
