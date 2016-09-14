@@ -6,5 +6,4 @@
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisher"/>
   <bean class="jetbrains.buildServer.artifacts.s3.resolve.S3TransportFactory"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.resolve.S3UrlProviderFactory"/>
 </beans>
