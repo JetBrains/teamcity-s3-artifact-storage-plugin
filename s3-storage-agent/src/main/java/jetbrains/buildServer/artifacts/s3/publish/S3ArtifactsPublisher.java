@@ -100,7 +100,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         .withBucketName(myBucketName)
         .withPrefix(myPathPrefix));
     try {
-      final String host = getHost(myRunningBuild.getSharedConfigParameters().get(S3_REGION));
       final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
 
       for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
@@ -108,7 +107,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         final String path = key.substring(myPathPrefix.length());
         final Long size = objectSummary.getSize();
         try {
-          artifacts.add(new ExternalArtifact(new URI("https", host, "/" + myBucketName + "/" + key, null).toString(), path, size, S3Constants.S3_KEY, key));
+          artifacts.add(new ExternalArtifact(new URI("http", myBucketName + ".s3.amazonaws.com", "/" + key, null).toString(), path, size, S3Constants.S3_KEY, key));
         } catch (URISyntaxException e) {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
@@ -117,13 +116,5 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     }
-  }
-
-  @NotNull
-  private String getHost(String regionName) {
-    if ("us-east-1".equals(regionName)) {
-      return "s3.amazonaws.com";
-    }
-    return "s3-" + regionName + ".amazonaws.com";
   }
 }
