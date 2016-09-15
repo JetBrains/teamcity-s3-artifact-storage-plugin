@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.resolve;
 
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.regions.Region;
+import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import jetbrains.buildServer.agent.AgentRunningBuild;
@@ -43,7 +44,7 @@ public class S3TransportFactory implements TransportFactoryExtension {
       final String accessKeyId = params.get(S3_KEY_ID);
       final String secretAccessKey = params.get(S3_SECRET_KEY);
       AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKeyId, secretAccessKey));
-      s3client.setRegion(Region.getRegion(US_WEST_2));
+      s3client.setRegion(Region.getRegion(Regions.DEFAULT_REGION));
       return new S3URLContentRetriever(s3client);
     } catch (NoRunningBuildException e) {
       Loggers.AGENT.warnAndDebugDetails("Attempted to create artifacts transport when no build is running.", e);
