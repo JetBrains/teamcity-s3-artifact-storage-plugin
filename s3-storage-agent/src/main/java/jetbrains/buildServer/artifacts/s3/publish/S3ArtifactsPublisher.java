@@ -112,7 +112,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
       }
-      AgentExternalArtifactUtil.publishExternalArtifactsInfo(artifacts, myWebPublisher);
+      AgentExternalArtifactUtil.publishExternalArtifactsInfo(artifacts, myWebPublisher, myRunningBuild);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     }
