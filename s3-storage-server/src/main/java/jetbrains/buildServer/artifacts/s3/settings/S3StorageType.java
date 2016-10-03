@@ -14,7 +14,7 @@ import java.util.Map;
  * Created by Nikita.Skvortsov
  * date: 24.02.2016.
  */
-public class S3StorageType implements StorageType {
+public class S3StorageType extends StorageType {
 
   private final String mySettingsJSP;
 
@@ -44,13 +44,13 @@ public class S3StorageType implements StorageType {
 
   @NotNull
   @Override
-  public String getEditStorageSettingsJspFilePath() {
+  public String getEditStorageParametersPath() {
     return mySettingsJSP;
   }
 
   @Nullable
   @Override
-  public Map<String, String> getDefaultSettings() {
+  public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%teamcity.build.id%");
     return result;

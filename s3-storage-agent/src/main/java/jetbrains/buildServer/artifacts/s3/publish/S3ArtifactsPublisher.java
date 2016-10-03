@@ -5,7 +5,8 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
-import jetbrains.buildServer.agent.artifacts.util.AgentExternalArtifactUtil;
+import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
+import jetbrains.buildServer.agent.artifacts.ExternalArtifactsPublisher;
 import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -29,25 +30,22 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
  * Created by Nikita.Skvortsov
  * date: 03.02.2016.
  */
-public class S3ArtifactsPublisher implements ArtifactsPublisher {
+public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
 
   private final static Logger LOG = Logger.getLogger(S3ArtifactsPublisher.class);
 
-  private final WebPublisher myWebPublisher;
-  private AgentRunningBuild myRunningBuild;
   private String myBucketName;
   private String myPathPrefix;
 
-  public S3ArtifactsPublisher(@NotNull WebPublisher webPublisher,
+  public S3ArtifactsPublisher(@NotNull AgentExternalArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher) {
-    myWebPublisher = webPublisher;
+    super(helper);
     dispatcher.addListener(new AgentLifeCycleAdapter() {
-
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
-        myRunningBuild = runningBuild;
-        myBucketName = runningBuild.getSharedConfigParameters().get(S3_BUCKET_NAME);
-        String pathPrefix = runningBuild.getSharedConfigParameters().get(S3_PATH_PREFIX);
+        final Map<String, String> publisherParameters = getPublisherParameters();
+        myBucketName = publisherParameters.get(S3_BUCKET_NAME);
+        String pathPrefix = publisherParameters.get(S3_PATH_PREFIX);
         pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
         pathPrefix = pathPrefix.startsWith("/") ? pathPrefix.substring(1) : pathPrefix;
         myPathPrefix = pathPrefix;
@@ -55,7 +53,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        final AmazonS3 s3Client = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
+        final AmazonS3 s3Client = S3Util.createAmazonClient(getPublisherParameters());
         publishArtifactsList(s3Client);
       }
     });
@@ -63,8 +61,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
-    final AmazonS3 myS3 = S3Util.createAmazonClient(myRunningBuild.getSharedConfigParameters());
-    final boolean isPublic = Boolean.valueOf(myRunningBuild.getSharedConfigParameters().get(S3_ALLOW_PUBLIC));
+    final Map<String, String> publisherParameters = getPublisherParameters();
+    final AmazonS3 myS3 = S3Util.createAmazonClient(publisherParameters);
+    final boolean isPublic = Boolean.valueOf(publisherParameters.get(S3_ALLOW_PUBLIC));
     int count = 0;
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
@@ -112,7 +111,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
       }
-      AgentExternalArtifactUtil.publishExternalArtifactsInfo(artifacts, myWebPublisher, myRunningBuild);
+      publishExternalArtifactsInfo(artifacts);
     } catch (IOException e) {
       LOG.error("Error publishing artifacts list.", e);
     }
