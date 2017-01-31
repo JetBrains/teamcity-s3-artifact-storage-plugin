@@ -60,7 +60,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
             final DeleteObjectsResult result = amazonClient.deleteObjects(new DeleteObjectsRequest(bucketName)
                 .withKeys(ExternalArtifactUtil.readExternalArtifacts(artifact.getArtifact().getInputStream())
                     .stream()
-                    .map(ea -> ea.getProperties().get(S3Constants.S3_KEY))
+                    .map(ea -> ea.getProperties().get(S3Constants.S3_KEY_ATTR))
                     .map(DeleteObjectsRequest.KeyVersion::new)
                     .collect(Collectors.toList())));
 

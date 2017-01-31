@@ -14,5 +14,6 @@ public class S3Constants {
   public static final String S3_STORAGE_TYPE = "S3_storage";
   public static final String S3_REGION = "storage.s3.region";
   public static final String S3_ALLOW_PUBLIC = "storage.s3.allowPublicAccess";
-  public static final String S3_KEY = "S3_KEY";
+  public static final String S3_KEY_ATTR = "S3_KEY";
+  public static final String S3_BUCKET_ATTR = "S3_BUCKET";
 }

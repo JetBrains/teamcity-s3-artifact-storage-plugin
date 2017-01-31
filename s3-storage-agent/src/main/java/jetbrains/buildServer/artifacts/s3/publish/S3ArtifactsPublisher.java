@@ -7,8 +7,8 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ExternalArtifactsPublisher;
-import jetbrains.buildServer.agent.publisher.WebPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
+import jetbrains.buildServer.storage.StorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -38,8 +38,9 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   private String myPathPrefix;
 
   public S3ArtifactsPublisher(@NotNull AgentExternalArtifactHelper helper,
-                              @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher) {
-    super(helper);
+                              @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
+                              @NotNull final StorageSettingsProvider settingsProvider) {
+    super(helper, settingsProvider);
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
@@ -106,7 +107,9 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         final String path = key.substring(myPathPrefix.length());
         final Long size = objectSummary.getSize();
         try {
-          artifacts.add(new ExternalArtifact(new URI("http", myBucketName + ".s3.amazonaws.com", "/" + key, null).toString(), path, size, S3Constants.S3_KEY, key));
+          artifacts.add(new ExternalArtifact(new URI("http", myBucketName + ".s3.amazonaws.com", "/" + key, null).toString(), path, size,
+                                             S3Constants.S3_KEY_ATTR, key,
+                                             S3Constants.S3_BUCKET_ATTR, myBucketName));
         } catch (URISyntaxException e) {
           LOG.warn("Failed to write object [" + key + "] to index", e);
         }
