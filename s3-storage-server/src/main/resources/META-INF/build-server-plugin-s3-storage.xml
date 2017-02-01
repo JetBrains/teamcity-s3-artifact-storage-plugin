@@ -7,4 +7,5 @@
   <bean class="jetbrains.buildServer.artifacts.s3.lists.S3PopupList"/>
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.web.S3AccessController"/>
 </beans>

@@ -20,6 +20,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,14 +34,20 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
 
   private final static Logger LOG = Logger.getLogger(S3ArtifactsPublisher.class);
+  @NotNull
+  private final CurrentBuildTracker myTracker;
 
   private String myBucketName;
   private String myPathPrefix;
+  private String myServerUrl;
 
   public S3ArtifactsPublisher(@NotNull AgentExternalArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final StorageSettingsProvider settingsProvider) {
+                              @NotNull final StorageSettingsProvider settingsProvider,
+                              @NotNull final CurrentBuildTracker tracker,
+                              @NotNull final BuildAgentConfiguration agentConfiguration) {
     super(helper, settingsProvider);
+    myTracker = tracker;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
@@ -58,13 +65,13 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         publishArtifactsList(s3Client);
       }
     });
+    myServerUrl = agentConfiguration.getServerUrl();
   }
 
   @Override
   public int publishFiles(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
     final Map<String, String> publisherParameters = getPublisherParameters();
     final AmazonS3 myS3 = S3Util.createAmazonClient(publisherParameters);
-    final boolean isPublic = Boolean.valueOf(publisherParameters.get(S3_ALLOW_PUBLIC));
     int count = 0;
     try {
       for (Map.Entry<File, String> entry : map.entrySet()) {
@@ -74,7 +81,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
           continue; // do not publish internal artifacts of the build
         }
         myS3.putObject(new PutObjectRequest(myBucketName, myPathPrefix + (StringUtil.isEmpty(path) ? "" : path  + "/") + file.getName(), file)
-            .withCannedAcl(isPublic ? CannedAccessControlList.PublicRead : CannedAccessControlList.Private));
+            .withCannedAcl(CannedAccessControlList.Private));
         count++;
       }
     } catch (AmazonServiceException ase) {
@@ -106,13 +113,10 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         final String key = objectSummary.getKey();
         final String path = key.substring(myPathPrefix.length());
         final Long size = objectSummary.getSize();
-        try {
-          artifacts.add(new ExternalArtifact(new URI("http", myBucketName + ".s3.amazonaws.com", "/" + key, null).toString(), path, size,
-                                             S3Constants.S3_KEY_ATTR, key,
-                                             S3Constants.S3_BUCKET_ATTR, myBucketName));
-        } catch (URISyntaxException e) {
-          LOG.warn("Failed to write object [" + key + "] to index", e);
-        }
+        final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + myTracker.getCurrentBuild().getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
+        artifacts.add(new ExternalArtifact(url, path, size,
+                                           S3Constants.S3_KEY_ATTR, key,
+                                           S3Constants.S3_BUCKET_ATTR, myBucketName));
       }
       publishExternalArtifactsInfo(artifacts);
     } catch (IOException e) {

@@ -16,4 +16,5 @@ public class S3Constants {
   public static final String S3_ALLOW_PUBLIC = "storage.s3.allowPublicAccess";
   public static final String S3_KEY_ATTR = "S3_KEY";
   public static final String S3_BUCKET_ATTR = "S3_BUCKET";
+  public static final String S3_ACCESS_CONTROLLER_PATH = "/s3access.html";
 }

@@ -48,10 +48,5 @@
                 <span class="smallNote">Path to build artifacts, e.g. storage/%teamcity.build.id%</span>
             </td>
         </tr>
-        <tr>
-            <th><label for="storage.s3.allowPublicAccess">Public access: </label></th>
-            <td><props:checkboxProperty name="<%=S3Constants.S3_ALLOW_PUBLIC%>">Allow public access to artifacts</props:checkboxProperty>
-            </td>
-        </tr>
     </l:settingsGroup>
 </table>
