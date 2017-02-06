@@ -24,7 +24,7 @@ public class S3ArtifactAccessorFactory implements ArtifactAccessorFactoryExtensi
   }
 
   @Nullable
-  public ArtifactAccessor getArtifactAccessor(@NotNull final Map<String, String> params) {
+  public ArtifactAccessor createArtifactAccessor(@NotNull final Map<String, String> params) {
     AmazonS3 client = S3Util.createAmazonClient(params);
     return new S3ArtifactAccessor(client, myHelper);
   }

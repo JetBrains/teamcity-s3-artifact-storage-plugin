@@ -9,7 +9,6 @@ import java.net.MalformedURLException;
 import java.util.*;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
-import jetbrains.buildServer.artifacts.ArtifactDependency;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.ResolvingFailedException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -36,10 +35,10 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @NotNull
   @Override
-  public Collection<String> getArtifactSourcePathList(@NotNull final ArtifactDependency dependency) {
+  public Collection<String> getArtifactSourcePathList(final String sourceExternalId, final long buildId) {
     myPathToArtifact.clear();
     Set<String> result = new HashSet<String>();
-    Collection<ExternalArtifact> externalArtifacts = myHelper.getExternalArtifactsInfo(dependency);
+    Collection<ExternalArtifact> externalArtifacts = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
     for (ExternalArtifact externalArtifact : externalArtifacts) {
       if (externalArtifact.getProperties().containsKey(S3Constants.S3_KEY_ATTR)) {
         myPathToArtifact.put(externalArtifact.getPath(), externalArtifact);
@@ -51,10 +50,10 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   }
 
   @Override
-  public void downloadArtifact(@NotNull final ArtifactDependency dep, @NotNull final String sourcePath, @NotNull final File target) {
+  public void downloadArtifact(final String sourceExternalId, final long buildId, @NotNull final String sourcePath, @NotNull final File target) {
     final ExternalArtifact externalArtifact = myPathToArtifact.get(sourcePath);
     if (externalArtifact == null || externalArtifact.getUrl() == null) {
-      throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + dep.toString() + "]");
+      throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
     }
     try {
       downloadObject(externalArtifact.getProperties(), target);
