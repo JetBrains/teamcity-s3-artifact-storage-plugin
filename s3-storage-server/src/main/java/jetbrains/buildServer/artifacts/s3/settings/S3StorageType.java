@@ -1,12 +1,16 @@
 package jetbrains.buildServer.artifacts.s3.settings;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.serverSide.InvalidProperty;
+import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,5 +58,17 @@ public class S3StorageType extends StorageType {
     Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%teamcity.build.id%");
     return result;
+  }
+
+  @Nullable
+  @Override
+  public PropertiesProcessor getParametersProcessor() {
+    return params -> {
+      final ArrayList<InvalidProperty> invalids = new ArrayList<>();
+      for (Map.Entry<String, String> e : S3Util.validateParameters(params).entrySet()) {
+        invalids.add(new InvalidProperty(e.getKey(), e.getValue()));
+      }
+      return invalids;
+    };
   }
 }
