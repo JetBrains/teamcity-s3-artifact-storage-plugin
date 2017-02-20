@@ -4,9 +4,6 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import java.io.*;
-import java.net.MalformedURLException;
-import java.util.*;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
@@ -14,6 +11,12 @@ import jetbrains.buildServer.artifacts.ResolvingFailedException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.util.*;
 
 /**
  * Created by Nikita.Skvortsov
@@ -35,7 +38,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @NotNull
   @Override
-  public Collection<String> getArtifactSourcePathList(final String sourceExternalId, final long buildId) {
+  public Collection<String> getArtifactSourcePathList(@NotNull final String sourceExternalId, final long buildId) {
     myPathToArtifact.clear();
     Set<String> result = new HashSet<String>();
     Collection<ExternalArtifact> externalArtifacts = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
@@ -50,15 +53,20 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   }
 
   @Override
-  public void downloadArtifact(final String sourceExternalId, final long buildId, @NotNull final String sourcePath, @NotNull final File target) {
-    final ExternalArtifact externalArtifact = myPathToArtifact.get(sourcePath);
-    if (externalArtifact == null || externalArtifact.getUrl() == null) {
-      throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
-    }
-    try {
-      downloadObject(externalArtifact.getProperties(), target);
-    } catch (IOException e) {
-      throw new ResolvingFailedException(e);
+  public void downloadArtifacts(@NotNull final String sourceExternalId, final long buildId, @NotNull Map<String, File> sourceToFiles) {
+    for (Map.Entry<String, File> entry : sourceToFiles.entrySet()) {
+      final String sourcePath = entry.getKey();
+      final File target = entry.getValue();
+
+      final ExternalArtifact externalArtifact = myPathToArtifact.get(sourcePath);
+      if (externalArtifact == null || externalArtifact.getUrl() == null) {
+        throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
+      }
+      try {
+        downloadObject(externalArtifact.getProperties(), target);
+      } catch (IOException e) {
+        throw new ResolvingFailedException(e);
+      }
     }
   }
 
