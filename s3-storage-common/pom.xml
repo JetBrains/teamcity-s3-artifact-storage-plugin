@@ -48,5 +48,10 @@
       <artifactId>gson</artifactId>
       <version>2.4</version>
     </dependency>
+    <dependency>
+      <groupId>jetbrains.buildserver.util</groupId>
+      <artifactId>amazon-util</artifactId>
+      <version>1.0</version>
+    </dependency>
   </dependencies>
 </project>
