@@ -49,9 +49,9 @@
       <version>2.4</version>
     </dependency>
     <dependency>
-      <groupId>jetbrains.buildserver.util</groupId>
+      <groupId>jetbrains.buildServer.util</groupId>
       <artifactId>amazon-util</artifactId>
-      <version>1.0</version>
+      <version>19</version>
     </dependency>
   </dependencies>
 </project>
