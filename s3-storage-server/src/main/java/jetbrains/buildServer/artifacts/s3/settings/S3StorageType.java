@@ -57,7 +57,7 @@ public class S3StorageType extends StorageType {
   @Override
   public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
-    result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%teamcity.build.id%");
+    result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%system.teamcity.build.id%");
     result.putAll(AWSCommonParams.DEFAULTS);
     return result;
   }
@@ -67,7 +67,7 @@ public class S3StorageType extends StorageType {
   public PropertiesProcessor getParametersProcessor() {
     return params -> {
       final ArrayList<InvalidProperty> invalids = new ArrayList<>();
-      for (Map.Entry<String, String> e : S3Util.validateParameters(params).entrySet()) {
+      for (Map.Entry<String, String> e : S3Util.validateParameters(params, true).entrySet()) {
         invalids.add(new InvalidProperty(e.getKey(), e.getValue()));
       }
       return invalids;

@@ -14,7 +14,7 @@
     <jsp:include page="editAWSCommonParams.jsp"/>
     <l:settingsGroup title="S3 Parameters">
         <tr>
-            <th><label for="storage.s3.bucket.name">S3 Bucket Name: </label></th>
+            <th><label for="storage.s3.bucket.name">S3 bucket name: </label></th>
             <td><props:textProperty name="<%=S3Constants.S3_BUCKET_NAME%>" className="longField" maxlength="256"/>
                 <span class="smallNote">S3 bucket name</span>
                 <span class="error" id="error_storage.s3.bucket.name"></span>
@@ -23,7 +23,8 @@
         <tr>
             <th><label for="storage.s3.path.prefix">Path to build artifacts: </label></th>
             <td><props:textProperty name="<%=S3Constants.S3_PATH_PREFIX%>" className="longField buildTypeParams" maxlength="256"/>
-                <span class="smallNote">Path to build artifacts, e.g. storage/%teamcity.build.id%</span>
+                <span class="smallNote">Path to build artifacts, e.g. storage/%system.teamcity.build.id%. Will be cleaned on build start</span>
+                <span class="error" id="error_storage.s3.path.prefix"></span>
             </td>
         </tr>
     </l:settingsGroup>
