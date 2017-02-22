@@ -41,7 +41,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) throws Exception {
     final List<SFinishedBuild> builds = buildCleanupContext.getBuilds();
     for (SFinishedBuild build : builds) {
-      final BuildArtifactHolder artifact = build.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(S3Constants.S3_ARTIFACTS_LIST_PATH + "/" + S3Constants.S3_ARTIFACTS_LIST);
+      final BuildArtifactHolder artifact = build.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(S3Constants.EXTERNAL_ARTIFACTS_LIST);
       if (artifact.isAvailable()) {
         final SBuildType buildType = build.getBuildType();
         if (buildType == null) {
