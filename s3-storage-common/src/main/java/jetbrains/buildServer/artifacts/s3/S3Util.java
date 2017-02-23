@@ -29,9 +29,6 @@ public class S3Util {
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
       invalids.put(S3_BUCKET_NAME, "S3 bucket name mustn't be empty");
     }
-    if (StringUtil.isEmptyOrSpaces(getPathPrefix(params))) {
-      invalids.put(S3_PATH_PREFIX, "Path to build artifacts mustn't be empty");
-    }
     invalids.putAll(AWSCommonParams.validate(params, acceptReferences));
     return invalids;
   }
@@ -49,11 +46,11 @@ public class S3Util {
     return params.get(S3Constants.S3_BUCKET_NAME);
   }
 
-  @Nullable
+  @NotNull
   public static String getPathPrefix(@NotNull Map<String, String> params) {
     String pathPrefix = params.get(S3_PATH_PREFIX);
     if (StringUtil.isEmptyOrSpaces(pathPrefix)) {
-      return null;
+      return StringUtil.EMPTY;
     }
     pathPrefix = pathPrefix.endsWith("/") ? pathPrefix : pathPrefix + "/";
     pathPrefix = pathPrefix.startsWith("/") ? pathPrefix.substring(1) : pathPrefix;

@@ -46,6 +46,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
                               @NotNull final BuildAgentConfiguration agentConfiguration) {
     super(helper, settingsProvider);
     myTracker = tracker;
+    // TODO: cleanup target path on build start
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
