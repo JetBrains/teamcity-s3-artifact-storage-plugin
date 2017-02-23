@@ -70,7 +70,7 @@ public class S3AccessController extends BaseController {
         final SBuild build = myBuildsManager.findBuildInstanceById(buildId);
         if (build == null) {
           httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-          httpServletResponse.getWriter().write("Build not found");
+          httpServletResponse.getWriter().write("Build " + buildId + " not found");
           return null;
         }
 
