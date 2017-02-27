@@ -49,6 +49,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
               "Can not remove artifacts from S3");
         } else {
           final SProject project = buildType.getProject();
+          // TODO: we could store the settings for the build and use them here instead of using current settings which can be different
           final Map<String, String> cfg = myRegistry.getStorageParams(project, S3Constants.S3_STORAGE_TYPE);
           if (cfg == null) {
             Loggers.CLEANUP.warn("Build " + build.getBuildDescription() + " had artifact uploaded to S3 storage, but project " + project.getDescription() + " has no S3 storage configuration. " +

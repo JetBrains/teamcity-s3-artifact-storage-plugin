@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.google.common.cache.Cache;
@@ -17,6 +18,7 @@ import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
 import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,7 +27,6 @@ import org.springframework.web.servlet.view.RedirectView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.net.URL;
 import java.net.URLDecoder;
 import java.util.Date;
 import java.util.Map;
@@ -100,15 +101,23 @@ public class S3AccessController extends BaseController {
     try {
       return myLinksCache.get(bucket + ":" + key, () -> {
         final AmazonS3 amazonClient = S3Util.createAmazonClient(params);
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key);
-        request.setExpiration(new Date(System.currentTimeMillis() + (60 * 1000)));
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + (60 * 1000)));
 
-        URL url = amazonClient.generatePresignedUrl(request);
-        return url.toString();
+        return amazonClient.generatePresignedUrl(request).toString();
       });
     } catch (ExecutionException e) {
-      Loggers.AGENT.infoAndDebugDetails("Failed to create presigned url for [" + key + "] in bucket [" + bucket + "]", e);
+      // TODO: this can happen e.g. if artifact storage settings were changed since the build
+      // we could store the settings for the build and use them here
+      logDetails(e.getCause());
+      Loggers.AGENT.infoAndDebugDetails("Failed to create pre-signed URL for [" + key + "] in bucket [" + bucket + "]", e);
     }
     return null;
+  }
+
+  private void logDetails(@NotNull Throwable t) {
+    final String details = new AWSException(t.getCause()).getDetails();
+    if (StringUtil.isNotEmpty(details)) {
+      Loggers.AGENT.info(details);
+    }
   }
 }
