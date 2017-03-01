@@ -112,21 +112,26 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     try {
       final AmazonS3 s3Client = createAmazonClient(params);
 
-      final ObjectListing objectListing = s3Client.listObjects(
+      final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
+
+      ObjectListing objectListing = s3Client.listObjects(
         new ListObjectsRequest()
           .withBucketName(bucketName)
           .withPrefix(pathPrefix));
 
-      final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
-
-      for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-        final String key = objectSummary.getKey();
-        final String path = key.substring(pathPrefix.length());
-        final Long size = objectSummary.getSize();
-        final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + myTracker.getCurrentBuild().getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
-        artifacts.add(new ExternalArtifact(url, path, size,
-                                           S3Constants.S3_KEY_ATTR, key,
-                                           S3Constants.S3_BUCKET_ATTR, bucketName));
+      while (true) {
+        for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
+          final String key = objectSummary.getKey();
+          final String path = key.substring(pathPrefix.length());
+          final Long size = objectSummary.getSize();
+          final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + myTracker.getCurrentBuild().getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
+          artifacts.add(new ExternalArtifact(url, path, size,
+                                             S3Constants.S3_KEY_ATTR, key,
+                                             S3Constants.S3_BUCKET_ATTR, bucketName));
+        }
+        if (objectListing.isTruncated()) {
+          objectListing = s3Client.listNextBatchOfObjects(objectListing);
+        } else break;
       }
       publishExternalArtifactsInfo(artifacts);
     } catch (IOException e) {
