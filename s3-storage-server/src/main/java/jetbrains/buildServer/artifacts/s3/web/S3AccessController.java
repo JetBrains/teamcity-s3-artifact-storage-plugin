@@ -1,14 +1,12 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.util.ServerExternalArtifactUtil;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.log.Loggers;
@@ -18,6 +16,7 @@ import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
 import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
@@ -99,12 +98,10 @@ public class S3AccessController extends BaseController {
     final String bucket = artifact.getProperties().get(S3Constants.S3_BUCKET_ATTR);
 
     try {
-      return myLinksCache.get(bucket + ":" + key, () -> {
-        final AmazonS3 amazonClient = S3Util.createAmazonClient(params);
+      return myLinksCache.get(bucket + ":" + key, () -> AWSCommonParams.withAWSClients(params, awsClients -> {
         final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + (60 * 1000)));
-
-        return amazonClient.generatePresignedUrl(request).toString();
-      });
+        return awsClients.createS3Client().generatePresignedUrl(request).toString();
+      }));
     } catch (ExecutionException e) {
       // TODO: this can happen e.g. if artifact storage settings were changed since the build
       // we could store the settings for the build and use them here

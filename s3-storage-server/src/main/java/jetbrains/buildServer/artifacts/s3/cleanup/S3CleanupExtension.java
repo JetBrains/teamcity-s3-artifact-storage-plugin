@@ -1,10 +1,8 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.util.ExternalArtifactUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuildType;
@@ -16,6 +14,8 @@ import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
 import jetbrains.buildServer.serverSide.cleanup.CleanupProcessState;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
+import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import jetbrains.buildServer.util.positioning.PositionConstraintAware;
 import org.jetbrains.annotations.NotNull;
@@ -41,7 +41,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) throws Exception {
     final List<SFinishedBuild> builds = buildCleanupContext.getBuilds();
     for (SFinishedBuild build : builds) {
-      final BuildArtifactHolder artifact = build.getArtifacts(BuildArtifactsViewMode.VIEW_ALL).findArtifact(S3Constants.EXTERNAL_ARTIFACTS_LIST);
+      final BuildArtifactHolder artifact = build.getArtifacts(BuildArtifactsViewMode.VIEW_HIDDEN_ONLY).findArtifact(S3Constants.EXTERNAL_ARTIFACTS_LIST);
       if (artifact.isAvailable()) {
         final SBuildType buildType = build.getBuildType();
         if (buildType == null) {
@@ -55,18 +55,19 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
             Loggers.CLEANUP.warn("Build " + build.getBuildDescription() + " had artifact uploaded to S3 storage, but project " + project.getDescription() + " has no S3 storage configuration. " +
                 "Can not remove artifacts from S3");
           } else {
-            final AmazonS3 amazonClient = S3Util.createAmazonClient(cfg);
-
-            final String bucketName = cfg.get(S3Constants.S3_BUCKET_NAME);
-            final DeleteObjectsResult result = amazonClient.deleteObjects(new DeleteObjectsRequest(bucketName)
+            AWSCommonParams.withAWSClients(cfg, awsClients -> {
+              final String bucketName = cfg.get(S3Constants.S3_BUCKET_NAME);
+              final DeleteObjectsResult result = awsClients.createS3Client().deleteObjects(new DeleteObjectsRequest(bucketName)
                 .withKeys(ExternalArtifactUtil.readExternalArtifacts(artifact.getArtifact().getInputStream())
-                    .stream()
-                    .map(ea -> ea.getProperties().get(S3Constants.S3_KEY_ATTR))
-                    .map(DeleteObjectsRequest.KeyVersion::new)
-                    .collect(Collectors.toList())));
+                  .stream()
+                  .map(ea -> ea.getProperties().get(S3Constants.S3_KEY_ATTR))
+                  .map(DeleteObjectsRequest.KeyVersion::new)
+                  .collect(Collectors.toList())));
 
-            final int size = result.getDeletedObjects().size();
-            Loggers.CLEANUP.info("Removed [" + size + "] s3 object" + (size > 1 ? "s" : "") + " from S3 bucket [" + bucketName + "]");
+              final int size = result.getDeletedObjects().size();
+              Loggers.CLEANUP.info("Removed [" + size + "] s3 " + StringUtil.pluralize("object", size) + " from S3 bucket [" + bucketName + "]");
+              return null;
+            });
           }
         }
       }

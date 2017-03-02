@@ -1,15 +1,14 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
-import com.amazonaws.services.s3.AmazonS3;
-import java.util.Map;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ArtifactAccessorFactoryExtension;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
 
 /**
  * Created by Nikita.Skvortsov
@@ -25,8 +24,7 @@ public class S3ArtifactAccessorFactory implements ArtifactAccessorFactoryExtensi
 
   @Nullable
   public ArtifactAccessor createArtifactAccessor(@NotNull final Map<String, String> params) {
-    AmazonS3 client = S3Util.createAmazonClient(params);
-    return new S3ArtifactAccessor(client, myHelper);
+    return new S3ArtifactAccessor(params, myHelper);
   }
 
   @NotNull

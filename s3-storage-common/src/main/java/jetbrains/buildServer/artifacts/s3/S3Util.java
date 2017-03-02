@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.AmazonS3;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
@@ -18,11 +17,6 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX;
  * date: 02.08.2016.
  */
 public class S3Util {
-  @NotNull
-  public static AmazonS3 createAmazonClient(Map<String, String> params) {
-    return AWSCommonParams.createAWSClients(params).createS3Client();
-  }
-
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
     final Map<String, String> invalids = new HashMap<String, String>();
