@@ -10,15 +10,13 @@
     }
 </style>
 
-<table class="runnerFormTable">
-    <jsp:include page="editAWSCommonParams.jsp"/>
-    <l:settingsGroup title="S3 Parameters">
-        <tr>
-            <th><label for="storage.s3.bucket.name">S3 bucket name: <l:star/></label></th>
-            <td><props:textProperty name="<%=S3Constants.S3_BUCKET_NAME%>" className="longField" maxlength="256"/>
-                <span class="smallNote">S3 bucket name</span>
-                <span class="error" id="error_storage.s3.bucket.name"></span>
-            </td>
-        </tr>
-    </l:settingsGroup>
-</table>
+<jsp:include page="editAWSCommonParams.jsp"/>
+<l:settingsGroup title="S3 Parameters">
+    <tr>
+        <th><label for="storage.s3.bucket.name">S3 bucket name: <l:star/></label></th>
+        <td><props:textProperty name="<%=S3Constants.S3_BUCKET_NAME%>" className="longField" maxlength="256"/>
+            <span class="smallNote">S3 bucket name</span>
+            <span class="error" id="error_storage.s3.bucket.name"></span>
+        </td>
+    </tr>
+</l:settingsGroup>
