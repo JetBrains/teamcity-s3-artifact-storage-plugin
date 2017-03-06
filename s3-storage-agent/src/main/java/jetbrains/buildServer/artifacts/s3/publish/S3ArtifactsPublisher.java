@@ -190,7 +190,11 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         public Void run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
           final String pathPrefix = getPathPrefix(s3Client, build, bucketName);
-          s3Client.deleteObject(bucketName, pathPrefix);
+          if (s3Client.doesBucketExist(bucketName)) {
+            s3Client.deleteObject(bucketName, pathPrefix);
+          } else {
+            s3Client.createBucket(bucketName);
+          }
           build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
           return null;
         }
