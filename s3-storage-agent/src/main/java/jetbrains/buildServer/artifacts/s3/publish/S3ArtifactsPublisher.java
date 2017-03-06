@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.ArtifactsConstants;
@@ -9,6 +9,7 @@ import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ExternalArtifactsPublisher;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.storage.StorageSettingsProvider;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
@@ -16,6 +17,7 @@ import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -24,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_SYSTEM_PROPERTY;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 import static jetbrains.buildServer.artifacts.s3.S3Util.*;
 
@@ -43,15 +46,19 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   @NotNull
   private final String myServerUrl;
 
-  public S3ArtifactsPublisher(@NotNull AgentExternalArtifactHelper helper,
+  public S3ArtifactsPublisher(@NotNull final AgentExternalArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final StorageSettingsProvider settingsProvider,
                               @NotNull final CurrentBuildTracker tracker,
                               @NotNull final BuildAgentConfiguration agentConfiguration) {
     super(helper, settingsProvider);
     myTracker = tracker;
-    // TODO: cleanup target path on build start
     dispatcher.addListener(new AgentLifeCycleAdapter() {
+      @Override
+      public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
+        prepareDestination(runningBuild);
+      }
+
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
         publishArtifactsList(runningBuild);
@@ -63,16 +70,15 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   @Override
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
     final Map<String, String> params = getPublisherParameters();
-
     final String bucketName = getBucketName(params);
-    final String pathPrefix = getPathPrefix(params);
+    final String pathPrefix = getPathPrefixProperty(myTracker.getCurrentBuild());
 
     try {
       return AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Integer, Throwable>() {
         @NotNull
         @Override
         public Integer run(@NotNull AWSClients awsClients) throws Throwable {
-          final AmazonS3 s3Client = awsClients.createS3Client();
+          final AmazonS3Client s3Client = awsClients.createS3Client();
 
           int count = 0;
           for (Map.Entry<File, String> entry : map.entrySet()) {
@@ -113,18 +119,17 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   }
 
 
-  private void publishArtifactsList(@NotNull AgentRunningBuild runningBuild) {
+  private void publishArtifactsList(@NotNull final AgentRunningBuild runningBuild) {
     final Map<String, String> params = getPublisherParameters();
-
     final String bucketName = getBucketName(params);
-    final String pathPrefix = getPathPrefix(params);
+    final String pathPrefix = getPathPrefixProperty(runningBuild);
 
     try {
       publishExternalArtifactsInfo(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ExternalArtifact>, Throwable>() {
         @NotNull
         @Override
         public List<ExternalArtifact> run(@NotNull AWSClients awsClients) throws Throwable {
-          final AmazonS3 s3Client = awsClients.createS3Client();
+          final AmazonS3Client s3Client = awsClients.createS3Client();
           final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
 
           ObjectListing objectListing = s3Client.listObjects(
@@ -137,7 +142,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
               final String key = objectSummary.getKey();
               final String path = key.substring(pathPrefix.length());
               final Long size = objectSummary.getSize();
-              final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + myTracker.getCurrentBuild().getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
+              final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + runningBuild.getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
               artifacts.add(new ExternalArtifact(url, path, size,
                 S3Constants.S3_KEY_ATTR, key,
                 S3Constants.S3_BUCKET_ATTR, bucketName));
@@ -172,5 +177,44 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     final Map<String, String> invalids = validateParameters(params, false);
     if (invalids.isEmpty()) return params;
     throw new ArtifactPublishingFailedException(joinStrings(invalids.values()), false, null);
+  }
+
+  private void prepareDestination(@NotNull final AgentRunningBuild build) {
+    final Map<String, String> params = getPublisherParameters();
+    final String bucketName = getBucketName(params);
+
+    try {
+      AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
+        @Nullable
+        @Override
+        public Void run(@NotNull AWSClients awsClients) throws Throwable {
+          final AmazonS3Client s3Client = awsClients.createS3Client();
+          final String pathPrefix = getPathPrefix(s3Client, build, bucketName);
+          s3Client.deleteObject(bucketName, pathPrefix);
+          build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
+          return null;
+        }
+      });
+    } catch (Throwable t) {
+      LOG.warnAndDebugDetails("Failed to create S3 path to store build " + LogUtil.describe(build) + " artifacts", t);
+    }
+  }
+
+  @NotNull
+  private String getPathPrefixProperty(@NotNull AgentRunningBuild build) throws ArtifactPublishingFailedException {
+    final String prefix = build.getSharedBuildParameters().getSystemProperties().get(S3_PATH_PREFIX_SYSTEM_PROPERTY);
+    if (StringUtil.isEmptyOrSpaces(prefix)) {
+      throw new ArtifactPublishingFailedException("No " + S3_PATH_PREFIX_SYSTEM_PROPERTY + " build system property found", false, null);
+    }
+    return prefix;
+  }
+
+  @NotNull
+  private String getPathPrefix(@NotNull AmazonS3Client s3Client, @NotNull AgentRunningBuild build, @NotNull String bucketName) {
+    String prefix = build.getSharedParametersResolver().resolve("%teamcity.project.id%").getResult() + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildNumber();
+    if (s3Client.doesObjectExist(bucketName, prefix)) {
+      prefix = prefix + "/" + build.getBuildId();
+    }
+    return prefix + "/";
   }
 }

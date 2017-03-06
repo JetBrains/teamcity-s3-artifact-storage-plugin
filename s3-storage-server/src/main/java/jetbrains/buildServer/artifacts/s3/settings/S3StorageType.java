@@ -57,7 +57,6 @@ public class S3StorageType extends StorageType {
   @Override
   public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
-    result.put(S3Constants.S3_PATH_PREFIX, "%system.teamcity.projectName%/%system.teamcity.buildConfName%/%system.teamcity.build.id%");
     result.putAll(AWSCommonParams.DEFAULTS);
     return result;
   }
