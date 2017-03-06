@@ -13,6 +13,7 @@ import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SecurityContextEx;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
 import jetbrains.buildServer.storage.StorageSettingsProvider;
@@ -38,13 +39,15 @@ import java.util.concurrent.TimeUnit;
  */
 public class S3AccessController extends BaseController {
 
+  public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
+
   @NotNull
   private final StorageSettingsProvider mySettingsProvider;
   @NotNull
   private final BuildsManager myBuildsManager;
   @NotNull private final SecurityContext mySecurityContext;
   private final Cache<String, String> myLinksCache = CacheBuilder.newBuilder()
-                                                                 .expireAfterWrite(40, TimeUnit.SECONDS)
+                                                                 .expireAfterWrite(URL_LIFETIME_SEC, TimeUnit.SECONDS)
                                                                  .maximumSize(100)
                                                                  .build();
 
@@ -98,8 +101,8 @@ public class S3AccessController extends BaseController {
     final String bucket = artifact.getProperties().get(S3Constants.S3_BUCKET_ATTR);
 
     try {
-      return myLinksCache.get(bucket + ":" + key, () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + (60 * 1000)));
+      return myLinksCache.get(getIdentity(params, key, bucket), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + URL_LIFETIME_SEC * 1000));
         return awsClients.createS3Client().generatePresignedUrl(request).toString();
       }));
     } catch (ExecutionException e) {
@@ -109,6 +112,11 @@ public class S3AccessController extends BaseController {
       Loggers.AGENT.infoAndDebugDetails("Failed to create pre-signed URL for [" + key + "] in bucket [" + bucket + "]", e);
     }
     return null;
+  }
+
+  @NotNull
+  private String getIdentity(@NotNull Map<String, String> params, @NotNull String key, @NotNull String bucket) {
+    return String.valueOf(AWSCommonParams.calculateIdentity("", params, bucket, key));
   }
 
   private void logDetails(@NotNull Throwable t) {
