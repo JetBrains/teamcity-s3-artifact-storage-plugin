@@ -1,27 +1,21 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
-import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.GetObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.services.s3.transfer.Download;
+import com.amazonaws.services.s3.transfer.TransferManager;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.ResolvingFailedException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.util.FileUtil;
+import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.AWSClients;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
+import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.net.MalformedURLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -55,31 +49,29 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   @Override
   public void downloadArtifacts(@NotNull final String sourceExternalId, final long buildId, @NotNull final Map<String, File> sourceToFiles) {
     try {
-      AWSCommonParams.withAWSClients(myParams, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
-        @Nullable
+      final Map<String, ExternalArtifact> externalArtifacts = getExternalArtifacts(sourceExternalId, buildId);
+      S3Util.withTransferManager(myParams, new S3Util.WithTransferManager<Download, Throwable>() {
+        @NotNull
         @Override
-        public Void run(@NotNull AWSClients awsClients) throws Throwable {
-          final Map<String, ExternalArtifact> externalArtifacts = getExternalArtifacts(sourceExternalId, buildId);
-          final AmazonS3Client s3Client = awsClients.createS3Client();
+        public Collection<Download> run(@NotNull final TransferManager transferManager) throws Throwable {
+          return CollectionsUtil.convertCollection(sourceToFiles.entrySet(), new Converter<Download, Map.Entry<String, File>>() {
+            @Override
+            public Download createFrom(@NotNull Map.Entry<String, File> entry) {
+              final String sourcePath = entry.getKey();
+              final File target = entry.getValue();
 
-          for (Map.Entry<String, File> entry : sourceToFiles.entrySet()) {
-            final String sourcePath = entry.getKey();
-            final File target = entry.getValue();
-
-            final ExternalArtifact externalArtifact = externalArtifacts.get(sourcePath);
-            if (externalArtifact == null || externalArtifact.getUrl() == null) {
-              throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
+              final ExternalArtifact externalArtifact = externalArtifacts.get(sourcePath);
+              if (externalArtifact == null || externalArtifact.getUrl() == null) {
+                throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
+              }
+              final Map<String, String> properties = externalArtifact.getProperties();
+              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
             }
-            downloadObject(s3Client, externalArtifact.getProperties(), target);
-          }
-
-          return null;
+          });
         }
       });
     } catch (ResolvingFailedException e) {
       throw e;
-    } catch (IOException e) {
-      throw new ResolvingFailedException(e);
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
@@ -99,41 +91,6 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
       }
     }
     return res;
-  }
-
-  private void downloadObject(@NotNull AmazonS3Client s3Client, @NotNull final Map<String, String> properties, @NotNull File file) throws IOException {
-    try {
-      final GetObjectRequest request = new GetObjectRequest(properties.get(S3Constants.S3_BUCKET_ATTR),
-                                                            properties.get(S3Constants.S3_KEY_ATTR));
-      final S3Object object = s3Client.getObject(request);
-      file.getParentFile().mkdirs();
-      file.createNewFile();
-
-      S3ObjectInputStream is = null;
-      FileOutputStream os = null;
-      try {
-        is = object.getObjectContent();
-        os = new FileOutputStream(file);
-        final byte[] buffer = new byte[1024 * 1024];
-        int count;
-        while ((count = is.read(buffer)) > 0) {
-          if (isInterrupted) {
-            break;
-          }
-          os.write(buffer, 0, count);
-        }
-      } finally {
-        FileUtil.close(is);
-        FileUtil.close(os);
-      }
-
-    } catch (MalformedURLException e) {
-      throw new IOException(e);
-    } finally {
-      if (isInterrupted) {
-        FileUtil.delete(file);
-      }
-    }
   }
 
   @Override

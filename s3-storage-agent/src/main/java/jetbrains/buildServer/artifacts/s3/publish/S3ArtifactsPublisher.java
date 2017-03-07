@@ -2,6 +2,8 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
@@ -11,6 +13,8 @@ import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
@@ -23,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -74,30 +79,26 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     final String pathPrefix = getPathPrefixProperty(myTracker.getCurrentBuild());
 
     try {
-      return AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Integer, Throwable>() {
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload, Throwable>() {
         @NotNull
         @Override
-        public Integer run(@NotNull AWSClients awsClients) throws Throwable {
-          final AmazonS3Client s3Client = awsClients.createS3Client();
-
-          int count = 0;
-          for (Map.Entry<File, String> entry : map.entrySet()) {
-            final File file = entry.getKey();
-            final String path = entry.getValue();
-            if (path.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR)) {
-              continue; // do not publish internal artifacts of the build
-            }
-            s3Client.putObject(
-              new PutObjectRequest(
+        public Collection<Upload> run(@NotNull final TransferManager transferManager) throws Throwable {
+          return CollectionsUtil.convertAndFilterNulls(map.entrySet(), new Converter<Upload, Map.Entry<File, String>>() {
+            @Override
+            public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
+              final File file = entry.getKey();
+              final String path = entry.getValue();
+              if (path.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR)) {
+                return null; // do not publish internal artifacts of the build
+              }
+              return transferManager.upload(new PutObjectRequest(
                 bucketName,
                 pathPrefix + (StringUtil.isEmpty(path) ? "" : path + "/") + file.getName(),
-                file).withCannedAcl(CannedAccessControlList.Private)
-            );
-            count++;
-          }
-          return count;
+                file).withCannedAcl(CannedAccessControlList.Private));
+            }
+          });
         }
-      });
+      }).size();
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
