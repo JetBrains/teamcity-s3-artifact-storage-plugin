@@ -1,7 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
+import com.amazonaws.event.ProgressEvent;
+import com.amazonaws.event.SyncProgressListener;
 import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
+import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
@@ -12,7 +15,6 @@ import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.util.amazon.S3Util;
-import org.apache.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -27,12 +29,12 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class S3ArtifactAccessor implements ArtifactAccessor {
 
-  private final static Logger LOG = Logger.getLogger(S3ArtifactAccessor.class);
+  private final static Logger LOG = Logger.getInstance(S3ArtifactAccessor.class.getName());
 
   @NotNull private final Map<String, String> myParams;
   @NotNull private final AgentExternalArtifactHelper myHelper;
 
-  private final AtomicReference<TransferManager> myCurrentTransfer = new AtomicReference<TransferManager>();
+  private final AtomicReference<Boolean> isInterrupted = new AtomicReference<Boolean>(false);
 
 
   public S3ArtifactAccessor(@NotNull Map<String, String> params,
@@ -55,7 +57,6 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
         @NotNull
         @Override
         public Collection<Download> run(@NotNull final TransferManager transferManager) throws Throwable {
-          setCurrentTransfer(transferManager);
           return CollectionsUtil.convertCollection(sourceToFiles.entrySet(), new Converter<Download, Map.Entry<String, File>>() {
             @Override
             public Download createFrom(@NotNull Map.Entry<String, File> entry) {
@@ -67,7 +68,24 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
                 throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
               }
               final Map<String, String> properties = externalArtifact.getProperties();
-              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
+              final Download download = transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
+              download.addProgressListener(new SyncProgressListener() {
+                @Override
+                public void progressChanged(ProgressEvent progressEvent) {
+                  if (isInterrupted.get()) {
+                    try {
+                      download.abort();
+                    } catch (Throwable t) {
+                      final AWSException awsException = new AWSException(t);
+                      if (StringUtil.isNotEmpty(awsException.getDetails())) {
+                        LOG.info(awsException.getDetails());
+                      }
+                      LOG.warnAndDebugDetails("Exception while interrupting artifacts download for build " + buildId, t);
+                    }
+                  }
+                }
+              });
+              return download;
             }
           });
         }
@@ -80,14 +98,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
         LOG.info(awsException.getDetails());
       }
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
-    } finally {
-      myCurrentTransfer.set(null);
     }
-  }
-
-  private void setCurrentTransfer(@NotNull TransferManager transferManager) throws IllegalStateException {
-    final TransferManager prev = myCurrentTransfer.getAndSet(transferManager);
-    if (prev != null) throw new IllegalStateException();
   }
 
   @NotNull
@@ -104,9 +115,6 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @Override
   public void interrupt() {
-    final TransferManager manager = myCurrentTransfer.getAndSet(null);
-    if (manager != null) {
-      manager.shutdownNow(true);
-    }
+    isInterrupted.set(true);
   }
 }
