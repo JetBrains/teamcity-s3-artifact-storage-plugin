@@ -19,6 +19,7 @@ import java.io.File;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Created by Nikita.Skvortsov
@@ -31,7 +32,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   @NotNull private final Map<String, String> myParams;
   @NotNull private final AgentExternalArtifactHelper myHelper;
 
-  private volatile boolean isInterrupted;
+  private final AtomicReference<TransferManager> myCurrentTransfer = new AtomicReference<TransferManager>();
 
 
   public S3ArtifactAccessor(@NotNull Map<String, String> params,
@@ -54,6 +55,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
         @NotNull
         @Override
         public Collection<Download> run(@NotNull final TransferManager transferManager) throws Throwable {
+          setCurrentTransfer(transferManager);
           return CollectionsUtil.convertCollection(sourceToFiles.entrySet(), new Converter<Download, Map.Entry<String, File>>() {
             @Override
             public Download createFrom(@NotNull Map.Entry<String, File> entry) {
@@ -78,7 +80,14 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
         LOG.info(awsException.getDetails());
       }
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
+    } finally {
+      myCurrentTransfer.set(null);
     }
+  }
+
+  private void setCurrentTransfer(@NotNull TransferManager transferManager) throws IllegalStateException {
+    final TransferManager prev = myCurrentTransfer.getAndSet(transferManager);
+    if (prev != null) throw new IllegalStateException();
   }
 
   @NotNull
@@ -95,6 +104,9 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @Override
   public void interrupt() {
-    isInterrupted = true;
+    final TransferManager manager = myCurrentTransfer.getAndSet(null);
+    if (manager != null) {
+      manager.shutdownNow(true);
+    }
   }
 }
