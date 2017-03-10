@@ -15,7 +15,7 @@
     <tr>
         <th><label for="storage.s3.bucket.name">S3 bucket name: <l:star/></label></th>
         <td><props:textProperty name="<%=S3Constants.S3_BUCKET_NAME%>" className="longField" maxlength="256"/>
-            <span class="smallNote">S3 bucket name</span>
+            <span class="smallNote">Existing S3 bucket to store artifacts</span>
             <span class="error" id="error_storage.s3.bucket.name"></span>
         </td>
     </tr>
