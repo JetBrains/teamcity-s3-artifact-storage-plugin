@@ -1,7 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
-import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.event.SyncProgressListener;
 import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.intellij.openapi.diagnostic.Logger;
@@ -34,7 +32,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   @NotNull private final Map<String, String> myParams;
   @NotNull private final AgentExternalArtifactHelper myHelper;
 
-  private final AtomicReference<Boolean> isInterrupted = new AtomicReference<Boolean>(false);
+  @NotNull private final AtomicReference<S3Util.TransferManagerInterruptHook> myInterruptHook = new AtomicReference<S3Util.TransferManagerInterruptHook>();
 
 
   public S3ArtifactAccessor(@NotNull Map<String, String> params,
@@ -53,7 +51,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
   public void downloadArtifacts(@NotNull final String sourceExternalId, final long buildId, @NotNull final Map<String, File> sourceToFiles) {
     try {
       final Map<String, ExternalArtifact> externalArtifacts = getExternalArtifacts(sourceExternalId, buildId);
-      S3Util.withTransferManager(myParams, new S3Util.WithTransferManager<Download, Throwable>() {
+      S3Util.withTransferManager(myParams, new S3Util.InterruptAwareWithTransferManager() {
         @NotNull
         @Override
         public Collection<Download> run(@NotNull final TransferManager transferManager) throws Throwable {
@@ -68,26 +66,14 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
                 throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
               }
               final Map<String, String> properties = externalArtifact.getProperties();
-              final Download download = transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
-              download.addProgressListener(new SyncProgressListener() {
-                @Override
-                public void progressChanged(ProgressEvent progressEvent) {
-                  if (isInterrupted.get()) {
-                    try {
-                      download.abort();
-                    } catch (Throwable t) {
-                      final AWSException awsException = new AWSException(t);
-                      if (StringUtil.isNotEmpty(awsException.getDetails())) {
-                        LOG.info(awsException.getDetails());
-                      }
-                      LOG.warnAndDebugDetails("Exception while interrupting artifacts download for build " + buildId, t);
-                    }
-                  }
-                }
-              });
-              return download;
+              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
             }
           });
+        }
+
+        @Override
+        public void setInterruptHook(@NotNull S3Util.TransferManagerInterruptHook transferManagerInterruptHook) {
+          myInterruptHook.set(transferManagerInterruptHook);
         }
       });
     } catch (ResolvingFailedException e) {
@@ -97,6 +83,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
         LOG.info(awsException.getDetails());
       }
+      LOG.debug("Failed to download artifacts for build " + buildId, awsException);
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
     }
   }
@@ -115,6 +102,20 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @Override
   public void interrupt() {
-    isInterrupted.set(true);
+    final S3Util.TransferManagerInterruptHook hook = myInterruptHook.get();
+    if (hook == null) {
+      LOG.warn("Failed to interrupt artifacts download: no interrupt hook initialized");
+      return;
+    }
+
+    try {
+      hook.interrupt();
+    } catch (Throwable t) {
+      final AWSException awsException = new AWSException(t);
+      if (StringUtil.isNotEmpty(awsException.getDetails())) {
+        LOG.info(awsException.getDetails());
+      }
+      LOG.warnAndDebugDetails("Exception while interrupting artifacts download", t);
+    }
   }
 }

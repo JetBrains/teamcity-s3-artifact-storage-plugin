@@ -79,7 +79,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     final String pathPrefix = getPathPrefixProperty(myTracker.getCurrentBuild());
 
     try {
-      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload, Throwable>() {
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
         @Override
         public Collection<Upload> run(@NotNull final TransferManager transferManager) throws Throwable {
