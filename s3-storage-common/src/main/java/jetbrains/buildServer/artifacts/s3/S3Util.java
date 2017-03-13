@@ -20,7 +20,7 @@ public class S3Util {
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
     final Map<String, String> invalids = new HashMap<String, String>();
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
-      invalids.put(S3_BUCKET_NAME, "S3 bucket name mustn't be empty");
+      invalids.put(S3_BUCKET_NAME, "S3 bucket name must not be empty");
     }
     invalids.putAll(AWSCommonParams.validate(params, acceptReferences));
     return invalids;
