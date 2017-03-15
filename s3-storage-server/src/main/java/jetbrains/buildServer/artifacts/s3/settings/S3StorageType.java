@@ -4,6 +4,7 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.storage.StorageType;
 import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -21,11 +22,14 @@ import java.util.Map;
  */
 public class S3StorageType extends StorageType {
 
-  private final String mySettingsJSP;
+  @NotNull private final String mySettingsJSP;
+  @NotNull private final ServerSettings myServerSettings;
 
   public S3StorageType(@NotNull StorageTypeRegistry registry,
-                       @NotNull PluginDescriptor descriptor) {
+                       @NotNull PluginDescriptor descriptor,
+                       @NotNull ServerSettings serverSettings) {
     mySettingsJSP = descriptor.getPluginResourcesPath("s3_storage_settings.jsp");
+    myServerSettings = serverSettings;
     registry.registerStorageType(this);
   }
 
@@ -57,7 +61,7 @@ public class S3StorageType extends StorageType {
   @Override
   public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
-    result.putAll(AWSCommonParams.DEFAULTS);
+    result.putAll(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
     return result;
   }
 
