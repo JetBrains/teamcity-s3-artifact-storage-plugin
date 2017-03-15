@@ -61,12 +61,16 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
-        prepareDestination(runningBuild);
+        if (isPublishingEnabled()) {
+          prepareDestination(runningBuild);
+        }
       }
 
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        publishArtifactsList(runningBuild);
+        if (isPublishingEnabled()) {
+          publishArtifactsList(runningBuild);
+        }
       }
     });
     myServerUrl = agentConfiguration.getServerUrl();
@@ -184,6 +188,10 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
     final Map<String, String> invalids = validateParameters(params, false);
     if (invalids.isEmpty()) return params;
     throw new ArtifactPublishingFailedException(joinStrings(invalids.values()), false, null);
+  }
+
+  private boolean isPublishingEnabled() {
+    return !super.getPublisherParameters().isEmpty();
   }
 
   private void prepareDestination(@NotNull final AgentRunningBuild build) {
