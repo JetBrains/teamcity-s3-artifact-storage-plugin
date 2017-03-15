@@ -76,7 +76,8 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
     final Map<String, String> params = getPublisherParameters();
     final String bucketName = getBucketName(params);
-    final String pathPrefix = getPathPrefixProperty(myTracker.getCurrentBuild());
+    final AgentRunningBuild currentBuild = myTracker.getCurrentBuild();
+    final String pathPrefix = getPathPrefixProperty(currentBuild);
 
     try {
       return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
@@ -101,8 +102,11 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
       }).size();
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
-      if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        LOG.warn(awsException.getDetails());
+
+      final String details = awsException.getDetails();
+      if (StringUtil.isNotEmpty(details)) {
+        LOG.warn(details);
+        currentBuild.getBuildLogger().error(details);
       }
       throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
     }
@@ -157,18 +161,20 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         }
       }));
     } catch (IOException e) {
-      final String err = ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage();
-      runningBuild.getBuildLogger().error(err);
-      LOG.error(err, e);
+      LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + " for build " + LogUtil.describe(runningBuild), e);
+      runningBuild.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
 
-      LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST, awsException);
-
-      if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        runningBuild.getBuildLogger().error(awsException.getDetails());
-      }
       runningBuild.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + awsException.getMessage());
+
+      final String details = awsException.getDetails();
+      if (StringUtil.isNotEmpty(details)) {
+        LOG.warn(details);
+        runningBuild.getBuildLogger().error(details);
+      }
+
+      LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(runningBuild), awsException);
     }
   }
 

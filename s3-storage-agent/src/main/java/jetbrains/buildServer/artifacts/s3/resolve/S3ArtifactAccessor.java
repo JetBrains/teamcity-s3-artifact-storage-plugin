@@ -81,9 +81,9 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        LOG.info(awsException.getDetails());
+        LOG.warn(awsException.getDetails());
       }
-      LOG.debug("Failed to download artifacts for build " + buildId, awsException);
+      LOG.warnAndDebugDetails("Failed to download artifacts for build " + buildId, awsException);
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
     }
   }
@@ -113,7 +113,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        LOG.info(awsException.getDetails());
+        LOG.warn(awsException.getDetails());
       }
       LOG.warnAndDebugDetails("Exception while interrupting artifacts download", t);
     }
