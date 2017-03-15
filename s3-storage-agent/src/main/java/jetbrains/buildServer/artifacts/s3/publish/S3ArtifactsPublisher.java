@@ -206,8 +206,12 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
           final AmazonS3Client s3Client = awsClients.createS3Client();
           final String pathPrefix = getPathPrefix(s3Client, build, bucketName);
           if (s3Client.doesBucketExist(bucketName)) {
-            s3Client.deleteObject(bucketName, pathPrefix);
+            if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
+              build.getBuildLogger().message("Target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " + bucketName + ", will be removed");
+              s3Client.deleteObject(bucketName, pathPrefix);
+            }
           } else {
+            build.getBuildLogger().message("Target S3 artifact bucket " + bucketName + " doesn't exist, will be created");
             s3Client.createBucket(bucketName);
           }
           build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
