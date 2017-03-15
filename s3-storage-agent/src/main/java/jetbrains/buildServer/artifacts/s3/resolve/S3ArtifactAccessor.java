@@ -66,7 +66,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
                 throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
               }
               final Map<String, String> properties = externalArtifact.getProperties();
-              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_KEY_ATTR), target);
+              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_PATH_PREFIX_ATTR) + externalArtifact.getPath(), target);
             }
           });
         }
@@ -93,7 +93,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
     final Map<String, ExternalArtifact> res = new HashMap<String, ExternalArtifact>();
     final Collection<ExternalArtifact> externalArtifacts = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
     for (ExternalArtifact externalArtifact : externalArtifacts) {
-      if (externalArtifact.getProperties().containsKey(S3Constants.S3_KEY_ATTR)) {
+      if (externalArtifact.getProperties().containsKey(S3Constants.S3_BUCKET_ATTR)) {
         res.put(externalArtifact.getPath(), externalArtifact);
       }
     }

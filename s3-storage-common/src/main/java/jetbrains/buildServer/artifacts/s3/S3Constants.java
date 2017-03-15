@@ -16,7 +16,7 @@ public class S3Constants {
 
   public static final String S3_STORAGE_TYPE = "S3_storage";
 
-  public static final String S3_KEY_ATTR = "S3_KEY";
+  public static final String S3_PATH_PREFIX_ATTR = "S3_PATH_PREFIX";
   public static final String S3_BUCKET_ATTR = "S3_BUCKET";
 
   public static final String S3_ACCESS_CONTROLLER_PATH = "/s3access.html";

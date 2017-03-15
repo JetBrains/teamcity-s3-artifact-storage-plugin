@@ -69,7 +69,6 @@ public class S3AccessController extends BaseController {
     try {
       return ((SecurityContextEx) mySecurityContext).runAs(authorityHolder, () -> {
         final Long buildId = Long.valueOf(httpServletRequest.getParameter("buildId"));
-        final String path = URLDecoder.decode(httpServletRequest.getParameter("path"), "UTF-8");
         final SBuild build = myBuildsManager.findBuildInstanceById(buildId);
         if (build == null) {
           httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -77,6 +76,7 @@ public class S3AccessController extends BaseController {
           return null;
         }
 
+        final String path = URLDecoder.decode(httpServletRequest.getParameter("path"), "UTF-8");
         if (StringUtil.isEmpty(path)) {
           httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
           httpServletResponse.getWriter().write("Path should not be empty");
@@ -84,7 +84,7 @@ public class S3AccessController extends BaseController {
         }
 
         return ServerExternalArtifactUtil.getExternalArtifacts(build).stream()
-            .filter(artifact -> artifact.getProperties().containsKey(S3Constants.S3_KEY_ATTR) && path.equals(artifact.getPath()))
+            .filter(artifact -> artifact.getProperties().containsKey(S3Constants.S3_BUCKET_ATTR) && path.equals(artifact.getPath()))
             .findFirst()
             .map(artifact -> getTemporaryUrl(artifact, mySettingsProvider.getStorageSettings(build.getBuildTypeExternalId())))
             .map(url -> new ModelAndView(new RedirectView(url)))
@@ -97,7 +97,7 @@ public class S3AccessController extends BaseController {
 
   private String getTemporaryUrl(@NotNull ExternalArtifact artifact,
                                  @NotNull Map<String, String> params) {
-    final String key = artifact.getProperties().get(S3Constants.S3_KEY_ATTR);
+    final String key = artifact.getProperties().get(S3Constants.S3_PATH_PREFIX_ATTR) + artifact.getPath();
     final String bucket = artifact.getProperties().get(S3Constants.S3_BUCKET_ATTR);
 
     try {
