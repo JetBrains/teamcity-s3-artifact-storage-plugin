@@ -3,8 +3,6 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
-  <bean class="jetbrains.buildServer.artifacts.s3.lists.S3ContentList"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.lists.S3PopupList"/>
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3AccessController"/>
