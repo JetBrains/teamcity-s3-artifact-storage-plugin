@@ -85,6 +85,8 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
       }
       LOG.warnAndDebugDetails("Failed to download artifacts for build " + buildId, awsException);
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
+    } finally {
+      myInterruptHook.set(null);
     }
   }
 
@@ -102,7 +104,7 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
 
   @Override
   public void interrupt() {
-    final S3Util.TransferManagerInterruptHook hook = myInterruptHook.get();
+    final S3Util.TransferManagerInterruptHook hook = myInterruptHook.getAndSet(null);
     if (hook == null) {
       LOG.warn("Failed to interrupt artifacts download: no interrupt hook initialized");
       return;
