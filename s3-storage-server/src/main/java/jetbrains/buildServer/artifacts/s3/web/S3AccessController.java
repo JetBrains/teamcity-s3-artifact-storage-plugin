@@ -5,8 +5,9 @@ import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.text.StringUtil;
-import jetbrains.buildServer.artifacts.ExternalArtifact;
+import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.util.ServerExternalArtifactUtil;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.log.Loggers;
@@ -41,11 +42,10 @@ public class S3AccessController extends BaseController {
 
   public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
 
-  @NotNull
-  private final StorageSettingsProvider mySettingsProvider;
-  @NotNull
-  private final BuildsManager myBuildsManager;
+  @NotNull private final StorageSettingsProvider mySettingsProvider;
+  @NotNull private final BuildsManager myBuildsManager;
   @NotNull private final SecurityContext mySecurityContext;
+
   private final Cache<String, String> myLinksCache = CacheBuilder.newBuilder()
                                                                  .expireAfterWrite(URL_LIFETIME_SEC, TimeUnit.SECONDS)
                                                                  .maximumSize(100)
@@ -71,7 +71,7 @@ public class S3AccessController extends BaseController {
         final Long buildId = Long.valueOf(httpServletRequest.getParameter("buildId"));
         final SBuild build = myBuildsManager.findBuildInstanceById(buildId);
         if (build == null) {
-          httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+          httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
           httpServletResponse.getWriter().write("Build " + buildId + " not found");
           return null;
         }
@@ -83,33 +83,39 @@ public class S3AccessController extends BaseController {
           return null;
         }
 
-        return ServerExternalArtifactUtil.getExternalArtifacts(build).stream()
-            .filter(artifact -> artifact.getProperties().containsKey(S3Constants.S3_BUCKET_ATTR) && path.equals(artifact.getPath()))
-            .findFirst()
-            .map(artifact -> getTemporaryUrl(artifact, mySettingsProvider.getStorageSettings(build.getBuildTypeExternalId())))
-            .map(url -> new ModelAndView(new RedirectView(url)))
-            .orElse(null);
+        final ExternalArtifactsInfo artifactsInfo = ServerExternalArtifactUtil.getExternalArtifactsInfo(build);
+        if (artifactsInfo == null || S3Util.getPathPrefix(artifactsInfo) == null) {
+          httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
+          httpServletResponse.getWriter().write("No S3 artifacts found for build " + buildId);
+          return null;
+        }
+
+        final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
+        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
+
+        return artifactsInfo.getExternalArtifactList()
+          .stream()
+          .filter(artifact -> path.equals(artifact.getPath()))
+          .findFirst()
+          .map(artifact -> getTemporaryUrl(pathPrefix + artifact.getPath(), params))
+          .map(url -> new ModelAndView(new RedirectView(url)))
+          .orElse(null);
       });
     } catch (Throwable t) {
       throw new Exception("Failed to process request", t);
     }
   }
 
-  private String getTemporaryUrl(@NotNull ExternalArtifact artifact,
-                                 @NotNull Map<String, String> params) {
-    final String key = artifact.getProperties().get(S3Constants.S3_PATH_PREFIX_ATTR) + artifact.getPath();
-    final String bucket = artifact.getProperties().get(S3Constants.S3_BUCKET_ATTR);
-
+  private String getTemporaryUrl(@NotNull String key, @NotNull Map<String, String> params) {
+    final String bucketName = S3Util.getBucketName(params);
     try {
-      return myLinksCache.get(getIdentity(params, key, bucket), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + URL_LIFETIME_SEC * 1000));
+      return myLinksCache.get(getIdentity(params, key, bucketName), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + URL_LIFETIME_SEC * 1000));
         return awsClients.createS3Client().generatePresignedUrl(request).toString();
       }));
     } catch (ExecutionException e) {
-      // TODO: this can happen e.g. if artifact storage settings were changed since the build
-      // we could store the settings for the build and use them here
       logDetails(e.getCause());
-      Loggers.AGENT.infoAndDebugDetails("Failed to create pre-signed URL for [" + key + "] in bucket [" + bucket + "]", e);
+      Loggers.AGENT.infoAndDebugDetails("Failed to create pre-signed URL for [" + key + "] in bucket [" + bucketName + "]", e);
     }
     return null;
   }

@@ -3,11 +3,12 @@ package jetbrains.buildServer.artifacts.s3.resolve;
 import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.agent.CurrentBuildTracker;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
-import jetbrains.buildServer.artifacts.ArtifactAccessor;
+import jetbrains.buildServer.agent.artifacts.ExternalArtifactAccessor;
 import jetbrains.buildServer.artifacts.ExternalArtifact;
+import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
 import jetbrains.buildServer.artifacts.ResolvingFailedException;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
@@ -17,40 +18,47 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+
+import static jetbrains.buildServer.artifacts.s3.S3Util.*;
 
 /**
  * Created by Nikita.Skvortsov
  * date: 26.01.2017.
  */
-public class S3ArtifactAccessor implements ArtifactAccessor {
+public class S3ArtifactAccessor extends ExternalArtifactAccessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactAccessor.class.getName());
 
   @NotNull private final Map<String, String> myParams;
-  @NotNull private final AgentExternalArtifactHelper myHelper;
+  @NotNull private final CurrentBuildTracker myCurrentBuildTracker;
 
   @NotNull private final AtomicReference<S3Util.TransferManagerInterruptHook> myInterruptHook = new AtomicReference<S3Util.TransferManagerInterruptHook>();
 
 
   public S3ArtifactAccessor(@NotNull Map<String, String> params,
+                            @NotNull CurrentBuildTracker currentBuildTracker,
                             @NotNull AgentExternalArtifactHelper helper) {
-    myParams = params;
-    myHelper = helper;
-  }
-
-  @NotNull
-  @Override
-  public Collection<String> getArtifactSourcePathList(@NotNull final String sourceExternalId, final long buildId) {
-    return getExternalArtifacts(sourceExternalId, buildId).keySet();
+    super(helper);
+    myParams = validateParameters(params);
+    myCurrentBuildTracker = currentBuildTracker;
   }
 
   @Override
   public void downloadArtifacts(@NotNull final String sourceExternalId, final long buildId, @NotNull final Map<String, File> sourceToFiles) {
     try {
-      final Map<String, ExternalArtifact> externalArtifacts = getExternalArtifacts(sourceExternalId, buildId);
+      final ExternalArtifactsInfo artifactsInfo = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
+      if (artifactsInfo == null) {
+        throw new ResolvingFailedException("Failed to download artifacts for build " + buildId + ": no S3 artifacts info available");
+      }
+
+      final String bucketName = getBucketName(myParams);
+      final String pathPrefix = getPathPrefix(artifactsInfo);
+      final Set<String> externalArtifacts = getExternalArtifactPaths(artifactsInfo);
+
       S3Util.withTransferManager(myParams, new S3Util.InterruptAwareWithTransferManager() {
         @NotNull
         @Override
@@ -59,14 +67,11 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
             @Override
             public Download createFrom(@NotNull Map.Entry<String, File> entry) {
               final String sourcePath = entry.getKey();
-              final File target = entry.getValue();
 
-              final ExternalArtifact externalArtifact = externalArtifacts.get(sourcePath);
-              if (externalArtifact == null || externalArtifact.getUrl() == null) {
-                throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]");
+              if (externalArtifacts.contains(sourcePath)) {
+                return transferManager.download(bucketName, pathPrefix + sourcePath, entry.getValue());
               }
-              final Map<String, String> properties = externalArtifact.getProperties();
-              return transferManager.download(properties.get(S3Constants.S3_BUCKET_ATTR), properties.get(S3Constants.S3_PATH_PREFIX_ATTR) + externalArtifact.getPath(), target);
+              throw new ResolvingFailedException("Failed to download [" + sourcePath + "] from [" + sourceExternalId + ":" + buildId + "]: no S3 artifact info found");
             }
           });
         }
@@ -82,24 +87,13 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
       final AWSException awsException = new AWSException(t);
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
         LOG.warn(awsException.getDetails());
+        myCurrentBuildTracker.getCurrentBuild().getBuildLogger().error(awsException.getDetails());
       }
       LOG.warnAndDebugDetails("Failed to download artifacts for build " + buildId, awsException);
       throw new ResolvingFailedException(awsException.getMessage(), awsException);
     } finally {
       myInterruptHook.set(null);
     }
-  }
-
-  @NotNull
-  private Map<String, ExternalArtifact> getExternalArtifacts(@NotNull final String sourceExternalId, final long buildId) {
-    final Map<String, ExternalArtifact> res = new HashMap<String, ExternalArtifact>();
-    final Collection<ExternalArtifact> externalArtifacts = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
-    for (ExternalArtifact externalArtifact : externalArtifacts) {
-      if (externalArtifact.getProperties().containsKey(S3Constants.S3_BUCKET_ATTR)) {
-        res.put(externalArtifact.getPath(), externalArtifact);
-      }
-    }
-    return res;
   }
 
   @Override
@@ -119,5 +113,14 @@ public class S3ArtifactAccessor implements ArtifactAccessor {
       }
       LOG.warnAndDebugDetails("Exception while interrupting artifacts download", t);
     }
+  }
+
+  @NotNull
+  private Set<String> getExternalArtifactPaths(@NotNull ExternalArtifactsInfo artifactsInfo) {
+    final Set<String> res = new HashSet<String>();
+    for (ExternalArtifact a : artifactsInfo.getExternalArtifactList()) {
+      res.add(a.getPath());
+    }
+    return res;
   }
 }

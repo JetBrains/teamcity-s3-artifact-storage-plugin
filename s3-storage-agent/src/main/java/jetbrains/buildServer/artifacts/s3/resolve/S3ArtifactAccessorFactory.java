@@ -1,10 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
+import jetbrains.buildServer.agent.CurrentBuildTracker;
 import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ArtifactAccessorFactoryExtension;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -16,15 +16,17 @@ import java.util.Map;
  */
 public class S3ArtifactAccessorFactory implements ArtifactAccessorFactoryExtension {
 
-  private final AgentExternalArtifactHelper myHelper;
+  @NotNull private final AgentExternalArtifactHelper myHelper;
+  @NotNull private final CurrentBuildTracker myCurrentBuildTracker;
 
-  public S3ArtifactAccessorFactory(@NonNls final AgentExternalArtifactHelper helper) {
+  public S3ArtifactAccessorFactory(@NotNull final AgentExternalArtifactHelper helper, @NotNull CurrentBuildTracker currentBuildTracker) {
     myHelper = helper;
+    myCurrentBuildTracker = currentBuildTracker;
   }
 
   @Nullable
   public ArtifactAccessor createArtifactAccessor(@NotNull final Map<String, String> params) {
-    return new S3ArtifactAccessor(params, myHelper);
+    return new S3ArtifactAccessor(params, myCurrentBuildTracker, myHelper);
   }
 
   @NotNull

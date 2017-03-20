@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3;
 
+import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
@@ -27,6 +28,13 @@ public class S3Util {
   }
 
   @NotNull
+  public static Map<String, String> validateParameters(@NotNull Map<String, String> params) throws IllegalArgumentException {
+    final Map<String, String> invalids = validateParameters(params, false);
+    if (invalids.isEmpty()) return params;
+    throw new IllegalArgumentException(joinStrings(invalids.values()));
+  }
+
+  @NotNull
   public static String joinStrings(@NotNull Collection<String> strings) {
     if (strings.isEmpty()) return StringUtil.EMPTY;
     final StringBuilder sb = new StringBuilder();
@@ -37,5 +45,10 @@ public class S3Util {
   @Nullable
   public static String getBucketName(@NotNull Map<String, String> params) {
     return params.get(S3Constants.S3_BUCKET_NAME);
+  }
+
+  @Nullable
+  public static String getPathPrefix(@NotNull ExternalArtifactsInfo artifactsInfo) {
+    return artifactsInfo.getCommonProperties().get(S3Constants.S3_PATH_PREFIX_ATTR);
   }
 }
