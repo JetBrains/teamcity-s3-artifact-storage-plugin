@@ -17,7 +17,7 @@ import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
-import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
@@ -42,7 +42,7 @@ public class S3AccessController extends BaseController {
 
   public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
 
-  @NotNull private final StorageSettingsProvider mySettingsProvider;
+  @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
   @NotNull private final BuildsManager myBuildsManager;
   @NotNull private final SecurityContext mySecurityContext;
 
@@ -52,7 +52,7 @@ public class S3AccessController extends BaseController {
                                                                  .build();
 
   public S3AccessController(@NotNull final WebControllerManager controllerManager,
-                            @NotNull final StorageSettingsProvider settingsProvider,
+                            @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
                             @NotNull final BuildsManager buildsManager,
                             @NotNull final SecurityContext securityContext) {
     mySettingsProvider = settingsProvider;

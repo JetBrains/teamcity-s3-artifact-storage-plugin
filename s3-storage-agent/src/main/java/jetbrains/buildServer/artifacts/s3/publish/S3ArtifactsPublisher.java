@@ -13,7 +13,7 @@ import jetbrains.buildServer.artifacts.ExternalArtifact;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
-import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -53,7 +53,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
 
   public S3ArtifactsPublisher(@NotNull final AgentExternalArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final StorageSettingsProvider settingsProvider,
+                              @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
                               @NotNull final CurrentBuildTracker tracker,
                               @NotNull final BuildAgentConfiguration agentConfiguration) {
     super(helper, settingsProvider);

@@ -13,7 +13,7 @@ import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
 import jetbrains.buildServer.serverSide.cleanup.CleanupProcessState;
 import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
-import jetbrains.buildServer.storage.StorageSettingsProvider;
+import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -31,9 +31,9 @@ import java.util.Map;
  */
 public class S3CleanupExtension implements CleanupExtension, PositionConstraintAware {
 
-  @NotNull private final StorageSettingsProvider mySettingsProvider;
+  @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
 
-  public S3CleanupExtension(@NotNull StorageSettingsProvider settingsProvider) {
+  public S3CleanupExtension(@NotNull ArtifactsStorageSettingsProvider settingsProvider) {
     mySettingsProvider = settingsProvider;
   }
 

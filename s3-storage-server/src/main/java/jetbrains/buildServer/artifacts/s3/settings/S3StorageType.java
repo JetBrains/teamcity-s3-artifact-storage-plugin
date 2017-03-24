@@ -5,8 +5,8 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.serverSide.ServerSettings;
-import jetbrains.buildServer.serverSide.storage.StorageType;
-import jetbrains.buildServer.serverSide.storage.StorageTypeRegistry;
+import jetbrains.buildServer.serverSide.storage.ArtifactsStorageType;
+import jetbrains.buildServer.serverSide.storage.ArtifactsStorageTypeRegistry;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
@@ -20,12 +20,12 @@ import java.util.Map;
  * Created by Nikita.Skvortsov
  * date: 24.02.2016.
  */
-public class S3StorageType extends StorageType {
+public class S3StorageType extends ArtifactsStorageType {
 
   @NotNull private final String mySettingsJSP;
   @NotNull private final ServerSettings myServerSettings;
 
-  public S3StorageType(@NotNull StorageTypeRegistry registry,
+  public S3StorageType(@NotNull ArtifactsStorageTypeRegistry registry,
                        @NotNull PluginDescriptor descriptor,
                        @NotNull ServerSettings serverSettings) {
     mySettingsJSP = descriptor.getPluginResourcesPath("s3_storage_settings.jsp");
