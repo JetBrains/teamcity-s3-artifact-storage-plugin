@@ -151,7 +151,7 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
               final Long size = objectSummary.getSize();
               final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + runningBuild.getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
 
-              artifacts.add(new ExternalArtifact(url, path, size, "artifact_url", url));
+              artifacts.add(new ExternalArtifact(url, path, size));
             }
             if (objectListing.isTruncated()) {
               objectListing = s3Client.listNextBatchOfObjects(objectListing);
