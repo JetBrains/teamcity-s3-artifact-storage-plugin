@@ -40,27 +40,31 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   @Override
   public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) throws Exception {
     for (SFinishedBuild build : buildCleanupContext.getBuilds()) {
+      try {
+        final ExternalArtifactsInfo artifactsInfo = ServerExternalArtifactUtil.getExternalArtifactsInfo(build);
+        if (artifactsInfo == null) return;
 
-      final ExternalArtifactsInfo artifactsInfo = ServerExternalArtifactUtil.getExternalArtifactsInfo(build);
-      if (artifactsInfo == null) return;
+        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
+        if (pathPrefix == null) return;
 
-      final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
-      if (pathPrefix == null) return;
+        final String patterns = getPatternsForBuild((BuildCleanupContextEx) buildCleanupContext, build);
+        final List<DeleteObjectsRequest.KeyVersion> toDelete = getObjectsToDelete(artifactsInfo, patterns, pathPrefix);
+        if (toDelete.isEmpty()) return;
 
-      final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
+        final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
 
-      final String patterns = getPatternsForBuild((BuildCleanupContextEx) buildCleanupContext, build);
-      final List<DeleteObjectsRequest.KeyVersion> toDelete = getObjectsToDelete(artifactsInfo, patterns, pathPrefix);
-      if (toDelete.isEmpty()) return;
+        final String bucketName = S3Util.getBucketName(params);
+        AWSCommonParams.withAWSClients(params, awsClients -> {
+          final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(toDelete);
+          final int size = awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
 
-      final String bucketName = S3Util.getBucketName(params);
-      AWSCommonParams.withAWSClients(params, awsClients -> {
-        final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(toDelete);
-        final int size = awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
-
-        Loggers.CLEANUP.info("Removed [" + size + "] s3 " + StringUtil.pluralize("object", size) + " from S3 bucket [" + bucketName + "]");
-        return null;
-      });
+          Loggers.CLEANUP.info("Removed [" + size + "] s3 " + StringUtil.pluralize("object", size) + " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]");
+          return null;
+        });
+      } catch (Throwable e) {
+        Loggers.CLEANUP.debug("Failed to remove s3 artifacts: " + e.getMessage(), e);
+        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), e.getMessage());
+      }
     }
   }
 
