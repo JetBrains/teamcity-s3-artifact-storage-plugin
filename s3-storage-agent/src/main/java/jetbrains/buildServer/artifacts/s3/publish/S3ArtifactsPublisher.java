@@ -7,10 +7,9 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
-import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
-import jetbrains.buildServer.agent.artifacts.ExternalArtifactsPublisher;
-import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
+import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
+import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
@@ -26,7 +25,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -39,7 +37,7 @@ import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
  * Created by Nikita.Skvortsov
  * date: 03.02.2016.
  */
-public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
+public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
 
@@ -48,14 +46,10 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
   @NotNull
   private final CurrentBuildTracker myTracker;
 
-  @NotNull
-  private final String myServerUrl;
-
-  public S3ArtifactsPublisher(@NotNull final AgentExternalArtifactHelper helper,
+  public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
-                              @NotNull final CurrentBuildTracker tracker,
-                              @NotNull final BuildAgentConfiguration agentConfiguration) {
+                              @NotNull final CurrentBuildTracker tracker) {
     super(helper, settingsProvider);
     myTracker = tracker;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
@@ -73,7 +67,6 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
         }
       }
     });
-    myServerUrl = agentConfiguration.getServerUrl();
   }
 
   @Override
@@ -133,12 +126,12 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
       final String bucketName = getBucketName(params);
       final String pathPrefix = getPathPrefixProperty(runningBuild);
 
-      publishExternalArtifactsInfo(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ExternalArtifact>, Throwable>() {
+      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactData>, Throwable>() {
         @NotNull
         @Override
-        public List<ExternalArtifact> run(@NotNull AWSClients awsClients) throws Throwable {
+        public List<ArtifactData> run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
-          final List<ExternalArtifact> artifacts = new ArrayList<ExternalArtifact>();
+          final List<ArtifactData> artifacts = new ArrayList<ArtifactData>();
 
           ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
@@ -149,9 +142,8 @@ public class S3ArtifactsPublisher extends ExternalArtifactsPublisher {
             for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
               final String path = objectSummary.getKey().substring(pathPrefix.length());
               final Long size = objectSummary.getSize();
-              final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + runningBuild.getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
-
-              artifacts.add(new ExternalArtifact(url, path, size, ExternalArtifact.TIMESTAMP_KEY, String.valueOf(objectSummary.getLastModified())));
+//              final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + runningBuild.getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
+              artifacts.add(ArtifactData.create(path, size));
             }
             if (objectListing.isTruncated()) {
               objectListing = s3Client.listNextBatchOfObjects(objectListing);

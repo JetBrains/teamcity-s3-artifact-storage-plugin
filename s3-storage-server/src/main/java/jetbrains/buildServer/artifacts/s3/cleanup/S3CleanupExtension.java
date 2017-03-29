@@ -1,13 +1,13 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
+import jetbrains.buildServer.artifacts.ArtifactData;
+import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.util.ServerExternalArtifactUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
+import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
@@ -32,8 +32,10 @@ import java.util.Map;
 public class S3CleanupExtension implements CleanupExtension, PositionConstraintAware {
 
   @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
+  @NotNull private final ServerArtifactHelper myHelper;
 
-  public S3CleanupExtension(@NotNull ArtifactsStorageSettingsProvider settingsProvider) {
+  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ArtifactsStorageSettingsProvider settingsProvider) {
+    myHelper = helper;
     mySettingsProvider = settingsProvider;
   }
 
@@ -41,7 +43,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) throws Exception {
     for (SFinishedBuild build : buildCleanupContext.getBuilds()) {
       try {
-        final ExternalArtifactsInfo artifactsInfo = ServerExternalArtifactUtil.getExternalArtifactsInfo(build);
+        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
         if (artifactsInfo == null) return;
 
         final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
@@ -69,8 +71,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   }
 
   @NotNull
-  private List<DeleteObjectsRequest.KeyVersion> getObjectsToDelete(@NotNull ExternalArtifactsInfo artifactsInfo, @NotNull String patterns, @NotNull String pathPrefix) throws IOException {
-    final List<String> keys = CollectionsUtil.convertCollection(artifactsInfo.getExternalArtifactList(), ExternalArtifact::getPath);
+  private List<DeleteObjectsRequest.KeyVersion> getObjectsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String patterns, @NotNull String pathPrefix) throws IOException {
+    final List<String> keys = CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
     return CollectionsUtil.convertCollection(new PathPatternFilter(patterns).filterPaths(keys), source -> new DeleteObjectsRequest.KeyVersion(pathPrefix + source));
   }
 

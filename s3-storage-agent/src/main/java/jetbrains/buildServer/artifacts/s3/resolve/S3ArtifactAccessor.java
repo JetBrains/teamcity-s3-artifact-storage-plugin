@@ -4,10 +4,10 @@ import com.amazonaws.services.s3.transfer.Download;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.agent.CurrentBuildTracker;
-import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
-import jetbrains.buildServer.agent.artifacts.ExternalArtifactAccessor;
-import jetbrains.buildServer.artifacts.ExternalArtifact;
-import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
+import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
+import jetbrains.buildServer.agent.artifacts.ArtifactAccessorBase;
+import jetbrains.buildServer.artifacts.ArtifactData;
+import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ResolvingFailedException;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
@@ -29,7 +29,7 @@ import static jetbrains.buildServer.artifacts.s3.S3Util.*;
  * Created by Nikita.Skvortsov
  * date: 26.01.2017.
  */
-public class S3ArtifactAccessor extends ExternalArtifactAccessor {
+public class S3ArtifactAccessor extends ArtifactAccessorBase {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactAccessor.class.getName());
 
@@ -41,7 +41,7 @@ public class S3ArtifactAccessor extends ExternalArtifactAccessor {
 
   public S3ArtifactAccessor(@NotNull Map<String, String> params,
                             @NotNull CurrentBuildTracker currentBuildTracker,
-                            @NotNull AgentExternalArtifactHelper helper) {
+                            @NotNull AgentArtifactHelper helper) {
     super(helper);
     myParams = validateParameters(params);
     myCurrentBuildTracker = currentBuildTracker;
@@ -50,7 +50,7 @@ public class S3ArtifactAccessor extends ExternalArtifactAccessor {
   @Override
   public void downloadArtifacts(@NotNull final String sourceExternalId, final long buildId, @NotNull final Map<String, File> sourceToFiles) {
     try {
-      final ExternalArtifactsInfo artifactsInfo = myHelper.getExternalArtifactsInfo(sourceExternalId, buildId);
+      final ArtifactListData artifactsInfo = myHelper.getArtifactList(sourceExternalId, buildId);
       if (artifactsInfo == null) {
         throw new ResolvingFailedException("Failed to download artifacts for build " + buildId + ": no S3 artifacts info available");
       }
@@ -116,9 +116,9 @@ public class S3ArtifactAccessor extends ExternalArtifactAccessor {
   }
 
   @NotNull
-  private Set<String> getExternalArtifactPaths(@NotNull ExternalArtifactsInfo artifactsInfo) {
+  private Set<String> getExternalArtifactPaths(@NotNull ArtifactListData artifactsInfo) {
     final Set<String> res = new HashSet<String>();
-    for (ExternalArtifact a : artifactsInfo.getExternalArtifactList()) {
+    for (ArtifactData a : artifactsInfo.getArtifactList()) {
       res.add(a.getPath());
     }
     return res;

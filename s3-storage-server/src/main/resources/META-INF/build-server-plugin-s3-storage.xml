@@ -5,5 +5,5 @@
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.web.S3AccessController"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
 </beans>

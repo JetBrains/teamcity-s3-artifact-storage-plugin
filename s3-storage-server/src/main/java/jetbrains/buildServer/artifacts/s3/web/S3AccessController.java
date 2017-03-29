@@ -5,16 +5,16 @@ import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.text.StringUtil;
-import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
+import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.util.ServerExternalArtifactUtil;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.BuildsManager;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SecurityContextEx;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
 import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
@@ -42,6 +42,7 @@ public class S3AccessController extends BaseController {
 
   public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
 
+  @NotNull private final ServerArtifactHelper myHelper;
   @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
   @NotNull private final BuildsManager myBuildsManager;
   @NotNull private final SecurityContext mySecurityContext;
@@ -52,9 +53,11 @@ public class S3AccessController extends BaseController {
                                                                  .build();
 
   public S3AccessController(@NotNull final WebControllerManager controllerManager,
+                            @NotNull final ServerArtifactHelper helper,
                             @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
                             @NotNull final BuildsManager buildsManager,
                             @NotNull final SecurityContext securityContext) {
+    myHelper = helper;
     mySettingsProvider = settingsProvider;
     myBuildsManager = buildsManager;
     mySecurityContext = securityContext;
@@ -83,7 +86,7 @@ public class S3AccessController extends BaseController {
           return null;
         }
 
-        final ExternalArtifactsInfo artifactsInfo = ServerExternalArtifactUtil.getExternalArtifactsInfo(build);
+        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
         if (artifactsInfo == null || S3Util.getPathPrefix(artifactsInfo) == null) {
           httpServletResponse.setStatus(HttpServletResponse.SC_NOT_FOUND);
           httpServletResponse.getWriter().write("No S3 artifacts found for build " + buildId);
@@ -93,7 +96,7 @@ public class S3AccessController extends BaseController {
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
         final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
 
-        return artifactsInfo.getExternalArtifactList()
+        return artifactsInfo.getArtifactList()
           .stream()
           .filter(artifact -> path.equals(artifact.getPath()))
           .findFirst()

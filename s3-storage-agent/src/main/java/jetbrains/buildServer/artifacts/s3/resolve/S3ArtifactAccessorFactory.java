@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.resolve;
 
 import jetbrains.buildServer.agent.CurrentBuildTracker;
-import jetbrains.buildServer.agent.artifacts.AgentExternalArtifactHelper;
+import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactAccessor;
 import jetbrains.buildServer.artifacts.ArtifactAccessorFactoryExtension;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -16,10 +16,10 @@ import java.util.Map;
  */
 public class S3ArtifactAccessorFactory implements ArtifactAccessorFactoryExtension {
 
-  @NotNull private final AgentExternalArtifactHelper myHelper;
+  @NotNull private final AgentArtifactHelper myHelper;
   @NotNull private final CurrentBuildTracker myCurrentBuildTracker;
 
-  public S3ArtifactAccessorFactory(@NotNull final AgentExternalArtifactHelper helper, @NotNull CurrentBuildTracker currentBuildTracker) {
+  public S3ArtifactAccessorFactory(@NotNull final AgentArtifactHelper helper, @NotNull CurrentBuildTracker currentBuildTracker) {
     myHelper = helper;
     myCurrentBuildTracker = currentBuildTracker;
   }

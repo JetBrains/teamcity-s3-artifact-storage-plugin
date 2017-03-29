@@ -15,8 +15,12 @@ public class TestS3ArtifactSerialization {
   public void testSerializeDeserialize() {
 
     Gson gson = new Gson();
-    final ExternalArtifact a = new ExternalArtifact("http://some.url", "my/relative/path with spaces", 100L, S3Constants.S3_PATH_PREFIX_ATTR, "fakeKey", S3Constants.S3_BUCKET_NAME, "bucket.name");
-    final ExternalArtifact b = gson.fromJson(gson.toJson(a), ExternalArtifact.class);
+    final ArtifactData a =
+      ArtifactData.create("my/relative/path with spaces", 100L)
+        .withProperty(ArtifactData.URL_KEY, "http://some.url")
+        .withProperty(S3Constants.S3_PATH_PREFIX_ATTR, "fakeKey")
+        .withProperty(S3Constants.S3_BUCKET_NAME, "bucket.name");
+    final ArtifactData b = gson.fromJson(gson.toJson(a), ArtifactData.class);
 
     assertThat(b).isEqualToComparingFieldByField(a);
   }

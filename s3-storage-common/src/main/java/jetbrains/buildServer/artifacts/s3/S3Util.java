@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import jetbrains.buildServer.artifacts.ExternalArtifactsInfo;
+import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
@@ -48,7 +48,12 @@ public class S3Util {
   }
 
   @Nullable
-  public static String getPathPrefix(@NotNull ExternalArtifactsInfo artifactsInfo) {
-    return artifactsInfo.getCommonProperties().get(S3Constants.S3_PATH_PREFIX_ATTR);
+  public static String getPathPrefix(@NotNull ArtifactListData artifactsInfo) {
+    return getPathPrefix(artifactsInfo.getCommonProperties());
+  }
+
+  @Nullable
+  public static String getPathPrefix(@NotNull Map<String, String> properties) {
+    return properties.get(S3Constants.S3_PATH_PREFIX_ATTR);
   }
 }
