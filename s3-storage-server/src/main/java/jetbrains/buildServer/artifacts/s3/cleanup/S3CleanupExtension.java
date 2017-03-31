@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -22,8 +23,10 @@ import jetbrains.buildServer.util.positioning.PositionConstraintAware;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Created by Nikita.Skvortsov
@@ -50,30 +53,52 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
         if (pathPrefix == null) return;
 
         final String patterns = getPatternsForBuild((BuildCleanupContextEx) buildCleanupContext, build);
-        final List<DeleteObjectsRequest.KeyVersion> toDelete = getObjectsToDelete(artifactsInfo, patterns, pathPrefix);
+        final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns, pathPrefix);
         if (toDelete.isEmpty()) return;
 
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
 
         final String bucketName = S3Util.getBucketName(params);
         AWSCommonParams.withAWSClients(params, awsClients -> {
-          final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(toDelete);
-          final int size = awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+          final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
+          int succeededNum;
+          try {
+            final DeleteObjectsRequest deleteObjectsRequest =
+              new DeleteObjectsRequest(bucketName)
+                .withKeys(toDelete.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
+            succeededNum = awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+          } catch (MultiObjectDeleteException e) {
+            succeededNum = e.getDeletedObjects().size();
 
-          Loggers.CLEANUP.info("Removed [" + size + "] s3 " + StringUtil.pluralize("object", size) + " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]");
+            final List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
+            errors.forEach(error -> {
+              final String key = error.getKey();
+              if (key.startsWith(pathPrefix)) {
+                Loggers.CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
+                toDelete.remove(key.substring(pathPrefix.length()));
+              }
+            });
+            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errors.size() + "] s3 " + StringUtil.pluralize("object", errors.size()) + suffix);
+          }
+
+          Loggers.CLEANUP.info("Removed [" + succeededNum + "] s3 " + StringUtil.pluralize("object", succeededNum) + suffix);
+
+          myHelper.removeFromArtifactList(build, toDelete);
+
           return null;
         });
+
       } catch (Throwable e) {
-        Loggers.CLEANUP.debug("Failed to remove s3 artifacts: " + e.getMessage(), e);
-        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), e.getMessage());
+        Loggers.CLEANUP.debug(e);
+        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove s3 artifacts: " + e.getMessage());
       }
     }
   }
 
   @NotNull
-  private List<DeleteObjectsRequest.KeyVersion> getObjectsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String patterns, @NotNull String pathPrefix) throws IOException {
+  private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String patterns, @NotNull String pathPrefix) throws IOException {
     final List<String> keys = CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
-    return CollectionsUtil.convertCollection(new PathPatternFilter(patterns).filterPaths(keys), source -> new DeleteObjectsRequest.KeyVersion(pathPrefix + source));
+    return new ArrayList<>(new PathPatternFilter(patterns).filterPaths(keys));
   }
 
   @Override
