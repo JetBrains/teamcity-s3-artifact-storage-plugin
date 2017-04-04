@@ -14,8 +14,6 @@ public class S3Constants {
 
   public static final String S3_PATH_PREFIX_ATTR = "s3_path_prefix";
 
-  public static final String S3_ACCESS_CONTROLLER_PATH = "/s3access.html";
-
   public static final String S3_URL_LIFETIME_SEC = "storage.s3.url.expiration.time.seconds";
   public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
 }

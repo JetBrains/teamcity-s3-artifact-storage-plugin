@@ -9,6 +9,7 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
+import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataImpl;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -126,12 +127,12 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
       final String bucketName = getBucketName(params);
       final String pathPrefix = getPathPrefixProperty(runningBuild);
 
-      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataImpl>, Throwable>() {
+      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactData>, Throwable>() {
         @NotNull
         @Override
-        public List<ArtifactDataImpl> run(@NotNull AWSClients awsClients) throws Throwable {
+        public List<ArtifactData> run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
-          final List<ArtifactDataImpl> artifacts = new ArrayList<ArtifactDataImpl>();
+          final List<ArtifactData> artifacts = new ArrayList<ArtifactData>();
 
           ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
@@ -151,7 +152,7 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
 
           return artifacts;
         }
-      }), CollectionsUtil.<String>asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
+      }), CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
     } catch (IOException e) {
       LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + " for build " + LogUtil.describe(runningBuild), e);
       runningBuild.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
