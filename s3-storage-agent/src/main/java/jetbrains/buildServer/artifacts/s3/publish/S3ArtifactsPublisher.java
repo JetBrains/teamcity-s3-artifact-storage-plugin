@@ -9,8 +9,7 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
-import jetbrains.buildServer.artifacts.ArtifactData;
-import jetbrains.buildServer.artifacts.ArtifactDataImpl;
+import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
@@ -127,12 +126,12 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
       final String bucketName = getBucketName(params);
       final String pathPrefix = getPathPrefixProperty(runningBuild);
 
-      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactData>, Throwable>() {
+      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataInstance>, Throwable>() {
         @NotNull
         @Override
-        public List<ArtifactData> run(@NotNull AWSClients awsClients) throws Throwable {
+        public List<ArtifactDataInstance> run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
-          final List<ArtifactData> artifacts = new ArrayList<ArtifactData>();
+          final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
 
           ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
@@ -143,7 +142,7 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
             for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
               final String path = objectSummary.getKey().substring(pathPrefix.length());
               final Long size = objectSummary.getSize();
-              artifacts.add(ArtifactDataImpl.create(path, size));
+              artifacts.add(ArtifactDataInstance.create(path, size));
             }
             if (objectListing.isTruncated()) {
               objectListing = s3Client.listNextBatchOfObjects(objectListing);
