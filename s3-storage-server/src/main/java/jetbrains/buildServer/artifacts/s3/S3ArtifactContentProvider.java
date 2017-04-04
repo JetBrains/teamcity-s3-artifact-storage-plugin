@@ -2,7 +2,8 @@ package jetbrains.buildServer.artifacts.s3;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.ArtifactData;
-import jetbrains.buildServer.serverSide.storage.ArtifactContentProvider;
+import jetbrains.buildServer.serverSide.artifacts.ArtifactContentProvider;
+import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -27,9 +28,10 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
   @NotNull
   @Override
-  public InputStream getContent(@NotNull ArtifactData artifact,
-                                @NotNull Map<String, String> commonProperties,
-                                @NotNull Map<String, String> storageSettings) throws IOException {
+  public InputStream getContent(@NotNull StoredBuildArtifactInfo artifactInfo) throws IOException {
+    final ArtifactData artifact = artifactInfo.getArtifactData();
+    final Map<String, String> storageSettings = artifactInfo.getStorageSettings();
+    final Map<String, String> commonProperties = artifactInfo.getCommonProperties();
     final Map<String, String> params;
     try {
       params = S3Util.validateParameters(storageSettings);

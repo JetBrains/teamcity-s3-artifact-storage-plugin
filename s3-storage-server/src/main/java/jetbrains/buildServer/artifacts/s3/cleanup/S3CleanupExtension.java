@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
+import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -14,7 +15,6 @@ import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
 import jetbrains.buildServer.serverSide.cleanup.CleanupProcessState;
 import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
-import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -34,10 +34,10 @@ import java.util.stream.Collectors;
  */
 public class S3CleanupExtension implements CleanupExtension, PositionConstraintAware {
 
-  @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
+  @NotNull private final ArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull private final ServerArtifactHelper myHelper;
 
-  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ArtifactsStorageSettingsProvider settingsProvider) {
+  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ArtifactStorageSettingsProvider settingsProvider) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
   }

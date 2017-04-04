@@ -16,11 +16,11 @@ public class TestS3ArtifactSerialization {
 
     Gson gson = new Gson();
     final ArtifactData a =
-      ArtifactData.create("my/relative/path with spaces", 100L)
-        .withProperty(ArtifactData.URL_KEY, "http://some.url")
+      ArtifactDataImpl.create("my/relative/path with spaces", 100L)
+        .withProperty(ArtifactDataImpl.URL_KEY, "http://some.url")
         .withProperty(S3Constants.S3_PATH_PREFIX_ATTR, "fakeKey")
         .withProperty(S3Constants.S3_BUCKET_NAME, "bucket.name");
-    final ArtifactData b = gson.fromJson(gson.toJson(a), ArtifactData.class);
+    final ArtifactData b = gson.fromJson(gson.toJson(a), ArtifactDataImpl.class);
 
     assertThat(b).isEqualToComparingFieldByField(a);
   }

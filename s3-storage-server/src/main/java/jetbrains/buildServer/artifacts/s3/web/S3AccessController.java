@@ -6,6 +6,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.artifacts.ArtifactListData;
+import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.controllers.BaseController;
@@ -17,7 +18,6 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.auth.AuthorityHolder;
 import jetbrains.buildServer.serverSide.auth.SecurityContext;
-import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
@@ -43,7 +43,7 @@ public class S3AccessController extends BaseController {
   public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
 
   @NotNull private final ServerArtifactHelper myHelper;
-  @NotNull private final ArtifactsStorageSettingsProvider mySettingsProvider;
+  @NotNull private final ArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull private final BuildsManager myBuildsManager;
   @NotNull private final SecurityContext mySecurityContext;
 
@@ -54,7 +54,7 @@ public class S3AccessController extends BaseController {
 
   public S3AccessController(@NotNull final WebControllerManager controllerManager,
                             @NotNull final ServerArtifactHelper helper,
-                            @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
+                            @NotNull final ArtifactStorageSettingsProvider settingsProvider,
                             @NotNull final BuildsManager buildsManager,
                             @NotNull final SecurityContext securityContext) {
     myHelper = helper;
