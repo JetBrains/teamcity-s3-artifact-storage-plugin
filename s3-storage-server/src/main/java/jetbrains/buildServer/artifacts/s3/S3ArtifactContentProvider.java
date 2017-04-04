@@ -1,8 +1,8 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.artifacts.ArtifactData;
-import jetbrains.buildServer.serverSide.storage.ArtifactContentProvider;
+import jetbrains.buildServer.serverSide.artifacts.ArtifactContentProvider;
+import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -27,18 +27,16 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
   @NotNull
   @Override
-  public InputStream getContent(@NotNull ArtifactData artifact,
-                                @NotNull Map<String, String> commonProperties,
-                                @NotNull Map<String, String> storageSettings) throws IOException {
+  public InputStream getContent(@NotNull StoredBuildArtifactInfo storedBuildArtifactInfo) throws IOException {
     final Map<String, String> params;
     try {
-      params = S3Util.validateParameters(storageSettings);
+      params = S3Util.validateParameters(storedBuildArtifactInfo.getStorageSettings());
     } catch (IllegalArgumentException e) {
-      throw new IOException("Failed to get artifact " + artifact + " content from S3: " + e.getMessage(), e);
+      throw new IOException("Failed to get artifact " + storedBuildArtifactInfo.getArtifactData() + " content from S3: " + e.getMessage(), e);
     }
 
-    final String bucketName = S3Util.getBucketName(storageSettings);
-    final String key = S3Util.getPathPrefix(commonProperties) + artifact.getPath();
+    final String bucketName = S3Util.getBucketName(params);
+    final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + storedBuildArtifactInfo.getArtifactData().getPath();
 
     try {
       return AWSCommonParams.withAWSClients(params, awsClients -> awsClients.createS3Client().getObject(bucketName, key).getObjectContent());
@@ -50,7 +48,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
         LOG.warn(details);
       }
 
-      throw new IOException("Failed to get artifact " + artifact + " content from S3 bucket " + bucketName + ": " + awsException.getMessage(), awsException);
+      throw new IOException("Failed to get artifact " + storedBuildArtifactInfo.getArtifactData() + " content from S3 bucket " + bucketName + ": " + awsException.getMessage(), awsException);
     }
   }
 }

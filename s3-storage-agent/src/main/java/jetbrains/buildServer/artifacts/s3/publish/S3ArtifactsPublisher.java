@@ -9,10 +9,10 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
-import jetbrains.buildServer.artifacts.ArtifactData;
+import jetbrains.buildServer.artifacts.ArtifactDataImpl;
+import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
-import jetbrains.buildServer.storage.ArtifactsStorageSettingsProvider;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -48,7 +48,7 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final ArtifactsStorageSettingsProvider settingsProvider,
+                              @NotNull final ArtifactStorageSettingsProvider settingsProvider,
                               @NotNull final CurrentBuildTracker tracker) {
     super(helper, settingsProvider);
     myTracker = tracker;
@@ -126,12 +126,12 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
       final String bucketName = getBucketName(params);
       final String pathPrefix = getPathPrefixProperty(runningBuild);
 
-      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactData>, Throwable>() {
+      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataImpl>, Throwable>() {
         @NotNull
         @Override
-        public List<ArtifactData> run(@NotNull AWSClients awsClients) throws Throwable {
+        public List<ArtifactDataImpl> run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
-          final List<ArtifactData> artifacts = new ArrayList<ArtifactData>();
+          final List<ArtifactDataImpl> artifacts = new ArrayList<ArtifactDataImpl>();
 
           ObjectListing objectListing = s3Client.listObjects(
             new ListObjectsRequest()
@@ -142,8 +142,7 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
             for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
               final String path = objectSummary.getKey().substring(pathPrefix.length());
               final Long size = objectSummary.getSize();
-//              final String url = myServerUrl + S3Constants.S3_ACCESS_CONTROLLER_PATH + "?buildId=" + runningBuild.getBuildId() + "&path=" + URLEncoder.encode(path, "UTF-8");
-              artifacts.add(ArtifactData.create(path, size));
+              artifacts.add(ArtifactDataImpl.create(path, size));
             }
             if (objectListing.isTruncated()) {
               objectListing = s3Client.listNextBatchOfObjects(objectListing);
