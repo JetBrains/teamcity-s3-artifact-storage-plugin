@@ -15,6 +15,7 @@ import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
+import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
 
 import javax.servlet.http.HttpServletRequest;
@@ -56,6 +57,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
     final Map<String, String> params = S3Util.validateParameters(storedBuildArtifactInfo.getStorageSettings());
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
+    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + URL_LIFETIME_SEC);
     httpServletResponse.sendRedirect(getTemporaryUrl(pathPrefix + artifactData.getPath(),params));
   }
 
