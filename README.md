@@ -10,16 +10,16 @@ The plugin is compatible with [TeamCity](https://www.jetbrains.com/teamcity/down
 
 When installed and configured, the plugin:
 * allows uploading artifacts to Amazon S3
-* downloading and removing artifacts from Amazon S3
+* allows downloading and removing artifacts from Amazon S3
 * handles resolution of artifact dependencies
 * handles clean-up of artifacts 
 * displays artifacts located in Amazon S3 in the TeamCity web UI.
 
 # Implementing 
- This project contains 3 modules: '<artifactId>-server', '<artifactId>-agent' and '<artifactId>-common'. They will contain code for server and agent parts of your plugin and a common part, available for both (agent and server). When implementing components for server and agent parts, do not forget to update spring context files under 'main/resources/META-INF'. Otherwise your compoment may be not loaded. See TeamCity documentation for details on plugin development.
+ This project contains 3 modules: '\<artifactId>-server, '\<artifactId>>-agent', and '\<artifactId>-common'. They will contain code for server and agent parts of your plugin and a common part, available for both (agent and server). When implementing components for server and agent parts, do not forget to update spring context files under 'main/resources/META-INF'. Otherwise your compoment may be not loaded. See TeamCity documentation for details on plugin development.
 
 # Building 
- Issue 'mvn package' command from the root project to build your plugin. Resulting package <artifactId>.zip will be placed in 'target' directory. 
+ Issue the `mvn package` command from the root project to build your plugin. The resulting \<artifactId>.zip package will be placed in the 'target' directory. 
  
 # Installing
 
