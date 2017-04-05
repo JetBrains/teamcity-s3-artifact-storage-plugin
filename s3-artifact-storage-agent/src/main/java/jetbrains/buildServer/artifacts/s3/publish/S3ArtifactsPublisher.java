@@ -10,7 +10,6 @@ import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
-import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -48,9 +47,8 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final ArtifactStorageSettingsProvider settingsProvider,
                               @NotNull final CurrentBuildTracker tracker) {
-    super(helper, settingsProvider);
+    super(helper, tracker);
     myTracker = tracker;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override

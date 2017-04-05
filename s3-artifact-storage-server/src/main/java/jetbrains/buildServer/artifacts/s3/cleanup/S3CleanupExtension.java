@@ -4,7 +4,7 @@ import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
-import jetbrains.buildServer.artifacts.ArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -34,10 +34,10 @@ import java.util.stream.Collectors;
  */
 public class S3CleanupExtension implements CleanupExtension, PositionConstraintAware {
 
-  @NotNull private final ArtifactStorageSettingsProvider mySettingsProvider;
+  @NotNull private final ServerArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull private final ServerArtifactHelper myHelper;
 
-  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ArtifactStorageSettingsProvider settingsProvider) {
+  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ServerArtifactStorageSettingsProvider settingsProvider) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
   }
@@ -56,7 +56,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
         final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns, pathPrefix);
         if (toDelete.isEmpty()) return;
 
-        final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(String.valueOf(build.getBuildId())));
+        final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
 
         final String bucketName = S3Util.getBucketName(params);
         AWSCommonParams.withAWSClients(params, awsClients -> {
