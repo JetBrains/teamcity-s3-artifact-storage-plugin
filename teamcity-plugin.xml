@@ -5,7 +5,7 @@
     <display-name>AWS S3 Artifact Storage</display-name>
     <version>@Version@</version>
     <description>Allows to store build artifacts in an AWS S3 bucket</description>
-    <download-url>https://github.com/JetBrains/teamcity-s3-storage-plugin</download-url>
+    <download-url>https://github.com/JetBrains/teamcity-s3-artifact-storage-plugin</download-url>
     <vendor>
       <name>@VendorName@</name>
       <url>@VendorURL@</url>

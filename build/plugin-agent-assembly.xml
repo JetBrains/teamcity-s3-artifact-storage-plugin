@@ -7,7 +7,7 @@
     </formats>
     <files>
         <file>
-            <source>../s3-storage-agent/teamcity-plugin.xml</source>
+            <source>../s3-artifact-storage-agent/teamcity-plugin.xml</source>
             <outputDirectory>/</outputDirectory>
         </file>
     </files>
@@ -15,8 +15,8 @@
         <moduleSet>
             <useAllReactorProjects>true</useAllReactorProjects>
             <includes>
-                <include>jetbrains.buildServer.artifacts:s3-storage-agent</include>
-                <include>jetbrains.buildServer.artifacts:s3-storage-common</include>
+                <include>jetbrains.buildServer.artifacts:s3-artifact-storage-agent</include>
+                <include>jetbrains.buildServer.artifacts:s3-artifact-storage-common</include>
             </includes>
             <binaries>
                 <outputDirectory>lib</outputDirectory>

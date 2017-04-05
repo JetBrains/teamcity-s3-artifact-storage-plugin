@@ -2,7 +2,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>s3-storage</artifactId>
+    <artifactId>s3-artifact-storage</artifactId>
     <groupId>jetbrains.buildServer.artifacts</groupId>
     <version>1.0-SNAPSHOT</version>
   </parent>
@@ -10,24 +10,24 @@
   <packaging>pom</packaging>
   <properties>
       <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
-      <teamcity.s3-storage.plugin.version>snapshot-${maven.build.timestamp}</teamcity.s3-storage.plugin.version>
-      <teamcity.s3-storage.plugin.vendorName>Plugin vendor name</teamcity.s3-storage.plugin.vendorName>
-      <teamcity.s3-storage.plugin.vendorUrl>Plugin vendor URL</teamcity.s3-storage.plugin.vendorUrl>
+      <teamcity.s3-artifact-storage.plugin.version>snapshot-${maven.build.timestamp}</teamcity.s3-artifact-storage.plugin.version>
+      <teamcity.s3-artifact-storage.plugin.vendorName>JetBrains, s.r.o.</teamcity.s3-artifact-storage.plugin.vendorName>
+      <teamcity.s3-artifact-storage.plugin.vendorUrl>https://www.jetbrains.com</teamcity.s3-artifact-storage.plugin.vendorUrl>
   </properties>
   <dependencies>
       <dependency>
            <groupId>jetbrains.buildServer.artifacts</groupId>
-           <artifactId>s3-storage-agent</artifactId>
+           <artifactId>s3-artifact-storage-agent</artifactId>
            <version>1.0-SNAPSHOT</version>
       </dependency>
       <dependency>
            <groupId>jetbrains.buildServer.artifacts</groupId>
-           <artifactId>s3-storage-common</artifactId>
+           <artifactId>s3-artifact-storage-common</artifactId>
            <version>1.0-SNAPSHOT</version>
       </dependency>
       <dependency>
            <groupId>jetbrains.buildServer.artifacts</groupId>
-           <artifactId>s3-storage-server</artifactId>
+           <artifactId>s3-artifact-storage-server</artifactId>
            <version>1.0-SNAPSHOT</version>
       </dependency>
   </dependencies>
@@ -51,15 +51,15 @@
                 <replacements>
                     <replacement>
                         <token>@Version@</token>
-                        <value>${teamcity.s3-storage.plugin.version}</value>
+                        <value>${teamcity.s3-artifact-storage.plugin.version}</value>
                     </replacement>
                     <replacement>
                         <token>@VendorName@</token>
-                        <value>${teamcity.s3-storage.plugin.vendorName}</value>
+                        <value>${teamcity.s3-artifact-storage.plugin.vendorName}</value>
                     </replacement>
                     <replacement>
                         <token>@VendorURL@</token>
-                        <value>${teamcity.s3-storage.plugin.vendorUrl}</value>
+                        <value>${teamcity.s3-artifact-storage.plugin.vendorUrl}</value>
                     </replacement>
                 </replacements>                        
             </configuration>
@@ -75,7 +75,7 @@
                   <goal>single</goal>
                 </goals>
                 <configuration>
-                  <finalName>s3-storage-agent</finalName>
+                  <finalName>s3-artifact-storage-agent</finalName>
                   <appendAssemblyId>false</appendAssemblyId>
                   <descriptors>
                     <descriptor>plugin-agent-assembly.xml</descriptor>
@@ -89,7 +89,7 @@
                   <goal>single</goal>
                 </goals>
                 <configuration>
-                  <finalName>s3-storage</finalName>
+                  <finalName>s3-artifact-storage</finalName>
                   <outputDirectory>${project.parent.build.directory}</outputDirectory>
                   <appendAssemblyId>false</appendAssemblyId>
                   <descriptors>

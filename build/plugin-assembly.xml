@@ -11,7 +11,7 @@
          <outputDirectory>/</outputDirectory>
      </file> 
      <file>
-         <source>target/s3-storage-agent.zip</source>
+         <source>target/s3-artifact-storage-agent.zip</source>
          <outputDirectory>agent</outputDirectory>
      </file> 
   </files>
@@ -19,8 +19,8 @@
     <moduleSet>
        <useAllReactorProjects>true</useAllReactorProjects>
        <includes>
-           <include>jetbrains.buildServer.artifacts:s3-storage-server</include>
-           <include>jetbrains.buildServer.artifacts:s3-storage-common</include>
+           <include>jetbrains.buildServer.artifacts:s3-artifact-storage-server</include>
+           <include>jetbrains.buildServer.artifacts:s3-artifact-storage-common</include>
        </includes> 
        <binaries>
            <outputDirectory>server</outputDirectory>

@@ -57,9 +57,9 @@
       </pluginManagement>
   </build>
   <modules>
-    <module>s3-storage-server</module>
-    <module>s3-storage-agent</module>
-    <module>s3-storage-common</module>
+    <module>s3-artifact-storage-server</module>
+    <module>s3-artifact-storage-agent</module>
+    <module>s3-artifact-storage-common</module>
     <module>build</module>
   </modules>
 </project>
