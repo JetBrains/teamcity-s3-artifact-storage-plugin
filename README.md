@@ -10,7 +10,7 @@ The plugin is compatible with [TeamCity](https://www.jetbrains.com/teamcity/down
 
 When installed and configured, the plugin:
 * allows uploading artifacts to Amazon S3
-* downloading and removing artifacts from Amazon S3
+* allows downloading and removing artifacts from Amazon S3
 * handles resolution of artifact dependencies
 * handles clean-up of artifacts 
 * displays artifacts located in Amazon S3 in the TeamCity web UI.
