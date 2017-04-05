@@ -35,7 +35,7 @@ The tab lists the internal TeamCity artifacts storage is displayed by default an
 
 To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 - select S3 Storage as the storage type
-- provide an optional name for your storrage
+- provide an optional name for your storage
 - select an AWS region
 - provide your AWS Security Credentials
 - specify an existing S3 bucker to store artifacts
