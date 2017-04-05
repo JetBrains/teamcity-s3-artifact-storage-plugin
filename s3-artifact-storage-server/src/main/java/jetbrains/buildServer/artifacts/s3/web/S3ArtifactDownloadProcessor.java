@@ -9,7 +9,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.serverSide.SBuild;
+import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -47,10 +47,10 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   }
 
   @Override
-  public void processDownload(@NotNull StoredBuildArtifactInfo storedBuildArtifactInfo,
-                              @NotNull SBuild sBuild,
-                              @NotNull HttpServletRequest httpServletRequest,
-                              @NotNull HttpServletResponse httpServletResponse) throws IOException {
+  public boolean processDownload(@NotNull StoredBuildArtifactInfo storedBuildArtifactInfo,
+                                 @NotNull BuildPromotion buildPromotion,
+                                 @NotNull HttpServletRequest httpServletRequest,
+                                 @NotNull HttpServletResponse httpServletResponse) throws IOException {
     final ArtifactData artifactData = storedBuildArtifactInfo.getArtifactData();
     if (artifactData == null) throw new IOException("Can not process artifact download request for a folder");
 
@@ -59,6 +59,8 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + URL_LIFETIME_SEC);
     httpServletResponse.sendRedirect(getTemporaryUrl(pathPrefix + artifactData.getPath(),params));
+
+    return true;
   }
 
   @NotNull
