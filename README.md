@@ -1,5 +1,4 @@
-
- # TeamCity S3 Storage Plugin
+# TeamCity S3 Storage Plugin
 
 TeamCity S3 Storage Plugin is an impelementaion of external storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
 
@@ -24,7 +23,7 @@ When installed and configured, the plugin:
  
 # Installing
 
-To install the plugin, put the plugin zip archive into 'plugins' directory under [TeamCity data directory] (https://confluence.jetbrains.com/display/TCDL/TeamCity+Data+Directory). 
+To install the plugin, put the plugin zip archive into 'plugins' directory under [TeamCity data directory](https://confluence.jetbrains.com/display/TCDL/TeamCity+Data+Directory). 
 If you only changed the agent-side code of your plugin, the upgrade will be perfomed 'on the fly' (agents will upgrade when idle). 
 If the common or server-side code has changed, restart the server.
 
@@ -34,12 +33,12 @@ The plugin adds the Artifacts Storage tab to the Project Settings page in the Te
 The tab lists the internal TeamCity artifacts storage is displayed by default and is marked as active.
 
 To configure Amazon S3 storage for TeamCity artifacts, perform the following:
-- select S3 Storage as the storage type
-- provide an optional name for your storage
-- select an AWS region
-- provide your AWS Security Credentials
-- specify an existing S3 bucker to store artifacts
-- save your settings.
-- The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
+1. Select S3 Storage as the storage type.
+2. Provide an optional name for your storage.
+3. Select an AWS region.
+4. Provide your AWS Security Credentials.
+5. Specify an existing S3 bucker to store artifacts.
+6. Save your settings.
+7. The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
 
-Now the artifacts of this project, its subprojects and build configurations will be stored in the configured storage.
+Now the artifacts of this project, its subprojects, and build configurations will be stored in the configured storage.
