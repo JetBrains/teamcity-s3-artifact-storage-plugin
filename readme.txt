@@ -1,7 +1,7 @@
 
- # TeamCity S3 Storage Plugin
+ # TeamCity AWS S3 Artifact Storage Plugin
 
-TeamCity S3 Storage Plugin is an impelementaion of external storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
+TeamCity AWS S3 Artifact Storage Plugin is an impelementaion of external storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
 
 # Compatibility
 
@@ -38,8 +38,9 @@ To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 - provide an optional name for your storage
 - select an AWS region
 - provide your AWS Security Credentials
-- specify an existing S3 bucker to store artifacts
-- save your settings.
-- The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
+- specify an existing S3 bucket to store artifacts
+- save your settings
+
+The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
 
 Now the artifacts of this project, its subprojects and build configurations will be stored in the configured storage.
