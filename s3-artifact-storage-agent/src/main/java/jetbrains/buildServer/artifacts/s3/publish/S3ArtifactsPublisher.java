@@ -8,7 +8,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
-import jetbrains.buildServer.agent.artifacts.ArtifactsPublisherBase;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
@@ -32,11 +31,7 @@ import java.util.Map;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
 
-/**
- * Created by Nikita.Skvortsov
- * date: 03.02.2016.
- */
-public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
+public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
 
@@ -44,12 +39,13 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
 
   @NotNull
   private final CurrentBuildTracker myTracker;
+  private final AgentArtifactHelper myHelper;
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final CurrentBuildTracker tracker) {
-    super(helper, tracker);
     myTracker = tracker;
+    myHelper = helper;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
@@ -124,7 +120,7 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
       final String bucketName = getBucketName(params);
       final String pathPrefix = getPathPrefixProperty(runningBuild);
 
-      publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataInstance>, Throwable>() {
+      myHelper.publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataInstance>, Throwable>() {
         @NotNull
         @Override
         public List<ArtifactDataInstance> run(@NotNull AWSClients awsClients) throws Throwable {
@@ -168,13 +164,12 @@ public class S3ArtifactsPublisher extends ArtifactsPublisherBase {
     }
   }
 
-  @Override
-  protected Map<String, String> getPublisherParameters() {
-    return S3Util.validateParameters(super.getPublisherParameters());
+  private Map<String, String> getPublisherParameters() {
+    return S3Util.validateParameters(myTracker.getCurrentBuild().getArtifactStorageSettings());
   }
 
   private boolean isPublishingEnabled() {
-    return !super.getPublisherParameters().isEmpty();
+    return !getPublisherParameters().isEmpty();
   }
 
   private void prepareDestination(@NotNull final AgentRunningBuild build) {
