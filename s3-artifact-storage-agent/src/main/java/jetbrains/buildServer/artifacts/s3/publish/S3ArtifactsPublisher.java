@@ -220,6 +220,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @NotNull
   private String getPathPrefix(@NotNull AgentRunningBuild build) {
-    return build.getSharedParametersResolver().resolve("%teamcity.project.id%").getResult() + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId() + "/";
+    return build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM) + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId() + "/";
   }
 }
