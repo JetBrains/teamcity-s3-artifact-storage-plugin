@@ -15,9 +15,6 @@ When installed and configured, the plugin:
 * handles clean-up of artifacts 
 * displays artifacts located in Amazon S3 in the TeamCity web UI.
 
-# Implementing 
- This project contains 3 modules: '\<artifactId>-server, '\<artifactId>>-agent', and '\<artifactId>-common'. They will contain code for server and agent parts of your plugin and a common part, available for both (agent and server). When implementing components for server and agent parts, do not forget to update spring context files under 'main/resources/META-INF'. Otherwise your compoment may be not loaded. See TeamCity documentation for details on plugin development.
-
 # Building 
  Issue the `mvn package` command from the root project to build your plugin. The resulting \<artifactId>.zip package will be placed in the 'target' directory. 
  
