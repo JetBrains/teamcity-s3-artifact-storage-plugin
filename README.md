@@ -17,7 +17,11 @@ When installed and configured, the plugin:
 
 # Building 
  Issue the `mvn package` command from the root project to build your plugin. The resulting \<artifactId>.zip package will be placed in the 'target' directory. 
- 
+
+# Download
+
+<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&tag=deploy&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk),tag:deploy/statusIcon.svg" alt=""/></a>
+
 # Installing
 
 To install the plugin, put the plugin zip archive into 'plugins' directory under [TeamCity data directory](https://confluence.jetbrains.com/display/TCDL/TeamCity+Data+Directory). 
