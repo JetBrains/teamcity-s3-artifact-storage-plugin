@@ -27,9 +27,7 @@ When installed and configured, the plugin:
 
 # Installing
 
-To install the plugin, put the plugin zip archive into 'plugins' directory under [TeamCity data directory](https://confluence.jetbrains.com/display/TCDL/TeamCity+Data+Directory). 
-If you only changed the agent-side code of your plugin, the upgrade will be perfomed 'on the fly' (agents will upgrade when idle). 
-If the common or server-side code has changed, restart the server.
+See [instructions](https://confluence.jetbrains.com/display/TCD10/Installing+Additional+Plugins) in TeamCity documentation.
 
 # Configuring 
 
