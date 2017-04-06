@@ -20,7 +20,10 @@ When installed and configured, the plugin:
 
 # Download
 
-<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&tag=deploy&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk),tag:deploy/statusIcon.svg" alt=""/></a>
+| Status | Download | Compatibility |
+
+|<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&tag=deploy&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk),tag:deploy/statusIcon.svg" alt=""/></a>|[Download](https://teamcity.jetbrains.com/guestAuth/app/rest/builds/buildType:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk,tags:deploy/artifacts/content/s3-artifact-storage.zip)| 2017.1 |
+
 
 # Installing
 
