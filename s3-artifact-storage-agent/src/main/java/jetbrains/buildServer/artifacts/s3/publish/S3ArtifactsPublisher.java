@@ -182,7 +182,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         @Override
         public Void run(@NotNull AWSClients awsClients) throws Throwable {
           final AmazonS3Client s3Client = awsClients.createS3Client();
-          final String pathPrefix = getPathPrefix(s3Client, build, bucketName);
+          final String pathPrefix = getPathPrefix(build);
           if (s3Client.doesBucketExist(bucketName)) {
             if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
               build.getBuildLogger().message("Target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " + bucketName + ", will be removed");
@@ -219,11 +219,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   @NotNull
-  private String getPathPrefix(@NotNull AmazonS3Client s3Client, @NotNull AgentRunningBuild build, @NotNull String bucketName) {
-    String prefix = build.getSharedParametersResolver().resolve("%teamcity.project.id%").getResult() + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildNumber();
-    if (s3Client.doesObjectExist(bucketName, prefix)) {
-      prefix = prefix + "/" + build.getBuildId();
-    }
-    return prefix + "/";
+  private String getPathPrefix(@NotNull AgentRunningBuild build) {
+    return build.getSharedParametersResolver().resolve("%teamcity.project.id%").getResult() + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId() + "/";
   }
 }
