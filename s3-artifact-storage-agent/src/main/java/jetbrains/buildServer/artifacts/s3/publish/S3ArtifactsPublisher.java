@@ -9,6 +9,7 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -169,7 +170,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   private boolean isPublishingEnabled() {
-    return !getPublisherParameters().isEmpty();
+    return S3Constants.S3_STORAGE_TYPE.equals(myTracker.getCurrentBuild().getArtifactStorageSettings().get("storage.type"));
   }
 
   private void prepareDestination(@NotNull final AgentRunningBuild build) {
