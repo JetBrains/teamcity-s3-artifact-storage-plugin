@@ -4,7 +4,8 @@ This is an impelementaion of external artifacts storage for TeamCity [build arti
 
 # State
 
-Plugin is in experimental "feedback wanted" state. It is not ready to be used in produciton and further plugin updates can break backward compatibility.
+Baseline functionality finished. Feedback wanted.
+THe plugin  is not ready to be used in produciton and further plugin updates can break backward compatibility (regarding settings, data storage, etc.)
 
 # Compatibility
 
