@@ -1,6 +1,10 @@
-# TeamCity S3 Storage Plugin
+# TeamCity S3 Artifact Storage Plugin
 
-TeamCity S3 Storage Plugin is an impelementaion of external storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
+This is an impelementaion of external artifacts storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
+
+# State
+
+Plugin is in experimental "feedback wanted" state. It is not ready to be used in produciton and further plugin updates can break backward compatibility.
 
 # Compatibility
 
