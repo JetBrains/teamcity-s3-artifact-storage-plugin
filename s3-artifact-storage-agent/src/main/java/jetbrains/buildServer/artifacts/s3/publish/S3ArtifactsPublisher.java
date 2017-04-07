@@ -18,6 +18,7 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
+import jetbrains.buildServer.util.filters.Filter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,73 +34,65 @@ import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
 
 public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
-  private final static Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
+  private static final Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
+  private static final String ERROR_PUBLISHING_ARTIFACTS_LIST = "Error publishing artifacts list";
 
-  public static final String ERROR_PUBLISHING_ARTIFACTS_LIST = "Error publishing artifacts list";
-
-  @NotNull
   private final CurrentBuildTracker myTracker;
   private final AgentArtifactHelper myHelper;
+  private boolean isDestinationPrepared = false;
+  private List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final CurrentBuildTracker tracker) {
-    myTracker = tracker;
     myHelper = helper;
+    myTracker = tracker;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
-        if (isPublishingEnabled()) {
-          prepareDestination(runningBuild);
-        }
+        isDestinationPrepared = false;
+        myArtifacts.clear();
       }
 
       @Override
       public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        if (isPublishingEnabled()) {
-          publishArtifactsList(runningBuild);
-        }
+        publishArtifactsList(runningBuild);
       }
     });
   }
 
   @Override
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
-    try {
-      final Map<String, String> params = getPublisherParameters();
-      final String bucketName = getBucketName(params);
-      final String pathPrefix = getPathPrefixProperty(myTracker.getCurrentBuild());
-
-      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
-        @NotNull
-        @Override
-        public Collection<Upload> run(@NotNull final TransferManager transferManager) throws Throwable {
-          return CollectionsUtil.convertAndFilterNulls(map.entrySet(), new Converter<Upload, Map.Entry<File, String>>() {
-            @Override
-            public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
-              final File file = entry.getKey();
-              final String path = entry.getValue();
-              if (path.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR)) {
-                return null; // do not publish internal artifacts of the build
-              }
-              return transferManager.upload(new PutObjectRequest(
-                bucketName,
-                pathPrefix + (StringUtil.isEmpty(path) ? "" : path + "/") + file.getName(),
-                file).withCannedAcl(CannedAccessControlList.Private));
-            }
-          });
-        }
-      }).size();
-    } catch (Throwable t) {
-      final AWSException awsException = new AWSException(t);
-
-      final String details = awsException.getDetails();
-      if (StringUtil.isNotEmpty(details)) {
-        LOG.warn(details);
-        myTracker.getCurrentBuild().getBuildLogger().error(details);
+    final List<Map.Entry<File, String>> filesToPublish = CollectionsUtil.filterCollection(map.entrySet(), new Filter<Map.Entry<File, String>>() {
+      @Override
+      public boolean accept(@NotNull Map.Entry<File, String> entry) {
+        return !entry.getValue().startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR);
       }
-      throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
+    });
+
+    if (!filesToPublish.isEmpty()) {
+      final AgentRunningBuild build = myTracker.getCurrentBuild();
+      try {
+        final Map<String, String> params = getPublisherParameters();
+        final String bucketName = getBucketName(params);
+        prepareDestination(bucketName, params, build);
+
+        final String pathPrefix = getPathPrefixProperty(build);
+        myArtifacts.addAll(publishArtifacts(bucketName, pathPrefix, params, filesToPublish));
+      } catch (Throwable t) {
+        final AWSException awsException = new AWSException(t);
+        final String details = awsException.getDetails();
+
+        if (StringUtil.isNotEmpty(details)) {
+          LOG.warn(details);
+          myTracker.getCurrentBuild().getBuildLogger().error(details);
+        }
+
+        throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
+      }
     }
+
+    return filesToPublish.size();
   }
 
   @Override
@@ -113,100 +106,79 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     return S3_STORAGE_TYPE;
   }
 
+  @NotNull
+  private List<ArtifactDataInstance> publishArtifacts(final String bucketName,
+                                                      final String pathPrefix,
+                                                      final Map<String, String> params,
+                                                      final List<Map.Entry<File, String>> entries) throws Throwable {
+    final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
+    jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
+      @NotNull
+      @Override
+      public Collection<Upload> run(@NotNull final TransferManager transferManager) throws Throwable {
+        return CollectionsUtil.convertAndFilterNulls(entries, new Converter<Upload, Map.Entry<File, String>>() {
+          @Override
+          public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
+            final File file = entry.getKey();
+            final String path = entry.getValue();
+            final String artifactPath = (StringUtil.isEmpty(path) ? "" : path + "/") + file.getName();
+            final String objectPath = pathPrefix + artifactPath;
 
-  private void publishArtifactsList(@NotNull final AgentRunningBuild runningBuild) {
-    try {
-      final Map<String, String> params = getPublisherParameters();
-      final String bucketName = getBucketName(params);
-      final String pathPrefix = getPathPrefixProperty(runningBuild);
-
-      myHelper.publishArtifactList(AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<List<ArtifactDataInstance>, Throwable>() {
-        @NotNull
-        @Override
-        public List<ArtifactDataInstance> run(@NotNull AWSClients awsClients) throws Throwable {
-          final AmazonS3Client s3Client = awsClients.createS3Client();
-          final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
-
-          ObjectListing objectListing = s3Client.listObjects(
-            new ListObjectsRequest()
-              .withBucketName(bucketName)
-              .withPrefix(pathPrefix));
-
-          while (true) {
-            for (S3ObjectSummary objectSummary : objectListing.getObjectSummaries()) {
-              final String path = objectSummary.getKey().substring(pathPrefix.length());
-              final Long size = objectSummary.getSize();
-              artifacts.add(ArtifactDataInstance.create(path, size));
-            }
-            if (objectListing.isTruncated()) {
-              objectListing = s3Client.listNextBatchOfObjects(objectListing);
-            } else break;
+            artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+            return transferManager.upload(new PutObjectRequest(
+              bucketName,
+              objectPath,
+              file).withCannedAcl(CannedAccessControlList.Private));
           }
-
-          return artifacts;
-        }
-      }), CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
-    } catch (IOException e) {
-      LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + " for build " + LogUtil.describe(runningBuild), e);
-      runningBuild.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
-    } catch (Throwable t) {
-      final AWSException awsException = new AWSException(t);
-
-      runningBuild.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + awsException.getMessage());
-
-      final String details = awsException.getDetails();
-      if (StringUtil.isNotEmpty(details)) {
-        LOG.warn(details);
-        runningBuild.getBuildLogger().error(details);
+        });
       }
+    });
+    return artifacts;
+  }
 
-      LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(runningBuild), awsException);
+  private void prepareDestination(final String bucketName,
+                                  final Map<String, String> params,
+                                  final AgentRunningBuild build) throws Throwable {
+    if (isDestinationPrepared) return;
+
+    final String pathPrefix = getPathPrefix(build);
+    AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
+      @Nullable
+      @Override
+      public Void run(@NotNull AWSClients awsClients) throws Throwable {
+        final AmazonS3Client s3Client = awsClients.createS3Client();
+        if (s3Client.doesBucketExist(bucketName)) {
+          if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
+            build.getBuildLogger().message("Target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " +
+              bucketName + ", will be removed");
+            s3Client.deleteObject(bucketName, pathPrefix);
+          }
+        } else {
+          build.getBuildLogger().message("Target S3 artifact bucket " + bucketName + " doesn't exist, will be created");
+          s3Client.createBucket(bucketName);
+        }
+        build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
+        isDestinationPrepared = true;
+        return null;
+      }
+    });
+  }
+
+  private void publishArtifactsList(AgentRunningBuild build) {
+    if (!myArtifacts.isEmpty()) {
+      final String pathPrefix = getPathPrefixProperty(build);
+      try {
+        myHelper.publishArtifactList(myArtifacts, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
+      } catch (IOException e) {
+        build.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
+        LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(build), e);
+      }
     }
   }
 
+  @NotNull
   private Map<String, String> getPublisherParameters() {
     return S3Util.validateParameters(myTracker.getCurrentBuild().getArtifactStorageSettings());
-  }
-
-  private boolean isPublishingEnabled() {
-    return !getPublisherParameters().isEmpty();
-  }
-
-  private void prepareDestination(@NotNull final AgentRunningBuild build) {
-    final Map<String, String> params = getPublisherParameters();
-    final String bucketName = getBucketName(params);
-
-    try {
-      AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
-        @Nullable
-        @Override
-        public Void run(@NotNull AWSClients awsClients) throws Throwable {
-          final AmazonS3Client s3Client = awsClients.createS3Client();
-          final String pathPrefix = getPathPrefix(build);
-          if (s3Client.doesBucketExist(bucketName)) {
-            if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
-              build.getBuildLogger().message("Target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " + bucketName + ", will be removed");
-              s3Client.deleteObject(bucketName, pathPrefix);
-            }
-          } else {
-            build.getBuildLogger().message("Target S3 artifact bucket " + bucketName + " doesn't exist, will be created");
-            s3Client.createBucket(bucketName);
-          }
-          build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
-          return null;
-        }
-      });
-    } catch (Throwable t) {
-      final AWSException awsException = new AWSException(t);
-
-      final String details = awsException.getDetails();
-      if (StringUtil.isNotEmpty(details)) {
-        LOG.warn(details);
-        build.getBuildLogger().error(details);
-      }
-      LOG.warnAndDebugDetails("Failed to create S3 path to store build " + LogUtil.describe(build) + " artifacts", awsException);
-      build.getBuildLogger().error("Failed to create S3 path to store build artifacts: " + awsException.getMessage());
-    }
   }
 
   @NotNull
