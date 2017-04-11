@@ -5,7 +5,7 @@ This is an implementation of external artifacts storage for TeamCity [build arti
 # State
 
 Baseline functionality finished. Feedback wanted.
-THe plugin  is not ready to be used in produciton and further plugin updates can break backward compatibility (regarding settings, data storage, etc.)
+The plugin  is not ready to be used in produciton and further plugin updates may break backward compatibility (regarding settings, data storage, etc.)
 
 # Compatibility
 
@@ -21,7 +21,8 @@ When installed and configured, the plugin:
 * displays artifacts located in Amazon S3 in the TeamCity web UI.
 
 # Building 
- Issue the `mvn package` command from the root project to build your plugin. The resulting \<artifactId>.zip package will be placed in the 'target' directory. 
+
+Issue the `mvn package` command from the root project to build your plugin. The resulting \<artifactId>.zip package will be placed in the 'target' directory. 
 
 # Download
 
