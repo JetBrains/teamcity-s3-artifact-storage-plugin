@@ -1,5 +1,7 @@
 # TeamCity S3 Artifact Storage Plugin
 
+<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&tag=deploy&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk)/statusIcon.svg" alt=""/></a>
+
 This plugin allows to replace TeamCity built-in artifacts storage with AWS S3. Artifacts storage can be changed on the project level. After changing the storage, new artifacts produced by the builds of this project will be published to AWS S3 bucket. Besides publishing, plugin also impelements resolving of artifact dependnecies and build artifacts cleanup. 
 
 # State
@@ -26,9 +28,9 @@ Issue the `mvn package` command from the root project to build your plugin. The 
 
 # Download
 
-| Status | Download | Compatibility |
-|--------|----------|---------------|
-|<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&tag=deploy&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk),tag:deploy/statusIcon.svg" alt=""/></a>|[Download](https://teamcity.jetbrains.com/guestAuth/app/rest/builds/buildType:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk,tags:deploy/artifacts/content/s3-artifact-storage.zip)| 2017.1 |
+| Download | Compatibility |
+|----------|---------------|
+|[Download](https://teamcity.jetbrains.com/guestAuth/app/rest/builds/buildType:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk,tags:deploy/artifacts/content/s3-artifact-storage.zip)| 2017.1 |
 
 
 # Installing
