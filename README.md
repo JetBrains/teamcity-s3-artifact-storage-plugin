@@ -52,3 +52,8 @@ To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 7. The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
 
 Now the artifacts of this project, its subprojects, and build configurations will be stored in the configured storage.
+
+# License
+
+Apache License 2.0
+
