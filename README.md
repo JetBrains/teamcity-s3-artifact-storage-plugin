@@ -37,14 +37,14 @@ See [instructions](https://confluence.jetbrains.com/display/TCD10/Installing+Add
 # Configuring 
 
 The plugin adds the Artifacts Storage tab to the Project Settings page in the TeamCity Web UI. 
-The tab lists the internal TeamCity artifacts storage is displayed by default and is marked as active.
+The tab lists the internal TeamCity artifacts storage displayed by default and marked as active.
 
 To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 1. Select S3 Storage as the storage type.
 2. Provide an optional name for your storage.
 3. Select an AWS region.
 4. Provide your AWS Security Credentials.
-5. Specify an existing S3 bucker to store artifacts.
+5. Specify an existing S3 bucket to store artifacts.
 6. Save your settings.
 7. The configured S3 storage will appear on the Artifacts storage page. Make it active using the corresponding link.
 
