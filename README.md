@@ -1,6 +1,6 @@
 # TeamCity S3 Artifact Storage Plugin
 
-This is an implementation of external artifacts storage for TeamCity [build artifacts](https://confluence.jetbrains.com/display/TCDL/Build+Artifact) in Amazon S3.
+This plugin allows to replace TeamCity built-in artifacts storage with AWS S3. Artifacts storage can be changed on the project level. After changing the storage, new artifacts produced by the builds of this project will be published to AWS S3 bucket. Besides publishing, plugin also impelements resolving of artifact dependnecies and build artifacts cleanup. 
 
 # State
 
