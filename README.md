@@ -2,7 +2,7 @@
 
 <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk)/statusIcon.svg" alt=""/></a>
 
-This plugin allows to replace TeamCity built-in artifacts storage with AWS S3. Artifacts storage can be changed on the project level. After changing the storage, new artifacts produced by the builds of this project will be published to AWS S3 bucket. Besides publishing, plugin also impelements resolving of artifact dependnecies and build artifacts cleanup. 
+This plugin allows to replace TeamCity built-in artifacts storage with [AWS S3](https://aws.amazon.com/s3/). Artifacts storage can be changed on the project level. After changing the storage, new artifacts produced by the builds of this project will be published to AWS S3 bucket. Besides publishing, plugin also impelements resolving of artifact dependnecies and build artifacts cleanup. 
 
 # State
 
