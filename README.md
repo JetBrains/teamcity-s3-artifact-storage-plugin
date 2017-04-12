@@ -40,7 +40,7 @@ See [instructions](https://confluence.jetbrains.com/display/TCD10/Installing+Add
 # Configuring 
 
 The plugin adds the Artifacts Storage tab to the Project Settings page in the TeamCity Web UI. 
-The tab lists the internal TeamCity artifacts storage displayed by default and marked as active.
+The tab lists the built-in TeamCity artifacts storage displayed by default and marked as active.
 
 To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 1. Select S3 Storage as the storage type.
