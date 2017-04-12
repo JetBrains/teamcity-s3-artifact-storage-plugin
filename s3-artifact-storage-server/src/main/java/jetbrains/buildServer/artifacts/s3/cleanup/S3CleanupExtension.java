@@ -5,6 +5,7 @@ import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
@@ -18,8 +19,8 @@ import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
-import jetbrains.buildServer.util.positioning.PositionConstraintAware;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ import java.util.stream.Collectors;
  * Created by Nikita.Skvortsov
  * date: 08.04.2016.
  */
-public class S3CleanupExtension implements CleanupExtension, PositionConstraintAware {
+public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   @NotNull private final ServerArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull private final ServerArtifactHelper myHelper;
@@ -116,5 +117,11 @@ public class S3CleanupExtension implements CleanupExtension, PositionConstraintA
   private String getPatternsForBuild(@NotNull final BuildCleanupContextEx cleanupContext, @NotNull final SBuild build) {
     final HistoryRetentionPolicy policy = cleanupContext.getCleanupPolicyForBuild(build.getBuildId());
     return StringUtil.emptyIfNull(policy.getParameters().get(HistoryRetentionPolicy.ARTIFACT_PATTERNS_PARAM));
+  }
+
+  @NotNull
+  @Override
+  public String getOrderId() {
+    return S3Constants.S3_STORAGE_TYPE;
   }
 }
