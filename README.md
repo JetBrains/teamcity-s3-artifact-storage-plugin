@@ -35,7 +35,7 @@ Issue the `mvn package` command from the root project to build your plugin. The 
 
 # Installing
 
-See [instructions](https://confluence.jetbrains.com/display/TCD10/Installing+Additional+Plugins) in TeamCity documentation.
+See [instructions](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins) in TeamCity documentation.
 
 # Configuring 
 
