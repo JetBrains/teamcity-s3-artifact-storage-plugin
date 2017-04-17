@@ -24,6 +24,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -121,7 +123,13 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
             final File file = entry.getKey();
             final String path = entry.getValue();
-            final String artifactPath = (StringUtil.isEmpty(path) ? "" : path + "/") + file.getName();
+            final String artifactPath;
+            try {
+              artifactPath = preparePath(path, file);
+            } catch (Throwable e) {
+              throw new RuntimeException(e);
+            }
+
             final String objectPath = pathPrefix + artifactPath;
 
             artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
@@ -134,6 +142,17 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       }
     });
     return artifacts;
+  }
+
+  private String preparePath(final String path, final File file) throws IOException, URISyntaxException {
+    if (path.startsWith(".."))
+      throw new IOException("Attempting to publish artifact outside of build artifacts directory. Specified target path: \""+ path + "\"");
+
+    if (StringUtil.isEmpty(path)) {
+      return file.getName();
+    } else {
+      return new URI(String.format("%s/%s", path, file.getName())).normalize().getPath();
+    }
   }
 
   private void prepareDestination(final String bucketName,
