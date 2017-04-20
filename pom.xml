@@ -13,25 +13,11 @@
         <id>JetBrains</id>
         <url>http://download.jetbrains.com/teamcity-repository</url>
     </repository>
-      <repository>
-          <id>bintray</id>
-          <url>http://dl.bintray.com/vbedrosova/teamcity</url>
-          <snapshots>
-              <enabled>false</enabled>
-          </snapshots>
-      </repository>
   </repositories>
   <pluginRepositories>
       <pluginRepository>
           <id>JetBrains</id>
           <url>http://download.jetbrains.com/teamcity-repository</url>
-      </pluginRepository>
-      <pluginRepository>
-          <id>bintray</id>
-          <url>http://dl.bintray.com/vbedrosova/teamcity</url>
-          <snapshots>
-              <enabled>false</enabled>
-          </snapshots>
       </pluginRepository>
   </pluginRepositories>
   <build>
