@@ -12,10 +12,7 @@ import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
-import jetbrains.buildServer.util.CollectionsUtil;
-import jetbrains.buildServer.util.Converter;
-import jetbrains.buildServer.util.EventDispatcher;
-import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.*;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -25,8 +22,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -126,12 +121,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
             final File file = entry.getKey();
             final String path = entry.getValue();
-            final String artifactPath;
-            try {
-              artifactPath = preparePath(path, file);
-            } catch (Throwable e) {
-              throw new RuntimeException(e);
-            }
+            final String artifactPath = preparePath(path, file);
 
             final String objectPath = pathPrefix + artifactPath;
 
@@ -147,14 +137,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     return artifacts;
   }
 
-  private String preparePath(final String path, final File file) throws IOException, URISyntaxException {
-    if (path.startsWith(".."))
-      throw new IOException("Attempting to publish artifact outside of build artifacts directory. Specified target path: \""+ path + "\"");
-
+  private String preparePath(final String path, final File file) {
     if (StringUtil.isEmpty(path)) {
       return file.getName();
     } else {
-      return new URI(String.format("%s/%s", path, file.getName())).normalize().getPath();
+      return FileUtil.normalizeRelativePath(String.format("%s/%s", path, file.getName()));
     }
   }
 
