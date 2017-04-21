@@ -1,7 +1,8 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.services.s3.AmazonS3Client;
-import com.amazonaws.services.s3.model.*;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
@@ -81,6 +82,8 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
         final String pathPrefix = getPathPrefixProperty(build);
         myArtifacts.addAll(publishArtifacts(bucketName, pathPrefix, params, filesToPublish));
+      } catch (ArtifactPublishingFailedException t) {
+        throw t;
       } catch (Throwable t) {
         final AWSException awsException = new AWSException(t);
         final String details = awsException.getDetails();
@@ -160,25 +163,24 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
                                   final AgentRunningBuild build) throws Throwable {
     if (isDestinationPrepared) return;
 
-    final String pathPrefix = getPathPrefix(build);
     AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
       @Nullable
       @Override
       public Void run(@NotNull AWSClients awsClients) throws Throwable {
         final AmazonS3Client s3Client = awsClients.createS3Client();
         if (s3Client.doesBucketExist(bucketName)) {
+          String pathPrefix = getPathPrefix(build);
           if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
-            build.getBuildLogger().message("Target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " +
-              bucketName + ", will be removed");
-            s3Client.deleteObject(bucketName, pathPrefix);
+            build.getBuildLogger().warning("Default target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " + bucketName + ", will use a custom path");
+            pathPrefix = pathPrefix + "_" + System.currentTimeMillis();
           }
-        } else {
-          build.getBuildLogger().message("Target S3 artifact bucket " + bucketName + " doesn't exist, will be created");
-          s3Client.createBucket(bucketName);
+          pathPrefix = pathPrefix + "/";
+          build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
+          build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
+          isDestinationPrepared = true;
+          return null;
         }
-        build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
-        isDestinationPrepared = true;
-        return null;
+        throw new ArtifactPublishingFailedException("Target S3 artifact bucket " + bucketName + " doesn't exist", false, null);
       }
     });
   }
@@ -211,6 +213,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @NotNull
   private String getPathPrefix(@NotNull AgentRunningBuild build) {
-    return build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM) + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId() + "/";
+    return build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM) + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId();
   }
 }
