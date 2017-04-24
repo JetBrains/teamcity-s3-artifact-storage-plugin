@@ -48,14 +48,14 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     for (SFinishedBuild build : buildCleanupContext.getBuilds()) {
       try {
         final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
-        if (artifactsInfo == null) return;
+        if (artifactsInfo == null) continue;
 
         final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
-        if (pathPrefix == null) return;
+        if (pathPrefix == null) continue;
 
         final String patterns = getPatternsForBuild((BuildCleanupContextEx) buildCleanupContext, build);
         final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns, pathPrefix);
-        if (toDelete.isEmpty()) return;
+        if (toDelete.isEmpty()) continue;
 
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
 
