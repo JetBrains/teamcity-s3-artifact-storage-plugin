@@ -115,6 +115,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   @NotNull
   private String getPatternsForBuild(@NotNull final BuildCleanupContextEx cleanupContext, @NotNull final SBuild build) {
+    if (cleanupContext.getCleanupLevel().isCleanHistoryEntry()) return StringUtil.EMPTY;
+
     final HistoryRetentionPolicy policy = cleanupContext.getCleanupPolicyForBuild(build.getBuildId());
     return StringUtil.emptyIfNull(policy.getParameters().get(HistoryRetentionPolicy.ARTIFACT_PATTERNS_PARAM));
   }
