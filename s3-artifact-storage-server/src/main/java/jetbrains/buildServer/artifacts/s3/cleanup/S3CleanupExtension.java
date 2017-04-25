@@ -12,8 +12,8 @@ import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
-import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
+import jetbrains.buildServer.serverSide.cleanup.CleanupPolicy;
 import jetbrains.buildServer.serverSide.cleanup.CleanupProcessState;
 import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -53,7 +53,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
         if (pathPrefix == null) continue;
 
-        final String patterns = getPatternsForBuild((BuildCleanupContextEx) buildCleanupContext, build);
+        final String patterns = getPatternsForBuild(buildCleanupContext, build);
         final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns, pathPrefix);
         if (toDelete.isEmpty()) continue;
 
@@ -114,10 +114,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @NotNull
-  private String getPatternsForBuild(@NotNull final BuildCleanupContextEx cleanupContext, @NotNull final SBuild build) {
+  private String getPatternsForBuild(@NotNull final BuildCleanupContext cleanupContext, @NotNull final SBuild build) {
     if (cleanupContext.getCleanupLevel().isCleanHistoryEntry()) return StringUtil.EMPTY;
 
-    final HistoryRetentionPolicy policy = cleanupContext.getCleanupPolicyForBuild(build.getBuildId());
+    final CleanupPolicy policy = cleanupContext.getCleanupPolicyForBuild(build.getBuildId());
     return StringUtil.emptyIfNull(policy.getParameters().get(HistoryRetentionPolicy.ARTIFACT_PATTERNS_PARAM));
   }
 
