@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.cleanup;
 
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
+import com.google.common.collect.Lists;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
@@ -62,24 +63,33 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         final String bucketName = S3Util.getBucketName(params);
         AWSCommonParams.withAWSClients(params, awsClients -> {
           final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
-          int succeededNum;
-          try {
-            final DeleteObjectsRequest deleteObjectsRequest =
-              new DeleteObjectsRequest(bucketName)
-                .withKeys(toDelete.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
-            succeededNum = awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
-          } catch (MultiObjectDeleteException e) {
-            succeededNum = e.getDeletedObjects().size();
 
-            final List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
-            errors.forEach(error -> {
-              final String key = error.getKey();
-              if (key.startsWith(pathPrefix)) {
-                Loggers.CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
-                toDelete.remove(key.substring(pathPrefix.length()));
-              }
-            });
-            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errors.size() + "] s3 " + StringUtil.pluralize("object", errors.size()) + suffix);
+          int succeededNum = 0;
+          int errorNum = 0;
+
+          for (List<String> part: Lists.partition(toDelete, 1000)) {
+            try {
+              final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
+                .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
+
+              succeededNum += awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+            } catch (MultiObjectDeleteException e) {
+              succeededNum += e.getDeletedObjects().size();
+
+              final List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
+              errors.forEach(error -> {
+                final String key = error.getKey();
+                if (key.startsWith(pathPrefix)) {
+                  Loggers.CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
+                  toDelete.remove(key.substring(pathPrefix.length()));
+                }
+              });
+              errorNum += errors.size();
+            }
+          }
+
+          if (errorNum > 0) {
+            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errorNum + "] s3 " + StringUtil.pluralize("object", errorNum) + suffix);
           }
 
           Loggers.CLEANUP.info("Removed [" + succeededNum + "] s3 " + StringUtil.pluralize("object", succeededNum) + suffix);
