@@ -30,7 +30,7 @@ Issue the `mvn package` command from the root project to build your plugin. The 
 
 | Download | Compatibility |
 |----------|---------------|
-|[Download](https://plugins.jetbrains.com/plugin/9623-s3-artifact-storage)| 2017.1 |
+|[Download](https://plugins.jetbrains.com/plugin/9623-s3-artifact-storage)| 2017.1.1 |
 
 
 # Installing
