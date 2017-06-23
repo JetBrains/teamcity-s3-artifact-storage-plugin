@@ -1,8 +1,9 @@
-<%@ page import="jetbrains.buildServer.artifacts.s3.S3Constants" %>
 <%@ taglib prefix="props" tagdir="/WEB-INF/tags/props" %>
 <%@ taglib prefix="l" tagdir="/WEB-INF/tags/layout" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
+<jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
+<jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
 <style type="text/css">
     .runnerFormTable {
@@ -15,10 +16,72 @@
 </jsp:include>
 <l:settingsGroup title="S3 Parameters">
     <tr>
-        <th><label for="storage.s3.bucket.name">S3 bucket name: <l:star/></label></th>
-        <td><props:textProperty name="<%=S3Constants.S3_BUCKET_NAME%>" className="longField" maxlength="256"/>
+        <th><label for="${params.bucketName}">S3 bucket name: <l:star/></label></th>
+        <td>
+            <div class="posRel">
+                <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
+                <props:selectProperty name="${params.bucketName}" className="longField">
+                    <c:if test="${not empty bucket}">
+                        <props:option value="${bucket}"><c:out value="${bucket}"/></props:option>
+                    </c:if>
+                </props:selectProperty>
+                <i class="icon-refresh" title="Reload buckets" id="buckets-refresh"></i>
+            </div>
             <span class="smallNote">Existing S3 bucket to store artifacts</span>
-            <span class="error" id="error_storage.s3.bucket.name"></span>
+            <span class="error" id="error_${params.bucketName}"></span>
         </td>
     </tr>
 </l:settingsGroup>
+
+<script type="text/javascript">
+    function getErrors($response) {
+        var $errors = $response.find("errors:eq(0) error");
+        if ($errors.length) {
+            return $errors.text();
+        }
+
+        return "";
+    }
+
+    function loadBuckets() {
+        var parameters = BS.EditStorageForm.serializeParameters();
+        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+        $j.post(window['base_uri'] + '${params.containersPath}', parameters)
+                .then(function (response) {
+                    var $response = $j(response);
+                    var errors = getErrors($response);
+                    $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
+
+                    if (errors) {
+                        return;
+                    }
+
+                    var $selector = $j(BS.Util.escapeId('${params.bucketName}'));
+                    var value = $selector.val();
+                    $selector.empty();
+                    $response.find("buckets:eq(0) bucket").map(function () {
+                        var text = $j(this).text();
+                        $selector.append($j("<option></option>")
+                                .attr("value", text).text(text));
+                    });
+                    if (value) {
+                        $selector.val(value);
+                    }
+                })
+                .always(function () {
+                    $refreshButton.removeClass('icon-spin');
+                });
+    }
+
+    var selectors = BS.Util.escapeId('aws.access.key.id') + ', ' +
+            BS.Util.escapeId('secure:aws.secret.access.key');
+    $j(document).on('change', selectors, function () {
+        loadBuckets();
+    });
+    $j(document).on('ready', function () {
+        loadBuckets();
+    });
+    $j(document).on('click', '#buckets-refresh', function () {
+        loadBuckets();
+    });
+</script>

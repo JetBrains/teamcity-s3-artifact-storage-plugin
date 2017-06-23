@@ -33,7 +33,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactDownloadProcessor.class.getName());
 
-  public static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
+  private static final int URL_LIFETIME_SEC = TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
 
   private final Cache<String, String> myLinksCache = CacheBuilder.newBuilder()
     .expireAfterWrite(URL_LIFETIME_SEC, TimeUnit.SECONDS)
@@ -66,9 +66,16 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   @NotNull
   private String getTemporaryUrl(@NotNull String key, @NotNull Map<String, String> params) throws IOException {
     final String bucketName = S3Util.getBucketName(params);
+    if (bucketName == null) {
+      final String message = "Failed to create pre-signed URL: bucket name is not specified, please check storage settings";
+      LOG.warn(message);
+      throw new IOException(message);
+    }
+
     try {
       return myLinksCache.get(getIdentity(params, key, bucketName), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, key, HttpMethod.GET).withExpiration(new Date(System.currentTimeMillis() + URL_LIFETIME_SEC * 1000));
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, key, HttpMethod.GET)
+          .withExpiration(new Date(System.currentTimeMillis() + URL_LIFETIME_SEC * 1000));
         return awsClients.createS3Client().generatePresignedUrl(request).toString();
       }));
     } catch (ExecutionException e) {

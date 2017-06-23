@@ -28,7 +28,7 @@ public class S3StorageType extends ArtifactStorageType {
   public S3StorageType(@NotNull ArtifactStorageTypeRegistry registry,
                        @NotNull PluginDescriptor descriptor,
                        @NotNull ServerSettings serverSettings) {
-    mySettingsJSP = descriptor.getPluginResourcesPath("s3_storage_settings.jsp");
+    mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
     myServerSettings = serverSettings;
     registry.registerStorageType(this);
   }
