@@ -53,6 +53,10 @@ To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 
 Now the artifacts of this project, its subprojects, and build configurations will be stored in the configured storage.
 
+If you need to customize the artifacts publication path you could define build configuration parameter `storage.s3.path.prefix` and set the desired value.
+
+Note: if TeamCity detects that specified path already exists it will append a suffix to make it unique.
+
 # License
 
 Apache License 2.0

@@ -200,6 +200,26 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @NotNull
   private String getPathPrefix(@NotNull AgentRunningBuild build) {
-    return build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM) + "/" + build.getBuildTypeExternalId() + "/" + build.getBuildId();
+    final List<String> pathSegments = new ArrayList<String>();
+
+    // Try to get overriden path prefix
+    final String pathPrefix = build.getSharedConfigParameters().get(S3_PATH_PREFIX_SYSTEM_PROPERTY);
+    if (StringUtil.isEmptyOrSpaces(pathPrefix)) {
+      // Set default path prefix
+      pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
+      pathSegments.add(build.getBuildTypeExternalId());
+      pathSegments.add(Long.toString(build.getBuildId()));
+    } else {
+      final String[] segments = pathPrefix
+        .trim()
+        .replace('\\', '/')
+        .split("/");
+      for (String segment : segments) {
+        if (StringUtil.isEmptyOrSpaces(segment)) continue;
+        pathSegments.add(segment);
+      }
+    }
+
+    return StringUtil.join("/", pathSegments);
   }
 }
