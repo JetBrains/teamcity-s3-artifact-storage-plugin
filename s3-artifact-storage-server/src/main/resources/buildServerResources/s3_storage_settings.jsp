@@ -37,8 +37,8 @@
     function getErrors($response) {
         var $errors = $response.find("errors:eq(0) error");
         if ($errors.length) {
-            return $.map($errors, function(error) {
-                return $(error).text();
+            return $j.map($errors, function(error) {
+                return $j(error).text();
             }).join(", ");
         }
 

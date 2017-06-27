@@ -73,6 +73,20 @@ public class S3StorageType extends ArtifactStorageType {
       for (Map.Entry<String, String> e : S3Util.validateParameters(params, true).entrySet()) {
         invalids.add(new InvalidProperty(e.getKey(), e.getValue()));
       }
+
+      final String bucketName = S3Util.getBucketName(params);
+      if (bucketName != null) {
+        try {
+          final String location = AWSCommonParams.withAWSClients(params,
+            awsClients -> awsClients.createS3Client().getBucketLocation(bucketName));
+          if (location == null) {
+            invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, "Bucket does not exist"));
+          }
+        } catch (Throwable e) {
+          invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, e.getMessage()));
+        }
+      }
+
       return invalids;
     };
   }
