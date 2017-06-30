@@ -34,6 +34,10 @@
 </l:settingsGroup>
 
 <script type="text/javascript">
+    var bucketLocations = {};
+    var $bucketRegion = $j(BS.Util.escapeId('aws.region.name'));
+    var $bucketSelector = $j(BS.Util.escapeId('${params.bucketName}'));
+
     function getErrors($response) {
         var $errors = $response.find("errors:eq(0) error");
         if ($errors.length) {
@@ -48,27 +52,38 @@
     function loadBuckets() {
         var parameters = BS.EditStorageForm.serializeParameters();
         var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+
         $j.post(window['base_uri'] + '${params.containersPath}', parameters)
                 .then(function (response) {
                     var $response = $j(response);
                     var errors = getErrors($response);
                     $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
 
-                    if (errors) {
-                        return;
+                    // Get list of locations for buckets
+                    bucketLocations = {};
+                    $response.find("buckets:eq(0) bucket").each(function () {
+                        var $this = $j(this);
+                        var bucketName = $this.text();
+                        bucketLocations[bucketName] = $this.attr('location');
+                    });
+
+                    // Save selected option
+                    var value = $bucketSelector.val();
+                    if (value && !bucketLocations[value]) {
+                        bucketLocations[value] = $bucketRegion.val();
                     }
 
-                    var $selector = $j(BS.Util.escapeId('${params.bucketName}'));
-                    var value = $selector.val();
-                    $selector.empty();
-                    $response.find("buckets:eq(0) bucket").map(function () {
-                        var text = $j(this).text();
-                        $selector.append($j("<option></option>")
-                                .attr("value", text).text(text));
-                    });
-                    if (value) {
-                        $selector.val(value);
+                    // Redraw selector
+                    $bucketSelector.empty();
+                    for (var name in bucketLocations) {
+                        $bucketSelector.append($j("<option></option>").attr("value", name).text(name));
                     }
+
+                    if (value) {
+                        $bucketSelector.val(value);
+                    }
+
+                    $bucketSelector.change();
                 })
                 .always(function () {
                     $refreshButton.removeClass('icon-spin');
@@ -85,5 +100,13 @@
     });
     $j(document).on('click', '#buckets-refresh', function () {
         loadBuckets();
+    });
+    
+    $bucketSelector.change(function () {
+        var bucketName = $j(this).val();
+        var location = bucketLocations[bucketName];
+        if (location) {
+            $bucketRegion.val(location);
+        }
     });
 </script>
