@@ -5,6 +5,7 @@ import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ListBucketsRequest;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.controllers.ActionErrors;
@@ -47,6 +48,7 @@ public class S3SettingsController extends BaseFormXmlController {
 
     try {
       xmlResponse.addContent((Content) AWSCommonParams.withAWSClients(parameters, awsClients -> {
+        final String targetRegion = awsClients.getRegion();
         final AmazonS3Client s3Client = awsClients.createS3Client();
         final Element bucketsElement = new Element("buckets");
         for (Bucket bucket : s3Client.listBuckets()) {
@@ -54,9 +56,10 @@ public class S3SettingsController extends BaseFormXmlController {
           final String bucketName = bucket.getName();
           final String location = s3Client.getBucketLocation(bucketName);
           final String regionName = getRegionName(location);
-          bucketElement.setAttribute("location", regionName);
-          bucketElement.setText(bucketName);
-          bucketsElement.addContent(bucketElement);
+          if(regionName.equalsIgnoreCase(targetRegion)) {
+            bucketElement.setText(bucketName);
+            bucketsElement.addContent(bucketElement);
+          }
         }
         return bucketsElement;
       }));

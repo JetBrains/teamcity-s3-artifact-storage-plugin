@@ -11,9 +11,7 @@
     }
 </style>
 
-<jsp:include page="editAWSCommonParams.jsp">
-    <jsp:param name="requireRegion" value="${false}"/>
-</jsp:include>
+<jsp:include page="editAWSCommonParams.jsp"/>
 <l:settingsGroup title="S3 Parameters">
     <tr>
         <th><label for="${params.bucketName}">S3 bucket name: <l:star/></label></th>
