@@ -74,7 +74,7 @@ public class S3SettingsController extends BaseFormXmlController {
   private static String getRegionName(String location) {
     final Region region = RegionUtils.getRegion(location);
     if (region == null && location.equals("US")) {
-      return Regions.DEFAULT_REGION.getName();
+      return Regions.US_EAST_1.getName();
     }
 
     return region != null ? region.getName() : location;
