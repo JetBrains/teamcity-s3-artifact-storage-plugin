@@ -48,7 +48,6 @@ public class S3SettingsController extends BaseFormXmlController {
 
     try {
       xmlResponse.addContent((Content) AWSCommonParams.withAWSClients(parameters, awsClients -> {
-        final String targetRegion = awsClients.getRegion();
         final AmazonS3Client s3Client = awsClients.createS3Client();
         final Element bucketsElement = new Element("buckets");
         for (Bucket bucket : s3Client.listBuckets()) {
@@ -56,10 +55,9 @@ public class S3SettingsController extends BaseFormXmlController {
           final String bucketName = bucket.getName();
           final String location = s3Client.getBucketLocation(bucketName);
           final String regionName = getRegionName(location);
-          if(regionName.equalsIgnoreCase(targetRegion)) {
-            bucketElement.setText(bucketName);
-            bucketsElement.addContent(bucketElement);
-          }
+          bucketElement.setAttribute("location", regionName);
+          bucketElement.setText(bucketName);
+          bucketsElement.addContent(bucketElement);
         }
         return bucketsElement;
       }));
