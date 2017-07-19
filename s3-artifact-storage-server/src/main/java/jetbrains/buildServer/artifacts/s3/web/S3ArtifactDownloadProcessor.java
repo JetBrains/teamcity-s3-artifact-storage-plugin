@@ -53,7 +53,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       throw new IOException(message);
     }
 
-    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + S3PreSignedUrlProvider.URL_LIFETIME_SEC);
+    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
     httpServletResponse.sendRedirect(myPreSignedUrlProvider.getDownloadUrl(bucketName, pathPrefix + artifactData.getPath(),params));
     return true;
   }

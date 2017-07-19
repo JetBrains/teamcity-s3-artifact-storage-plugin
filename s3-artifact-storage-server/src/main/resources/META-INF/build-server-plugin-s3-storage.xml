@@ -8,5 +8,5 @@
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3SettingsController"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProvider"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProviderImpl"/>
 </beans>
