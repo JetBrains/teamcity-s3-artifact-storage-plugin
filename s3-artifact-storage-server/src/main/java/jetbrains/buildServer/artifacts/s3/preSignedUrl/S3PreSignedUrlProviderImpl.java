@@ -26,7 +26,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
 
   private final Cache<String, String> myLinksCache = CacheBuilder.newBuilder()
     .expireAfterWrite(getUrlLifetimeSec(), TimeUnit.SECONDS)
-    .maximumSize(100)
+    .maximumSize(200)
     .build();
 
   @Override
@@ -37,29 +37,19 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   @Override
   @NotNull
   public String getUploadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
-    try {
-      return myLinksCache.get(getIdentity(params, objectKey, bucketName), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, HttpMethod.PUT)
-          .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
-        return awsClients.createS3Client().generatePresignedUrl(request).toString();
-      }));
-    } catch (ExecutionException e) {
-      final AWSException awsException = new AWSException(e.getCause());
-      if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        LOG.warn(awsException.getDetails());
-      }
-      final String err = "Failed to create PUT pre-signed URL for [" + objectKey + "] in bucket [" + bucketName + "]";
-      LOG.infoAndDebugDetails(err, awsException);
-      throw new IOException(err + ": " + awsException.getMessage(), awsException);
-    }
+    return getUrl(bucketName, objectKey, HttpMethod.PUT, params);
   }
 
   @Override
   @NotNull
   public String getDownloadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
+    return getUrl(bucketName, objectKey, HttpMethod.GET, params);
+  }
+
+  private String getUrl(@NotNull String bucketName, @NotNull String objectKey, HttpMethod httpMethod, @NotNull Map<String, String> params) throws IOException {
     try {
-      return myLinksCache.get(getIdentity(params, objectKey, bucketName), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, HttpMethod.GET)
+      return myLinksCache.get(getIdentity(params, objectKey, bucketName, httpMethod), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
           .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
         return awsClients.createS3Client().generatePresignedUrl(request).toString();
       }));
@@ -68,14 +58,14 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
         LOG.warn(awsException.getDetails());
       }
-      final String err = "Failed to create GET pre-signed URL for [" + objectKey + "] in bucket [" + bucketName + "]";
+      final String err = "Failed to create " + httpMethod.name() + " pre-signed URL for [" + objectKey + "] in bucket [" + bucketName + "]";
       LOG.infoAndDebugDetails(err, awsException);
       throw new IOException(err + ": " + awsException.getMessage(), awsException);
     }
   }
 
   @NotNull
-  private String getIdentity(@NotNull Map<String, String> params, @NotNull String key, @NotNull String bucket) {
-    return String.valueOf(AWSCommonParams.calculateIdentity("", params, bucket, key));
+  private String getIdentity(@NotNull Map<String, String> params, @NotNull String key, @NotNull String bucket, HttpMethod verb) {
+    return String.valueOf(AWSCommonParams.calculateIdentity("", params, bucket, key, verb.name()));
   }
 }
