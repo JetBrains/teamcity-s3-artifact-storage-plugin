@@ -56,4 +56,8 @@ public class S3Util {
   public static String getPathPrefix(@NotNull Map<String, String> properties) {
     return properties.get(S3Constants.S3_PATH_PREFIX_ATTR);
   }
+
+  public static boolean usePreSignedUrls(@NotNull Map<String, String> properties) {
+    return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
+  }
 }
