@@ -1,6 +1,15 @@
 package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
+import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.BuildAuthUtil;
+import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.controllers.BaseController;
+import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
+import jetbrains.buildServer.http.SimpleCredentials;
+import jetbrains.buildServer.serverSide.RunningBuildEx;
+import jetbrains.buildServer.serverSide.RunningBuildsCollection;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -8,18 +17,30 @@ import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
 public class S3PreSignedUrlController extends BaseController {
+  private static final Logger LOG = Logger.getInstance(S3PreSignedUrlController.class.getName());
 
+  private RunningBuildsCollection myRunningBuildsCollection;
   private S3PreSignedUrlProvider myPreSignedUrlProvider;
+  private ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
+                                  @NotNull RunningBuildsCollection runningBuildsCollection,
                                   @NotNull S3PreSignedUrlProvider preSignedUrlProvider) {
+    myRunningBuildsCollection = runningBuildsCollection;
     myPreSignedUrlProvider = preSignedUrlProvider;
-    web.registerController("SOMEPATH", this); //TODO
+    web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
   }
 
   @Nullable
@@ -30,8 +51,57 @@ public class S3PreSignedUrlController extends BaseController {
       return null;
     }
 
-    //TODO: implement
+    RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
+    if(runningBuild == null){
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      return null;
+    }
 
-    return new ModelAndView();
+    Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
+
+    if(!S3Util.validateParameters(storageSettings).isEmpty()){
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      return null;
+    }
+
+    String bucketName = S3Util.getBucketName(storageSettings);
+    if(bucketName == null){
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      return null;
+    }
+
+    Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(httpServletRequest);
+    if(s3ObjectKeys.isEmpty()){
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      return null;
+    }
+
+    try{
+      Map<String, URL> data = new HashMap<>();
+      for(String obejctKey : s3ObjectKeys){
+        data.put(obejctKey, new URL(myPreSignedUrlProvider.getUploadUrl(bucketName, obejctKey, storageSettings)));
+      }
+      S3PreSignUrlHelper.write(data, httpServletResponse);
+      return null;
+    } catch (IOException ex){
+      LOG.debug("Failed to resolve presigned upload urls for artifacts of build " + runningBuild.getBuildId(), ex);
+      httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+      return null;
+    }
+  }
+
+  @Nullable
+  private RunningBuildEx getRunningBuild(@NotNull final HttpServletRequest request) {
+    AuthorizationHeader header = AuthorizationHeader.getFrom(request);
+    if (header != null) {
+      SimpleCredentials cre = header.getBasicAuthCredentials();
+      if (cre != null) {
+        long buildId = BuildAuthUtil.getBuildId(cre.getUsername());
+        if (buildId == -1) return null;
+        return myRunningBuildsCollection.findRunningBuildById(buildId);
+      }
+    }
+
+    return null;
   }
 }

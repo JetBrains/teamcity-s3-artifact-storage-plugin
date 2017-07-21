@@ -19,4 +19,6 @@ public class S3Constants {
   public static final String S3_USE_PRE_SIGNED_URL_FOR_UPLOAD = "storage.s3.upload.presignedUrl.enabled";
 
   public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
+
+  public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 }
