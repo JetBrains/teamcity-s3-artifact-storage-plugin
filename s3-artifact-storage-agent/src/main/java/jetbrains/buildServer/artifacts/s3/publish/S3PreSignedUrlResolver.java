@@ -29,18 +29,14 @@ class S3PreSignedUrlResolver {
   private static final String APPLICATION_XML = "application/xml";
   private static final String UTF_8 = "UTF-8";
 
-  private final String myTargetUrl;
-  private final int myConnectionTimeout;
-
-  public S3PreSignedUrlResolver(@NotNull BuildAgentConfiguration agentConfiguration) {
-    myTargetUrl = agentConfiguration.getServerUrl() + HTTP_AUTH + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
-    myConnectionTimeout = agentConfiguration.getServerConnectionTimeout();
-  }
-
   @NotNull
   Map<String, URL> resolveUploadUrls(AgentRunningBuild build, @NotNull Collection<String> s3ObjectKeys) throws IOException {
-    HttpClient httpClient = HttpUtil.createHttpClient(myConnectionTimeout, new URL(myTargetUrl), new UsernamePasswordCredentials(build.getAccessUser(), build.getAccessCode()));
-    PostMethod post = new PostMethod();
+    BuildAgentConfiguration agentConfiguration = build.getAgentConfiguration();
+    String targetUrl = agentConfiguration.getServerUrl() + HTTP_AUTH + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
+    int connectionTimeout = agentConfiguration.getServerConnectionTimeout();
+    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(build.getAccessUser(), build.getAccessCode());
+    HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, new URL(targetUrl), credentials);
+    PostMethod post = new PostMethod(targetUrl);
     post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
     int responseCode = httpClient.executeMethod(post);
     if(responseCode != 200){
