@@ -22,8 +22,13 @@ public class S3PreSignUrlHelper {
   private static final String S3_OBJECT_KEYS = "s3-object-keys";
 
   @NotNull
-  public static Map<String, URL> readPreSignUrlMapping(String data) throws IOException, JDOMException {
-    Document document = JDOMUtil.loadDocument(data);
+  public static Map<String, URL> readPreSignUrlMapping(String data) throws IOException {
+    Document document;
+    try {
+      document = JDOMUtil.loadDocument(data);
+    } catch (JDOMException e) {
+      return Collections.emptyMap();
+    }
     Element rootElement = document.getRootElement();
     if(!rootElement.getName().equals(S3_PRESIGN_URL_MAPPING)) return Collections.emptyMap();
     final Map<String, URL> result = new HashMap<String, URL>();
@@ -54,8 +59,13 @@ public class S3PreSignUrlHelper {
   }
 
   @NotNull
-  public static Collection<String> readS3ObjectKeys(String data) throws IOException, JDOMException {
-    Document document = JDOMUtil.loadDocument(data);
+  public static Collection<String> readS3ObjectKeys(String data) throws IOException {
+    Document document;
+    try {
+      document = JDOMUtil.loadDocument(data);
+    } catch (JDOMException e) {
+      return Collections.emptyList();
+    }
     Element rootElement = document.getRootElement();
     if(!rootElement.getName().equals(S3_OBJECT_KEYS)) return Collections.emptyList();
     Collection<String> result = new HashSet<String>();

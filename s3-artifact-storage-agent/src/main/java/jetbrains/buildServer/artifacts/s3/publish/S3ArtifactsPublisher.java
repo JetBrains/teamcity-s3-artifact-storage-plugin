@@ -155,7 +155,12 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       fileToS3ObjectKeyMap.put(entry.getKey(), s3ObjectKeyPrefix + normalizeArtifactPath);
     }
 
-    final Map<String, URL> preSignedUploadUrls = myS3PreSignedUrlResolver.resolveUploadUrls(build, fileToS3ObjectKeyMap.values());
+    final Map<String, URL> preSignedUploadUrls;
+    try {
+      preSignedUploadUrls = myS3PreSignedUrlResolver.resolveUploadUrls(build, fileToS3ObjectKeyMap.values());
+    } catch (IOException e) {
+      throw new ArtifactPublishingFailedException(e.getMessage(), false, e);
+    }
     final int connectionTimeout = build.getAgentConfiguration().getServerConnectionTimeout();
 
     return CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), new Converter<ArtifactDataInstance, File>() {
