@@ -5,7 +5,6 @@ import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.BuildAgentConfiguration;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
 import jetbrains.buildServer.http.HttpUtil;
-import jetbrains.buildServer.serverSide.impl.LogUtil;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.methods.PostMethod;
@@ -45,7 +44,7 @@ class S3PreSignedUrlResolver {
     post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
     int responseCode = httpClient.executeMethod(post);
     if(responseCode != 200){
-      LOG.debug("Failed resolving S3 presign URLs for build " + LogUtil.describe(build) + " . Response code " + responseCode);
+      LOG.debug("Failed resolving S3 presign URLs for build " + build.describe(false) + " . Response code " + responseCode);
       return Collections.emptyMap();
     }
     return S3PreSignUrlHelper.readPreSignUrlMapping(post.getResponseBodyAsString());

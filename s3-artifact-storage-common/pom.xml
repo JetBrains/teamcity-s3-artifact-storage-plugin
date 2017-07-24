@@ -45,7 +45,8 @@
       <dependency>
           <groupId>org.jetbrains.teamcity</groupId>
           <artifactId>tests-support</artifactId>
-          <version>2017.1.1-SNAPSHOT</version>
+          <version>${teamcity-version}</version>
+          <scope>test</scope>
       </dependency>
   </dependencies>
 </project>

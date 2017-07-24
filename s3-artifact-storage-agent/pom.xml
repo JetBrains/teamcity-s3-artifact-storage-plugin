@@ -42,11 +42,6 @@
       <version>${teamcity-version}</version>
       <scope>test</scope>
     </dependency>
-      <dependency>
-          <groupId>org.jetbrains.teamcity.internal</groupId>
-          <artifactId>server</artifactId>
-          <version>2017.1.1-SNAPSHOT</version>
-      </dependency>
 
   </dependencies>
 </project>
