@@ -11,6 +11,7 @@ import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.RunningBuildsCollection;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
+import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.servlet.ModelAndView;
@@ -37,9 +38,11 @@ public class S3PreSignedUrlController extends BaseController {
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsCollection runningBuildsCollection,
-                                  @NotNull S3PreSignedUrlProvider preSignedUrlProvider) {
+                                  @NotNull S3PreSignedUrlProvider preSignedUrlProvider,
+                                  @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider) {
     myRunningBuildsCollection = runningBuildsCollection;
     myPreSignedUrlProvider = preSignedUrlProvider;
+    myStorageSettingsProvider = storageSettingsProvider;
     web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
   }
 
@@ -70,7 +73,7 @@ public class S3PreSignedUrlController extends BaseController {
       return null;
     }
 
-    Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(httpServletRequest);
+    Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(IOUtils.toString(httpServletRequest.getReader()));
     if(s3ObjectKeys.isEmpty()){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       return null;
@@ -78,10 +81,10 @@ public class S3PreSignedUrlController extends BaseController {
 
     try{
       Map<String, URL> data = new HashMap<>();
-      for(String obejctKey : s3ObjectKeys){
-        data.put(obejctKey, new URL(myPreSignedUrlProvider.getUploadUrl(bucketName, obejctKey, storageSettings)));
+      for(String objectKey : s3ObjectKeys){
+        data.put(objectKey, new URL(myPreSignedUrlProvider.getUploadUrl(bucketName, objectKey, storageSettings)));
       }
-      S3PreSignUrlHelper.write(data, httpServletResponse);
+      httpServletResponse.getWriter().append(S3PreSignUrlHelper.writePreSignUrlMapping(data));
       return null;
     } catch (IOException ex){
       LOG.debug("Failed to resolve presigned upload urls for artifacts of build " + runningBuild.getBuildId(), ex);
