@@ -32,6 +32,10 @@
             <span class="error" id="error_${params.bucketName}"></span>
         </td>
     </tr>
+    <tr>
+        <th><label for="${params.usePresignUrlsForUpload}">Use presign URL's for upload: </label></th>
+        <td><props:checkboxProperty name="${params.usePresignUrlsForUpload}"/></td>
+    </tr>
 </l:settingsGroup>
 
 <script type="text/javascript">

@@ -7,6 +7,10 @@ public class S3ParametersProvider {
     return S3Constants.S3_BUCKET_NAME;
   }
 
+  public String getUsePresignUrlsForUpload(){
+    return S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
+  }
+
   public String getContainersPath() {
     return String.format("/plugins/s3-artifact-storage/%s.html", S3Constants.S3_SETTINGS_PATH);
   }
