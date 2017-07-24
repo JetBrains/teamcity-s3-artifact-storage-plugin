@@ -103,7 +103,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     final String bucketName = getBucketName(params);
     try {
       prepareDestination(bucketName, params, build);
-      final String objectKeyPrefix = getS3ObjectKeyPrefixProperty(build);
+      final String objectKeyPrefix = getPathPrefix(build);
       final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
       jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
@@ -147,7 +147,8 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(final AgentRunningBuild build, Map<File, String> filesToPublish) {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
-    final String s3ObjectKeyPrefix = getS3ObjectKeyPrefixProperty(build);
+    final String s3ObjectKeyPrefix = getPathPrefix(build) + "/";
+    build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()){
       String normalizeArtifactPath = normalizeArtifactPath(entry.getValue(), entry.getKey());
@@ -173,11 +174,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         }
         HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
         try {
-          PutMethod putMethod = new PutMethod();
+          PutMethod putMethod = new PutMethod(uploadUrl.toString());
           putMethod.setRequestEntity(new FileRequestEntity(file, "application/octet-stream"));
           int responseCode = httpClient.executeMethod(putMethod);
           if(responseCode == 200){
-            LOG.debug(String.format("Succesfully upload artifact %s to %s", artifactPath, uploadUrl));
+            LOG.debug(String.format("Successfully upload artifact %s to %s", artifactPath, uploadUrl));
           } else{
             throw new ArtifactPublishingFailedException(String.format("Failed upload artifact %s to %s. Response code received: %d.", artifactPath, uploadUrl, responseCode), false, null);
           }
@@ -215,7 +216,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           }
           pathPrefix = pathPrefix + "/";
           build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
-          build.addSharedSystemProperty(S3_PATH_PREFIX_SYSTEM_PROPERTY, pathPrefix);
           isDestinationPrepared = true;
           return null;
         }
@@ -226,7 +226,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private void publishArtifactsList(AgentRunningBuild build) {
     if (!myArtifacts.isEmpty()) {
-      final String pathPrefix = getS3ObjectKeyPrefixProperty(build);
+      final String pathPrefix = getPathPrefix(build);
       try {
         myHelper.publishArtifactList(myArtifacts, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
       } catch (IOException e) {
@@ -242,36 +242,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   @NotNull
-  private String getS3ObjectKeyPrefixProperty(@NotNull AgentRunningBuild build) throws ArtifactPublishingFailedException {
-    final String prefix = build.getSharedBuildParameters().getSystemProperties().get(S3_PATH_PREFIX_SYSTEM_PROPERTY);
-    if (StringUtil.isEmptyOrSpaces(prefix)) {
-      throw new ArtifactPublishingFailedException("No " + S3_PATH_PREFIX_SYSTEM_PROPERTY + " build system property found", false, null);
-    }
-    return prefix;
-  }
-
-  @NotNull
   private String getPathPrefix(@NotNull AgentRunningBuild build) {
     final List<String> pathSegments = new ArrayList<String>();
-
-    // Try to get overriden path prefix
-    final String pathPrefix = build.getSharedConfigParameters().get(S3_PATH_PREFIX_SYSTEM_PROPERTY);
-    if (StringUtil.isEmptyOrSpaces(pathPrefix)) {
-      // Set default path prefix
-      pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
-      pathSegments.add(build.getBuildTypeExternalId());
-      pathSegments.add(Long.toString(build.getBuildId()));
-    } else {
-      final String[] segments = pathPrefix
-        .trim()
-        .replace('\\', '/')
-        .split("/");
-      for (String segment : segments) {
-        if (StringUtil.isEmptyOrSpaces(segment)) continue;
-        pathSegments.add(segment);
-      }
-    }
-
+    pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
+    pathSegments.add(build.getBuildTypeExternalId());
+    pathSegments.add(Long.toString(build.getBuildId()));
     return StringUtil.join("/", pathSegments);
   }
 }
