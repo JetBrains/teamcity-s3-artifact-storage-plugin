@@ -62,7 +62,9 @@ public class S3PreSignedUrlController extends BaseController {
 
     Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
 
-    if(!S3Util.validateParameters(storageSettings).isEmpty()){
+    try {
+      S3Util.validateParameters(storageSettings);
+    } catch (IllegalArgumentException ex){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       return null;
     }
