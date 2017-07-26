@@ -38,6 +38,7 @@ class S3PreSignedUrlResolver {
     HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, new URL(targetUrl), credentials);
     PostMethod post = new PostMethod(targetUrl);
     post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
+    post.setDoAuthentication(true);
     int responseCode = httpClient.executeMethod(post);
     if(responseCode != 200){
       LOG.debug("Failed resolving S3 presign URLs for build " + build.describe(false) + " . Response code " + responseCode);
