@@ -147,7 +147,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(final AgentRunningBuild build, Map<File, String> filesToPublish) {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
-    final String s3ObjectKeyPrefix = getPathPrefix(build) + "/";
+    final String s3ObjectKeyPrefix = getPathPrefix(build);
     build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()){
@@ -209,12 +209,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       public Void run(@NotNull AWSClients awsClients) throws Throwable {
         final AmazonS3Client s3Client = awsClients.createS3Client();
         if (s3Client.doesBucketExist(bucketName)) {
-          String pathPrefix = getPathPrefix(build);
-          if (s3Client.doesObjectExist(bucketName, pathPrefix)) {
-            build.getBuildLogger().warning("Default target S3 artifact path " + pathPrefix + " already exists in the S3 bucket " + bucketName + ", will use a custom path");
-            pathPrefix = pathPrefix + "_" + System.currentTimeMillis();
-          }
-          pathPrefix = pathPrefix + "/";
+          final String pathPrefix = getPathPrefix(build);
           build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
           isDestinationPrepared = true;
           return null;
@@ -247,6 +242,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
     pathSegments.add(build.getBuildTypeExternalId());
     pathSegments.add(Long.toString(build.getBuildId()));
-    return StringUtil.join("/", pathSegments);
+    return StringUtil.join("/", pathSegments) + "/";
   }
 }
