@@ -79,7 +79,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final Map<String, String> params = getPublisherParameters();
       if(usePreSignedUrls(params)){
-        myArtifacts.addAll(publishFilesWithPreSignedUrls(build, filteredMap));
+        myArtifacts.addAll(publishFilesWithPreSignedUrls(build, params, filteredMap));
       } else {
         myArtifacts.addAll(publishFilesWithS3Client(build, params, filteredMap));
       }
@@ -144,11 +144,12 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     }
   }
 
-  private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(final AgentRunningBuild build, Map<File, String> filesToPublish) {
+  private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(final AgentRunningBuild build, Map<String, String> params, Map<File, String> filesToPublish) {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
     final String s3ObjectKeyPrefix = getPathPrefix(build);
-    build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix);
+    final String bucketName = getBucketName(params);
+    build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix + " in the S3 bucket " + bucketName);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()){
       String normalizeArtifactPath = normalizeArtifactPath(entry.getValue(), entry.getKey());
