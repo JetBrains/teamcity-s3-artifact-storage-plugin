@@ -77,11 +77,16 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
-      final Map<String, String> params = getPublisherParameters();
-      if(usePreSignedUrls(params)){
-        myArtifacts.addAll(publishFilesWithPreSignedUrls(build, params, filteredMap));
+      Map<String, String> storageSettings = myTracker.getCurrentBuild().getArtifactStorageSettings();
+      if(usePreSignedUrls(storageSettings)){
+        String bucketName = getBucketName(storageSettings);
+        if(StringUtil.isEmpty(bucketName)){
+          throw new IllegalArgumentException("S3 bucket name must not be empty");
+        }
+        myArtifacts.addAll(publishFilesWithPreSignedUrls(build, bucketName, filteredMap));
       } else {
-        myArtifacts.addAll(publishFilesWithS3Client(build, params, filteredMap));
+        final Map<String, String> validStorageSettings = S3Util.validateParameters(storageSettings);
+        myArtifacts.addAll(publishFilesWithS3Client(build, validStorageSettings, filteredMap));
       }
     }
 
@@ -144,11 +149,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     }
   }
 
-  private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(final AgentRunningBuild build, Map<String, String> params, Map<File, String> filesToPublish) {
+  private List<ArtifactDataInstance> publishFilesWithPreSignedUrls(@NotNull AgentRunningBuild build, @NotNull String bucketName, @NotNull Map<File, String> filesToPublish) {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
     final String s3ObjectKeyPrefix = getPathPrefix(build);
-    final String bucketName = getBucketName(params);
+
     build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix + " in the S3 bucket " + bucketName);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()){
@@ -230,11 +235,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
         LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(build), e);
       }
     }
-  }
-
-  @NotNull
-  private Map<String, String> getPublisherParameters() {
-    return S3Util.validateParameters(myTracker.getCurrentBuild().getArtifactStorageSettings());
   }
 
   @NotNull

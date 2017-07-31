@@ -16,6 +16,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
+import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
+
 /**
  * Created by Nikita.Skvortsov
  * date: 24.02.2016.
@@ -88,6 +91,18 @@ public class S3StorageType extends ArtifactStorageType {
       }
 
       return invalids;
+    };
+  }
+
+  @NotNull
+  @Override
+  public SettingsPreprocessor getSettingsPreprocessor() {
+    return input -> {
+      final Map<String, String> output = new HashMap<>(input);
+      if(Boolean.parseBoolean(input.get(S3_USE_PRE_SIGNED_URL_FOR_UPLOAD))){
+        output.remove(SECURE_SECRET_ACCESS_KEY_PARAM);
+      }
+      return output;
     };
   }
 }
