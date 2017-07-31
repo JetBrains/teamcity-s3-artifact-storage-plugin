@@ -10,6 +10,7 @@ import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHea
 import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.RunningBuildsCollection;
+import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
@@ -57,27 +58,30 @@ public class S3PreSignedUrlController extends BaseController {
     RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
     if(runningBuild == null){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve running build.");
       return null;
     }
 
     Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
-
     try {
       S3Util.validateParameters(storageSettings);
     } catch (IllegalArgumentException ex){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve storage settngs for running build with id " + LogUtil.describe(runningBuild));
       return null;
     }
 
     String bucketName = S3Util.getBucketName(storageSettings);
     if(bucketName == null){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve target bucket name for build " + LogUtil.describe(runningBuild));
       return null;
     }
 
     Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(IOUtils.toString(httpServletRequest.getReader()));
     if(s3ObjectKeys.isEmpty()){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". S3 object keys collection is empty.");
       return null;
     }
 
