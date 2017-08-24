@@ -7,7 +7,6 @@ This plugin allows replacing the TeamCity built-in artifacts storage with [AWS S
 # State
 
 Baseline functionality finished. Feedback wanted.
-The plugin  is not ready to be used in produciton and further plugin updates may break backward compatibility (regarding settings, data storage, etc.)
 
 # Compatibility
 
