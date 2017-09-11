@@ -10,6 +10,7 @@ import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.log.LogUtil;
@@ -19,8 +20,11 @@ import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.util.filters.Filter;
 import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.apache.commons.httpclient.methods.FileRequestEntity;
+import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,11 +39,14 @@ import static jetbrains.buildServer.artifacts.s3.S3Util.usePreSignedUrls;
 
 public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
+  private static final String HTTP_AUTH = "/httpAuth";
+  private static final String APPLICATION_XML = "application/xml";
+  private static final String UTF_8 = "UTF-8";
+
   private static final Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
   private static final String ERROR_PUBLISHING_ARTIFACTS_LIST = "Error publishing artifacts list";
 
   private final CurrentBuildTracker myTracker;
-  private final S3PreSignedUrlResolver myS3PreSignedUrlResolver;
   private final AgentArtifactHelper myHelper;
 
   private boolean isDestinationPrepared = false;
@@ -47,11 +54,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final CurrentBuildTracker tracker,
-                              @NotNull final S3PreSignedUrlResolver s3PreSignedUrlResolver) {
+                              @NotNull final CurrentBuildTracker tracker) {
     myHelper = helper;
     myTracker = tracker;
-    myS3PreSignedUrlResolver = s3PreSignedUrlResolver;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
@@ -164,7 +169,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     final Map<String, URL> preSignedUploadUrls;
     try {
-      preSignedUploadUrls = myS3PreSignedUrlResolver.resolveUploadUrls(build, fileToS3ObjectKeyMap.values());
+      preSignedUploadUrls = resolveUploadUrls(build, fileToS3ObjectKeyMap.values());
     } catch (IOException e) {
       throw new ArtifactPublishingFailedException(e.getMessage(), false, e);
     }
@@ -244,5 +249,23 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     pathSegments.add(build.getBuildTypeExternalId());
     pathSegments.add(Long.toString(build.getBuildId()));
     return StringUtil.join("/", pathSegments) + "/";
+  }
+
+  @NotNull
+  private static Map<String, URL> resolveUploadUrls(AgentRunningBuild build, @NotNull Collection<String> s3ObjectKeys) throws IOException {
+    BuildAgentConfiguration agentConfiguration = build.getAgentConfiguration();
+    String targetUrl = agentConfiguration.getServerUrl() + HTTP_AUTH + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
+    int connectionTimeout = agentConfiguration.getServerConnectionTimeout();
+    UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(build.getAccessUser(), build.getAccessCode());
+    HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, new URL(targetUrl), credentials);
+    PostMethod post = new PostMethod(targetUrl);
+    post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
+    post.setDoAuthentication(true);
+    int responseCode = httpClient.executeMethod(post);
+    if(responseCode != 200){
+      LOG.debug("Failed resolving S3 presign URLs for build " + build.describe(false) + " . Response code " + responseCode);
+      return Collections.emptyMap();
+    }
+    return S3PreSignUrlHelper.readPreSignUrlMapping(post.getResponseBodyAsString());
   }
 }
