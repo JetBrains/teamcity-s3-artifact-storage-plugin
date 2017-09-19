@@ -1,8 +1,6 @@
-[![official project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+[![official project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk)/statusIcon.svg" alt=""/></a>
 
 # TeamCity S3 Artifact Storage Plugin
-
-<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk)/statusIcon.svg" alt=""/></a>
 
 This plugin allows replacing the TeamCity built-in artifacts storage with [AWS S3](https://aws.amazon.com/s3/). The artifacts storage can be changed at the project level. After changing the storage, new artifacts produced by the builds of this project will be published to the (specified) AWS S3 bucket. Besides publishing, the plugin also implements resolving of artifact dependencies and clean-up of build artifacts.
 
@@ -54,7 +52,4 @@ To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 
 Now the artifacts of this project, its subprojects, and build configurations will be stored in the configured storage.
 
-# License
-
-Apache License 2.0
 
