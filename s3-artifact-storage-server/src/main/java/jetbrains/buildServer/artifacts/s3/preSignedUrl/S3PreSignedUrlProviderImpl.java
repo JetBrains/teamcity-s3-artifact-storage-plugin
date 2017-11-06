@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -23,6 +24,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   private static final Logger LOG = Logger.getInstance(S3PreSignedUrlProviderImpl.class.getName());
+
+  private static final String TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED = "teamcity.s3.presignurl.get.cache.enabled";
 
   private final Cache<String, String> myGetLinksCache = CacheBuilder.newBuilder()
     .expireAfterWrite(getUrlLifetimeSec(), TimeUnit.SECONDS)
@@ -49,11 +52,14 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   private String getUrl(@NotNull String bucketName, @NotNull String objectKey, HttpMethod httpMethod, @NotNull Map<String, String> params) throws IOException {
     try {
       if(httpMethod == HttpMethod.GET){
-        return myGetLinksCache.get(getCacheIdentity(params, objectKey, bucketName), () -> AWSCommonParams.withAWSClients(params, awsClients -> {
+        Callable<String> resolver = () -> AWSCommonParams.withAWSClients(params, awsClients -> {
           final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, HttpMethod.GET)
             .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
           return awsClients.createS3Client().generatePresignedUrl(request).toString();
-        }));
+        });
+        return TeamCityProperties.getBoolean(TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED)
+          ? myGetLinksCache.get(getCacheIdentity(params, objectKey, bucketName), resolver)
+          : resolver.call();
       } else {
         return AWSCommonParams.withAWSClients(params, awsClients -> {
           final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
@@ -61,7 +67,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
           return awsClients.createS3Client().generatePresignedUrl(request).toString();
         });
       }
-    } catch (ExecutionException e) {
+    } catch (Exception e) {
       final AWSException awsException = new AWSException(e.getCause());
       if (StringUtil.isNotEmpty(awsException.getDetails())) {
         LOG.warn(awsException.getDetails());
