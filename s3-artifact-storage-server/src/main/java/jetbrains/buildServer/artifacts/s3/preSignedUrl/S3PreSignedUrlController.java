@@ -89,7 +89,7 @@ public class S3PreSignedUrlController extends BaseController {
     try{
       Map<String, URL> data = new HashMap<>();
       for(String objectKey : s3ObjectKeys){
-        data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.valueOf(httpServletRequest.getMethod()), bucketName, objectKey, storageSettings)));
+        data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.PUT, bucketName, objectKey, storageSettings)));
       }
       httpServletResponse.getWriter().append(S3PreSignUrlHelper.writePreSignUrlMapping(data));
       return null;
