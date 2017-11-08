@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
+import com.amazonaws.HttpMethod;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -12,8 +13,5 @@ public interface S3PreSignedUrlProvider {
   int getUrlLifetimeSec();
 
   @NotNull
-  String getUploadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException;
-
-  @NotNull
-  String getDownloadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException;
+  String getPreSignedUrl(@NotNull HttpMethod httpMethod, @NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException;
 }

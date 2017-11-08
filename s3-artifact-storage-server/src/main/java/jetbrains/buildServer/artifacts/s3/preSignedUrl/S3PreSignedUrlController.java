@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
+import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
@@ -88,7 +89,7 @@ public class S3PreSignedUrlController extends BaseController {
     try{
       Map<String, URL> data = new HashMap<>();
       for(String objectKey : s3ObjectKeys){
-        data.put(objectKey, new URL(myPreSignedUrlProvider.getUploadUrl(bucketName, objectKey, storageSettings)));
+        data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.valueOf(httpServletRequest.getMethod()), bucketName, objectKey, storageSettings)));
       }
       httpServletResponse.getWriter().append(S3PreSignUrlHelper.writePreSignUrlMapping(data));
       return null;

@@ -37,19 +37,9 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
     return TeamCityProperties.getInteger(S3Constants.S3_URL_LIFETIME_SEC, S3Constants.DEFAULT_S3_URL_LIFETIME_SEC);
   }
 
-  @Override
   @NotNull
-  public String getUploadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
-    return getUrl(bucketName, objectKey, HttpMethod.PUT, params);
-  }
-
   @Override
-  @NotNull
-  public String getDownloadUrl(@NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
-    return getUrl(bucketName, objectKey, HttpMethod.GET, params);
-  }
-
-  private String getUrl(@NotNull String bucketName, @NotNull String objectKey, HttpMethod httpMethod, @NotNull Map<String, String> params) throws IOException {
+  public String getPreSignedUrl(@NotNull HttpMethod httpMethod, @NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
     try {
       if(httpMethod == HttpMethod.GET){
         Callable<String> resolver = () -> AWSCommonParams.withAWSClients(params, awsClients -> {

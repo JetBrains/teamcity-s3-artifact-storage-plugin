@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -54,7 +55,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
     }
 
     httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
-    httpServletResponse.sendRedirect(myPreSignedUrlProvider.getDownloadUrl(bucketName, pathPrefix + artifactData.getPath(),params));
+    httpServletResponse.sendRedirect(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(),params));
     return true;
   }
 }
