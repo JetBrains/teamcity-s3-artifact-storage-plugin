@@ -54,7 +54,8 @@ Now the artifacts of this project, its subprojects, and build configurations wil
 
 # Known issues
 
-## Bad Request (400) from S3 when downloading artifact from TeamCity using basic http auth scheme (httpAuth prefix in URL)
+## Bad Request (400) from S3 when downloading artifact from TeamCity in "ant get" task using basic http auth scheme (httpAuth prefix in URL)
 
 Error message returned from AWS: 
 *Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified*
+Workaround: use pure 'curl -L'
