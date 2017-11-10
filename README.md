@@ -58,4 +58,5 @@ Now the artifacts of this project, its subprojects, and build configurations wil
 
 Error message returned from AWS: 
 *Only one auth mechanism allowed; only the X-Amz-Algorithm query parameter, Signature query string parameter or the Authorization header should be specified*
+
 Workaround: use pure 'curl -L'
