@@ -15,6 +15,7 @@ public class S3Constants {
 
   public static final String S3_URL_LIFETIME_SEC = "storage.s3.url.expiration.time.seconds";
   public static final String S3_USE_PRE_SIGNED_URL_FOR_UPLOAD = "storage.s3.upload.presignedUrl.enabled";
+  public static final String S3_USE_SIGNATURE_V4 = "storage.s3.use.signature.v4";
 
   public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
 

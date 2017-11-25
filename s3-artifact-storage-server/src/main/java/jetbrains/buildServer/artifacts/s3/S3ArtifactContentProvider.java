@@ -4,7 +4,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactContentProvider;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 
@@ -39,7 +38,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
     final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + storedBuildArtifactInfo.getArtifactData().getPath();
 
     try {
-      return AWSCommonParams.withAWSClients(params, awsClients -> awsClients.createS3Client().getObject(bucketName, key).getObjectContent());
+      return S3Util.withS3Client(params, client -> client.getObject(bucketName, key).getObjectContent());
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
 

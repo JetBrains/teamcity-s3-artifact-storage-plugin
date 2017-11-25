@@ -80,8 +80,7 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final String location = AWSCommonParams.withAWSClients(params,
-            awsClients -> awsClients.createS3Client().getBucketLocation(bucketName));
+          final String location = S3Util.withS3Client(params, client -> client.getBucketLocation(bucketName));
           if (location == null) {
             invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, "Bucket does not exist"));
           }

@@ -3,15 +3,13 @@ package jetbrains.buildServer.artifacts.s3.web;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
-import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.ListBucketsRequest;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdom.Content;
@@ -47,8 +45,7 @@ public class S3SettingsController extends BaseFormXmlController {
     final Map<String, String> parameters = getProperties(request);
 
     try {
-      xmlResponse.addContent((Content) AWSCommonParams.withAWSClients(parameters, awsClients -> {
-        final AmazonS3Client s3Client = awsClients.createS3Client();
+      xmlResponse.addContent((Content) S3Util.withS3Client(parameters, s3Client -> {
         final Element bucketsElement = new Element("buckets");
         for (Bucket bucket : s3Client.listBuckets()) {
           final Element bucketElement = new Element("bucket");

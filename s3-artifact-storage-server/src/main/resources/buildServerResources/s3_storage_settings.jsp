@@ -13,6 +13,7 @@
 
 <jsp:include page="editAWSCommonParams.jsp">
     <jsp:param name="requireRegion" value="${false}"/>
+    <jsp:param name="requireEnvironment" value="${true}"/>
 </jsp:include>
 
 <l:settingsGroup title="S3 Parameters">
@@ -33,8 +34,11 @@
         </td>
     </tr>
     <tr>
-        <th><label for="${params.usePresignUrlsForUpload}">Use presign URL's for upload: </label></th>
-        <td><props:checkboxProperty name="${params.usePresignUrlsForUpload}"/></td>
+        <th>Options:</th>
+        <td>
+            <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/>Use Pre-Signed URLs for upload<br/>
+            <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption
+        </td>
     </tr>
 </l:settingsGroup>
 

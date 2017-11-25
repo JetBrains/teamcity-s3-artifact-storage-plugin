@@ -1,7 +1,9 @@
 package jetbrains.buildServer.artifacts.s3;
 
+import com.amazonaws.services.s3.AmazonS3;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -59,5 +61,29 @@ public class S3Util {
 
   public static boolean usePreSignedUrls(@NotNull Map<String, String> properties) {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
+  }
+
+  public static boolean useSignatureVersion4(@NotNull Map<String, String> properties) {
+    return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_SIGNATURE_V4));
+  }
+
+  public static <T, E extends Throwable> T withS3Client(
+    @NotNull final Map<String, String> params,
+    @NotNull final WithS3<T, E> withClient) throws E {
+    return AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<T, E>() {
+      @Nullable
+      @Override
+      public T run(@NotNull AWSClients clients) throws E {
+        if (useSignatureVersion4(params)) {
+          clients.setS3SignerType("AWSS3V4SignerType");
+        }
+        return withClient.run(clients.createS3Client());
+      }
+    });
+  }
+
+  public interface WithS3<T, E extends Throwable> {
+    @Nullable
+    T run(@NotNull AmazonS3 client) throws E;
   }
 }

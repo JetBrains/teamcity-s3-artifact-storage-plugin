@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
@@ -15,8 +15,6 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.*;
-import jetbrains.buildServer.util.amazon.AWSClients;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import jetbrains.buildServer.util.filters.Filter;
 import org.apache.commons.httpclient.HttpClient;
@@ -214,11 +212,12 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
                                   final AgentRunningBuild build) throws Throwable {
     if (isDestinationPrepared) return;
 
-    AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Void, Throwable>() {
+    S3Util.withS3Client(params, new S3Util.WithS3<Void, Throwable>() {
       @Nullable
       @Override
-      public Void run(@NotNull AWSClients awsClients) throws Throwable {
-        final AmazonS3Client s3Client = awsClients.createS3Client();
+      public Void run(@NotNull AmazonS3 s3Client) throws Throwable {
+        // Minio does not support #doesBucketExistsV2
+        // noinspection deprecation
         if (s3Client.doesBucketExist(bucketName)) {
           final String pathPrefix = getPathPrefix(build);
           build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
@@ -263,7 +262,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     post.setDoAuthentication(true);
     int responseCode = httpClient.executeMethod(post);
     if(responseCode != 200){
-      LOG.debug("Failed resolving S3 presign URLs for build " + build.describe(false) + " . Response code " + responseCode);
+      LOG.debug("Failed resolving S3 pre-signed URL for build " + build.describe(false) + " . Response code " + responseCode);
       return Collections.emptyMap();
     }
     return S3PreSignUrlHelper.readPreSignUrlMapping(post.getResponseBodyAsString());

@@ -7,6 +7,7 @@ import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -16,7 +17,6 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -41,21 +41,17 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   @Override
   public String getPreSignedUrl(@NotNull HttpMethod httpMethod, @NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
     try {
-      if(httpMethod == HttpMethod.GET){
-        Callable<String> resolver = () -> AWSCommonParams.withAWSClients(params, awsClients -> {
-          final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, HttpMethod.GET)
-            .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
-          return awsClients.createS3Client().generatePresignedUrl(request).toString();
-        });
+      final Callable<String> resolver = () -> S3Util.withS3Client(params, client -> {
+        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
+          .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
+        return client.generatePresignedUrl(request).toString();
+      });
+      if (httpMethod == HttpMethod.GET) {
         return TeamCityProperties.getBoolean(TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED)
           ? myGetLinksCache.get(getCacheIdentity(params, objectKey, bucketName), resolver)
           : resolver.call();
       } else {
-        return AWSCommonParams.withAWSClients(params, awsClients -> {
-          final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
-            .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
-          return awsClients.createS3Client().generatePresignedUrl(request).toString();
-        });
+        return resolver.call();
       }
     } catch (Exception e) {
       final AWSException awsException = new AWSException(e.getCause());

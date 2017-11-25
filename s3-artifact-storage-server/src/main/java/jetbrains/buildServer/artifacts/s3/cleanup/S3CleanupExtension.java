@@ -19,7 +19,6 @@ import jetbrains.buildServer.serverSide.cleanup.CleanupProcessState;
 import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
@@ -61,7 +60,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
 
         final String bucketName = S3Util.getBucketName(params);
-        AWSCommonParams.withAWSClients(params, awsClients -> {
+        S3Util.withS3Client(params, client -> {
           final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
           int succeededNum = 0;
@@ -72,7 +71,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
               final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
                 .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
 
-              succeededNum += awsClients.createS3Client().deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+              succeededNum += client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
             } catch (MultiObjectDeleteException e) {
               succeededNum += e.getDeletedObjects().size();
 
