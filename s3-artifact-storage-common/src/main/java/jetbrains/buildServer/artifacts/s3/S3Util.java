@@ -8,6 +8,8 @@ import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
+import java.net.URLConnection;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +21,9 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
  * date: 02.08.2016.
  */
 public class S3Util {
+
+  private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
     final Map<String, String> invalids = new HashMap<String, String>();
@@ -80,6 +85,10 @@ public class S3Util {
         return withClient.run(clients.createS3Client());
       }
     });
+  }
+
+  public static String getContentType(File file) {
+    return StringUtil.notEmpty(URLConnection.guessContentTypeFromName(file.getName()), DEFAULT_CONTENT_TYPE);
   }
 
   public interface WithS3<T, E extends Throwable> {

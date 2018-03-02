@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
+import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
@@ -81,9 +82,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       Map<String, String> storageSettings = myTracker.getCurrentBuild().getArtifactStorageSettings();
-      if(usePreSignedUrls(storageSettings)){
+      if (usePreSignedUrls(storageSettings)) {
         String bucketName = getBucketName(storageSettings);
-        if(StringUtil.isEmpty(bucketName)){
+        if (StringUtil.isEmpty(bucketName)) {
           throw new IllegalArgumentException("S3 bucket name must not be empty");
         }
         myArtifacts.addAll(publishFilesWithPreSignedUrls(build, bucketName, filteredMap));
@@ -123,15 +124,17 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
               final File file = entry.getKey();
               final String path = entry.getValue();
               final String artifactPath = normalizeArtifactPath(path, file);
-
               final String objectKey = objectKeyPrefix + artifactPath;
 
               artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
 
-              return transferManager.upload(new PutObjectRequest(
-                bucketName,
-                objectKey,
-                file).withCannedAcl(CannedAccessControlList.Private));
+              final ObjectMetadata metadata = new ObjectMetadata();
+              metadata.setContentType(S3Util.getContentType(file));
+              final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
+                .withCannedAcl(CannedAccessControlList.Private)
+                .withMetadata(metadata);
+
+              return transferManager.upload(putObjectRequest);
             }
           });
         }
@@ -159,7 +162,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     build.getBuildLogger().message("Artifacts are published to the S3 path " + s3ObjectKeyPrefix + " in the S3 bucket " + bucketName);
 
-    for (Map.Entry<File, String> entry : filesToPublish.entrySet()){
+    for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       String normalizeArtifactPath = normalizeArtifactPath(entry.getValue(), entry.getKey());
       fileToNormalizedArtifactPathMap.put(entry.getKey(), normalizeArtifactPath);
       fileToS3ObjectKeyMap.put(entry.getKey(), s3ObjectKeyPrefix + normalizeArtifactPath);
@@ -178,20 +181,20 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       public ArtifactDataInstance createFrom(@NotNull File file) {
         String artifactPath = fileToNormalizedArtifactPathMap.get(file);
         URL uploadUrl = preSignedUploadUrls.get(fileToS3ObjectKeyMap.get(file));
-        if(uploadUrl == null){
+        if (uploadUrl == null) {
           throw new ArtifactPublishingFailedException("Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.", false, null);
         }
         HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
         try {
           PutMethod putMethod = new PutMethod(uploadUrl.toString());
-          putMethod.setRequestEntity(new FileRequestEntity(file, "application/octet-stream"));
+          putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
           int responseCode = httpClient.executeMethod(putMethod);
-          if(responseCode == 200){
+          if (responseCode == 200) {
             LOG.debug(String.format("Successfully upload artifact %s to %s", artifactPath, uploadUrl));
-          } else{
+          } else {
             throw new ArtifactPublishingFailedException(String.format("Failed upload artifact %s to %s. Response code received: %d.", artifactPath, uploadUrl, responseCode), false, null);
           }
-        } catch (IOException ex){
+        } catch (IOException ex) {
           throw new ArtifactPublishingFailedException(ex.getMessage(), false, ex);
         }
         return ArtifactDataInstance.create(artifactPath, file.length());
@@ -261,7 +264,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
     post.setDoAuthentication(true);
     int responseCode = httpClient.executeMethod(post);
-    if(responseCode != 200){
+    if (responseCode != 200) {
       LOG.debug("Failed resolving S3 pre-signed URL for build " + build.describe(false) + " . Response code " + responseCode);
       return Collections.emptyMap();
     }
