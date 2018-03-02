@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
 import jetbrains.buildServer.artifacts.ArtifactListData;
+import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -42,7 +43,7 @@ public class S3Util {
   }
 
   @NotNull
-  public static String joinStrings(@NotNull Collection<String> strings) {
+  private static String joinStrings(@NotNull Collection<String> strings) {
     if (strings.isEmpty()) return StringUtil.EMPTY;
     final StringBuilder sb = new StringBuilder();
     for (String s : strings) sb.append(s).append("\n");
@@ -68,7 +69,7 @@ public class S3Util {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
   }
 
-  public static boolean useSignatureVersion4(@NotNull Map<String, String> properties) {
+  private static boolean useSignatureVersion4(@NotNull Map<String, String> properties) {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_SIGNATURE_V4));
   }
 
@@ -89,6 +90,14 @@ public class S3Util {
 
   public static String getContentType(File file) {
     return StringUtil.notEmpty(URLConnection.guessContentTypeFromName(file.getName()), DEFAULT_CONTENT_TYPE);
+  }
+
+  public static String normalizeArtifactPath(final String path, final File file) {
+    if (StringUtil.isEmpty(path)) {
+      return file.getName();
+    } else {
+      return FileUtil.normalizeRelativePath(String.format("%s/%s", path, file.getName()));
+    }
   }
 
   public interface WithS3<T, E extends Throwable> {
