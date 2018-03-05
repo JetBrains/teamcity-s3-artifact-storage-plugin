@@ -12,7 +12,7 @@
 </style>
 
 <jsp:include page="editAWSCommonParams.jsp">
-    <jsp:param name="requireRegion" value="${false}"/>
+    <jsp:param name="requireRegion" value="${true}"/>
     <jsp:param name="requireEnvironment" value="${true}"/>
 </jsp:include>
 
@@ -44,13 +44,13 @@
 
 <script type="text/javascript">
     var bucketLocations = {};
-    var $bucketRegion = $j(BS.Util.escapeId('aws.region.name'));
+    var $bucketRegion = $('aws.region.name');
     var $bucketSelector = $j(BS.Util.escapeId('${params.bucketName}'));
 
     function getErrors($response) {
         var $errors = $response.find("errors:eq(0) error");
         if ($errors.length) {
-            return $j.map($errors, function(error) {
+            return $j.map($errors, function (error) {
                 return $j(error).text();
             }).join(", ");
         }
@@ -79,7 +79,7 @@
                     // Save selected option
                     var value = $bucketSelector.val();
                     if (value && !bucketLocations[value]) {
-                        bucketLocations[value] = $bucketRegion.val();
+                        bucketLocations[value] = $bucketRegion.value;
                     }
 
                     // Redraw selector
@@ -110,12 +110,12 @@
     $j(document).on('click', '#buckets-refresh', function () {
         loadBuckets();
     });
-    
+
     $bucketSelector.change(function () {
         var bucketName = $j(this).val();
         var location = bucketLocations[bucketName];
         if (location) {
-            $bucketRegion.val(location);
+            $bucketRegion.setSelectValue(location);
         }
     });
 </script>

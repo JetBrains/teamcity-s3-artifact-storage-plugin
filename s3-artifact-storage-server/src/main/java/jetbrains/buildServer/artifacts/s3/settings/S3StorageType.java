@@ -8,6 +8,7 @@ import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.amazon.AWSRegions;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -63,8 +64,8 @@ public class S3StorageType extends ArtifactStorageType {
   @Nullable
   @Override
   public Map<String, String> getDefaultParameters() {
-    Map<String, String> result = new HashMap<>();
-    result.putAll(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
+    Map<String, String> result = new HashMap<>(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
+    result.put(AWSCommonParams.REGION_NAME_PARAM, AWSRegions.DEFAULT_REGION);
     return result;
   }
 
