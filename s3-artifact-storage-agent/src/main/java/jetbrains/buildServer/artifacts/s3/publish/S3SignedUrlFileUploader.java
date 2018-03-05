@@ -18,14 +18,15 @@ import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 
@@ -35,6 +36,8 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
   private static final String HTTP_AUTH = "/httpAuth";
   private static final String APPLICATION_XML = "application/xml";
   private static final String UTF_8 = "UTF-8";
+
+  private final ExecutorService myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService();
 
   @NotNull
   @Override
@@ -58,42 +61,52 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       fileToS3ObjectKeyMap.put(entry.getKey(), pathPrefix + normalizeArtifactPath);
     }
 
-    final Map<String, URL> preSignedUploadUrls;
-    try {
-      preSignedUploadUrls = resolveUploadUrls(build, fileToS3ObjectKeyMap.values());
-    } catch (IOException e) {
-      throw new ArtifactPublishingFailedException(e.getMessage(), false, e);
-    }
     final int connectionTimeout = build.getAgentConfiguration().getServerConnectionTimeout();
-
-    return CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), new Converter<ArtifactDataInstance, File>() {
+    final ConcurrentLinkedQueue<ArtifactDataInstance> artifacts = new ConcurrentLinkedQueue<ArtifactDataInstance>();
+    final List<Callable<Void>> uploadTasks = CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), new Converter<Callable<Void>, File>() {
       @Override
-      public ArtifactDataInstance createFrom(@NotNull File file) {
-        String artifactPath = fileToNormalizedArtifactPathMap.get(file);
-        URL uploadUrl = preSignedUploadUrls.get(fileToS3ObjectKeyMap.get(file));
-        if (uploadUrl == null) {
-          throw new ArtifactPublishingFailedException("Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.", false, null);
-        }
-        HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
-        try {
-          PutMethod putMethod = new PutMethod(uploadUrl.toString());
-          putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
-          int responseCode = httpClient.executeMethod(putMethod);
-          if (responseCode == 200) {
-            LOG.debug(String.format("Successfully upload artifact %s to %s", artifactPath, uploadUrl));
-          } else {
-            throw new ArtifactPublishingFailedException(String.format("Failed upload artifact %s to %s. Response code received: %d.", artifactPath, uploadUrl, responseCode), false, null);
+      public Callable<Void> createFrom(@NotNull final File file) {
+        return new Callable<Void>() {
+          @Override
+          public Void call() {
+            final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
+            final URL uploadUrl = resolveUploadUrl(build, fileToS3ObjectKeyMap.get(file));
+            if (uploadUrl == null) {
+              throw new ArtifactPublishingFailedException("Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.", false, null);
+            }
+
+            final HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
+            try {
+              PutMethod putMethod = new PutMethod(uploadUrl.toString());
+              putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
+              int responseCode = httpClient.executeMethod(putMethod);
+              if (responseCode == 200) {
+                LOG.debug(String.format("Successfully upload artifact %s to %s", artifactPath, uploadUrl));
+              } else {
+                throw new ArtifactPublishingFailedException(String.format("Failed upload artifact %s to %s. Response code received: %d.", artifactPath, uploadUrl, responseCode), false, null);
+              }
+            } catch (IOException ex) {
+              throw new ArtifactPublishingFailedException(ex.getMessage(), false, ex);
+            }
+
+            artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+            return null;
           }
-        } catch (IOException ex) {
-          throw new ArtifactPublishingFailedException(ex.getMessage(), false, ex);
-        }
-        return ArtifactDataInstance.create(artifactPath, file.length());
+        };
       }
     });
+
+    try {
+      myExecutorService.invokeAll(uploadTasks);
+    } catch (Exception e) {
+      throw new ArtifactPublishingFailedException(String.format("Failed upload artifacts %s: %s.", bucketName, e.getMessage()), false, null);
+    }
+
+    return artifacts;
   }
 
   @NotNull
-  private static Map<String, URL> resolveUploadUrls(AgentRunningBuild build, @NotNull Collection<String> s3ObjectKeys) throws IOException {
+  private static Map<String, URL> resolveUploadUrls(@NotNull final AgentRunningBuild build, @NotNull final Collection<String> s3ObjectKeys) throws IOException {
     BuildAgentConfiguration agentConfiguration = build.getAgentConfiguration();
     String targetUrl = agentConfiguration.getServerUrl() + HTTP_AUTH + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
     int connectionTimeout = agentConfiguration.getServerConnectionTimeout();
@@ -108,5 +121,23 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       return Collections.emptyMap();
     }
     return S3PreSignUrlHelper.readPreSignUrlMapping(post.getResponseBodyAsString());
+  }
+
+  @Nullable
+  private static URL resolveUploadUrl(@NotNull final AgentRunningBuild build, @NotNull final String s3ObjectKey) {
+    try {
+      return resolveUploadUrls(build, Collections.singleton(s3ObjectKey)).get(s3ObjectKey);
+    } catch (IOException e) {
+      throw new ArtifactPublishingFailedException(e.getMessage(), false, e);
+    }
+  }
+
+  /**
+   * Releasing all resources created by <code>S3SignedUrlFileUploader</code> before it
+   * is being garbage collected.
+   */
+  @Override
+  protected void finalize() {
+    myExecutorService.shutdown();
   }
 }
