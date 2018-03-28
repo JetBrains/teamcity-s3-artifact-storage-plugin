@@ -12,7 +12,7 @@
 </style>
 
 <jsp:include page="editAWSCommonParams.jsp">
-    <jsp:param name="requireRegion" value="${true}"/>
+    <jsp:param name="requireRegion" value="${false}"/>
     <jsp:param name="requireEnvironment" value="${true}"/>
 </jsp:include>
 
@@ -44,7 +44,7 @@
 
 <script type="text/javascript">
     var bucketLocations = {};
-    var $bucketRegion = $('aws.region.name');
+    var $bucketRegion = $j(BS.Util.escapeId('aws.region.name'));
     var $bucketSelector = $j(BS.Util.escapeId('${params.bucketName}'));
 
     function getErrors($response) {
@@ -79,7 +79,7 @@
                     // Save selected option
                     var value = $bucketSelector.val();
                     if (value && !bucketLocations[value]) {
-                        bucketLocations[value] = $bucketRegion.value;
+                        bucketLocations[value] = $bucketRegion.val();
                     }
 
                     // Redraw selector
@@ -115,7 +115,7 @@
         var bucketName = $j(this).val();
         var location = bucketLocations[bucketName];
         if (location) {
-            $bucketRegion.setSelectValue(location);
+            $bucketRegion.val(location);
         }
     });
 </script>
