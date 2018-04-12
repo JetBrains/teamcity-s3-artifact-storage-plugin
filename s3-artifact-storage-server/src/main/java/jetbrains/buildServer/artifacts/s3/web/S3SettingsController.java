@@ -7,9 +7,11 @@ import com.amazonaws.services.s3.model.Bucket;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
+import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdom.Content;
@@ -24,9 +26,12 @@ import java.util.Map;
 public class S3SettingsController extends BaseFormXmlController {
 
   private final static Logger LOG = Logger.getInstance(S3SettingsController.class.getName());
+  private final ServerPaths myServerPaths;
 
   public S3SettingsController(WebControllerManager manager,
-                              PluginDescriptor descriptor) {
+                              PluginDescriptor descriptor,
+                              ServerPaths serverPaths) {
+    this.myServerPaths = serverPaths;
     final String path = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".html");
     manager.registerController(path, this);
   }
@@ -45,19 +50,20 @@ public class S3SettingsController extends BaseFormXmlController {
     final Map<String, String> parameters = getProperties(request);
 
     try {
-      xmlResponse.addContent((Content) S3Util.withS3Client(parameters, s3Client -> {
-        final Element bucketsElement = new Element("buckets");
-        for (Bucket bucket : s3Client.listBuckets()) {
-          final Element bucketElement = new Element("bucket");
-          final String bucketName = bucket.getName();
-          final String location = s3Client.getBucketLocation(bucketName);
-          final String regionName = getRegionName(location);
-          bucketElement.setAttribute("location", regionName);
-          bucketElement.setText(bucketName);
-          bucketsElement.addContent(bucketElement);
-        }
-        return bucketsElement;
-      }));
+      xmlResponse.addContent((Content) S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, parameters),
+        s3Client -> {
+          final Element bucketsElement = new Element("buckets");
+          for (Bucket bucket : s3Client.listBuckets()) {
+            final Element bucketElement = new Element("bucket");
+            final String bucketName = bucket.getName();
+            final String location = s3Client.getBucketLocation(bucketName);
+            final String regionName = getRegionName(location);
+            bucketElement.setAttribute("location", regionName);
+            bucketElement.setText(bucketName);
+            bucketsElement.addContent(bucketElement);
+          }
+          return bucketsElement;
+        }));
     } catch (Throwable e) {
       final String message = String.format("Failed to get list of buckets: %s", e.getMessage());
       LOG.infoAndDebugDetails(message, e);

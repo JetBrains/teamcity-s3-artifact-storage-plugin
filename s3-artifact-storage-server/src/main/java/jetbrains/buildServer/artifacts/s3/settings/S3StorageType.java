@@ -2,8 +2,10 @@ package jetbrains.buildServer.artifacts.s3.settings;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
@@ -28,12 +30,15 @@ public class S3StorageType extends ArtifactStorageType {
 
   @NotNull private final String mySettingsJSP;
   @NotNull private final ServerSettings myServerSettings;
+  @NotNull private final ServerPaths myServerPaths;
 
   public S3StorageType(@NotNull ArtifactStorageTypeRegistry registry,
                        @NotNull PluginDescriptor descriptor,
-                       @NotNull ServerSettings serverSettings) {
+                       @NotNull ServerSettings serverSettings,
+                       @NotNull ServerPaths serverPaths) {
     mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
     myServerSettings = serverSettings;
+    this.myServerPaths = serverPaths;
     registry.registerStorageType(this);
   }
 
@@ -81,7 +86,8 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final String location = S3Util.withS3Client(params, client -> client.getBucketLocation(bucketName));
+          final String location = S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params),
+            client -> client.getBucketLocation(bucketName));
           if (location == null) {
             invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, "Bucket does not exist"));
           }

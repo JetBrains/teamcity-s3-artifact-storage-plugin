@@ -8,6 +8,8 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -27,6 +29,12 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
 
   private static final String TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED = "teamcity.s3.presignurl.get.cache.enabled";
 
+  @NotNull private final ServerPaths myServerPaths;
+
+  public S3PreSignedUrlProviderImpl(@NotNull ServerPaths serverPaths) {
+    this.myServerPaths = serverPaths;
+  }
+
   private final Cache<String, String> myGetLinksCache = CacheBuilder.newBuilder()
     .expireAfterWrite(getUrlLifetimeSec(), TimeUnit.SECONDS)
     .maximumSize(200)
@@ -41,7 +49,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   @Override
   public String getPreSignedUrl(@NotNull HttpMethod httpMethod, @NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
     try {
-      final Callable<String> resolver = () -> S3Util.withS3Client(params, client -> {
+      final Callable<String> resolver = () -> S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
         final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
           .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
         return client.generatePresignedUrl(request).toString();

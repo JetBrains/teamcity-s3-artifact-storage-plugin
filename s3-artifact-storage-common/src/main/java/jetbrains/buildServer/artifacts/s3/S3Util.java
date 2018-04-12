@@ -1,21 +1,29 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.transfer.Transfer;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.ssl.SSLContextUtil;
+import jetbrains.buildServer.util.ssl.TrustStoreReader;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import javax.net.ssl.SSLContext;
 import java.io.File;
 import java.net.URLConnection;
+import java.security.KeyStore;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
+import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 
 /**
  * Created by Nikita.Skvortsov
@@ -73,6 +81,31 @@ public class S3Util {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_SIGNATURE_V4));
   }
 
+  @Nullable
+  private static KeyStore trustStore(@Nullable final String directory) {
+    if (directory == null) {
+      return null;
+    }
+    return TrustStoreReader.readTrustStoreFromDirectory(directory);
+  }
+
+  @Nullable
+  private static ConnectionSocketFactory socketFactory(@NotNull final Map<String, String> params) {
+    final String certDirectory = params.get(SSL_CERT_DIRECTORY_PARAM);
+    if (certDirectory == null) {
+      return null;
+    }
+    final KeyStore trustStore = trustStore(certDirectory);
+    if (trustStore == null) {
+      return null;
+    }
+    final SSLContext sslContext = SSLContextUtil.createUserSSLContext(trustStore);
+    if (sslContext == null) {
+      return null;
+    }
+    return new SSLConnectionSocketFactory(sslContext);
+  }
+
   public static <T, E extends Throwable> T withS3Client(
     @NotNull final Map<String, String> params,
     @NotNull final WithS3<T, E> withClient) throws E {
@@ -83,9 +116,31 @@ public class S3Util {
         if (useSignatureVersion4(params)) {
           clients.setS3SignerType("AWSS3V4SignerType");
         }
+        patchAWSClientsSsl(clients, params);
         return withClient.run(clients.createS3Client());
       }
     });
+  }
+
+  public static <T extends Transfer> Collection<T> withTransferManager(
+    @NotNull final Map<String, String> params,
+    @NotNull final jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<T> withTransferManager
+  ) throws Throwable {
+    return AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Collection<T>, Throwable>() {
+      @NotNull
+      @Override
+      public Collection<T> run(@NotNull AWSClients clients) throws Throwable {
+        patchAWSClientsSsl(clients, params);
+        return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), true, withTransferManager);
+      }
+    });
+  }
+
+  private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
+    final ConnectionSocketFactory socketFactory = socketFactory(params);
+    if (socketFactory != null) {
+      clients.getClientConfiguration().getApacheHttpClientConfig().withSslSocketFactory(socketFactory);
+    }
   }
 
   public static String getContentType(File file) {

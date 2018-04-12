@@ -9,8 +9,11 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
+import jetbrains.buildServer.agent.BuildAgentConfiguration;
+import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
@@ -31,19 +34,28 @@ public class S3RegularFileUploader implements S3FileUploader {
   private static final Logger LOG = Logger.getInstance(S3RegularFileUploader.class.getName());
 
   private boolean isDestinationPrepared = false;
+  private BuildAgentConfiguration myBuildAgentConfiguration;
+
+  public S3RegularFileUploader(@NotNull final BuildAgentConfiguration buildAgentConfiguration) {
+    myBuildAgentConfiguration = buildAgentConfiguration;
+  }
 
   @NotNull
   @Override
   public Collection<ArtifactDataInstance> publishFiles(@NotNull final AgentRunningBuild build,
                                                        @NotNull final String pathPrefix,
                                                        @NotNull final Map<File, String> filesToPublish) {
-    final Map<String, String> params = S3Util.validateParameters(build.getArtifactStorageSettings());
+    final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
+    final String certDirectory = TrustedCertificatesDirectory.getCertificateDirectoryFromHome(homeDir);
+
+    final Map<String, String> params = S3Util.validateParameters(
+      SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
     final String bucketName = getBucketName(params);
 
     try {
       prepareDestination(bucketName, params, build, pathPrefix);
       final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
-      jetbrains.buildServer.util.amazon.S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
+      S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
         @Override
         public Collection<Upload> run(@NotNull final TransferManager transferManager) {

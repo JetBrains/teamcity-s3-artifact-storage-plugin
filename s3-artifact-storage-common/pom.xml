@@ -40,8 +40,14 @@
     <dependency>
       <groupId>jetbrains.buildServer.util</groupId>
       <artifactId>amazon-util</artifactId>
-      <version>17</version>
+      <version>20</version>
     </dependency>
+      <dependency>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpclient</artifactId>
+          <version>4.5.2</version>
+          <scope>compile</scope>
+      </dependency>
       <dependency>
           <groupId>org.jetbrains.teamcity</groupId>
           <artifactId>tests-support</artifactId>
