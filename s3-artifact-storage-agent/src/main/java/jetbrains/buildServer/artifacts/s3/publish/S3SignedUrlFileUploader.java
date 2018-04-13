@@ -27,6 +27,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 
@@ -53,8 +54,6 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
 
-    build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
-
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
       fileToNormalizedArtifactPathMap.put(entry.getKey(), normalizeArtifactPath);
@@ -68,25 +67,29 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       public Callable<Void> createFrom(@NotNull final File file) {
         return new Callable<Void>() {
           @Override
-          public Void call() {
+          public Void call() throws IOException {
             final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
             final URL uploadUrl = resolveUploadUrl(build, fileToS3ObjectKeyMap.get(file));
             if (uploadUrl == null) {
-              throw new ArtifactPublishingFailedException("Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.", false, null);
+              final String message = "Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.";
+              LOG.info(message);
+              throw new IOException(message);
             }
 
             final HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
-            try {
-              PutMethod putMethod = new PutMethod(uploadUrl.toString());
-              putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
-              int responseCode = httpClient.executeMethod(putMethod);
-              if (responseCode == 200) {
-                LOG.debug(String.format("Successfully upload artifact %s to %s", artifactPath, uploadUrl));
-              } else {
-                throw new ArtifactPublishingFailedException(String.format("Failed upload artifact %s to %s. Response code received: %d.", artifactPath, uploadUrl, responseCode), false, null);
-              }
-            } catch (IOException ex) {
-              throw new ArtifactPublishingFailedException(ex.getMessage(), false, ex);
+            final PutMethod putMethod = new PutMethod(uploadUrl.toString());
+            putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
+            final int responseCode = httpClient.executeMethod(putMethod);
+            if (responseCode == 200) {
+              LOG.debug(String.format("Successfully uploaded artifact %s to %s", artifactPath, uploadUrl));
+            } else if (responseCode == 403) {
+              final String message = String.format("Failed to upload artifact %s: received response code HTTP 403. Ensure that the credentials in S3 storage profile are correct.", artifactPath);
+              LOG.info(message);
+              throw new IOException(message);
+            } else {
+              final String message = String.format("Failed to upload artifact %s to %s: received response code HTTP %d.", artifactPath, uploadUrl, responseCode);
+              LOG.info(message);
+              throw new IOException(message);
             }
 
             artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
@@ -96,10 +99,22 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       }
     });
 
+    final StringBuilder exceptions = new StringBuilder();
     try {
-      myExecutorService.invokeAll(uploadTasks);
+      List<Future<Void>> futures = myExecutorService.invokeAll(uploadTasks);
+      for (Future<Void> future : futures) {
+        try {
+          future.get();
+        } catch (Exception e) {
+          exceptions.append("\n").append(e.getMessage());
+        }
+      }
     } catch (Exception e) {
-      throw new ArtifactPublishingFailedException(String.format("Failed upload artifacts %s: %s.", bucketName, e.getMessage()), false, null);
+      throw new ArtifactPublishingFailedException(String.format("Failed to upload artifacts into bucket %s: %s", bucketName, e.getMessage()), false, null);
+    }
+
+    if (exceptions.length() > 0) {
+      throw new ArtifactPublishingFailedException(String.format("Failed to upload artifacts into bucket %s: %s", bucketName, exceptions), false, null);
     }
 
     return artifacts;

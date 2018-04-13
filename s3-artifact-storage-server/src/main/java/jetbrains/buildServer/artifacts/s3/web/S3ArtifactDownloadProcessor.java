@@ -49,7 +49,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     final String bucketName = S3Util.getBucketName(params);
     if (bucketName == null) {
-      final String message = "Failed to create pre-signed URL: bucket name is not specified, please check storage settings";
+      final String message = "Failed to create pre-signed URL: bucket name is not specified, check S3 storage profile settings";
       LOG.warn(message);
       throw new IOException(message);
     }

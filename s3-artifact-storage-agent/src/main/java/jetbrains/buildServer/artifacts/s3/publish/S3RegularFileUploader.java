@@ -97,7 +97,6 @@ public class S3RegularFileUploader implements S3FileUploader {
         // Minio does not support #doesBucketExistsV2
         // noinspection deprecation
         if (s3Client.doesBucketExist(bucketName)) {
-          build.getBuildLogger().message("Artifacts are published to the S3 path " + pathPrefix + " in the S3 bucket " + bucketName);
           isDestinationPrepared = true;
           return null;
         }
