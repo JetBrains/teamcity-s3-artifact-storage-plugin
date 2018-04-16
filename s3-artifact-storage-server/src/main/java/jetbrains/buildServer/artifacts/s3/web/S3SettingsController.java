@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
@@ -59,7 +60,13 @@ public class S3SettingsController extends BaseFormXmlController {
         return bucketsElement;
       }));
     } catch (Throwable e) {
-      final String message = String.format("Failed to get list of buckets: %s", e.getMessage());
+      final StringBuilder messageBuilder = new StringBuilder("Failed to get list of buckets: ");
+      if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
+        messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
+      } else {
+        messageBuilder.append(e.getMessage());
+      }
+      final String message = messageBuilder.toString();
       LOG.infoAndDebugDetails(message, e);
       errors.addError("buckets", message);
     }
