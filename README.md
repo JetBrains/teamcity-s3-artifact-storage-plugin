@@ -52,6 +52,13 @@ To configure Amazon S3 storage for TeamCity artifacts, perform the following:
 
 Now the artifacts of this project, its subprojects, and build configurations will be stored in the configured storage.
 
+## Permissions
+
+The plugin requires to have the following S3 permissions:
+
+* build agent: `ListBucket`, `PutObject` when pre-signed URLs option is disabled
+* server: `DeleteObject`, `ListAllMyBuckets`, `GetBucketLocation`, `GetObject`
+
 # Known issues
 
 ## Bad Request (400) from S3 when downloading artifact from TeamCity in "ant get" task using basic http auth scheme (httpAuth prefix in URL)
