@@ -76,8 +76,9 @@ public class S3RegularFileUploader implements S3FileUploader {
       final String details = awsException.getDetails();
 
       if (StringUtil.isNotEmpty(details)) {
-        LOG.warn(details);
-        build.getBuildLogger().error(details);
+        final String message = awsException.getMessage() + details;
+        LOG.warn(message);
+        build.getBuildLogger().error(message);
       }
 
       throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
