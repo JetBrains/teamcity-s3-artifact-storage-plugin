@@ -7,8 +7,8 @@
     <description>Allows storing build artifacts in an AWS S3 bucket</description>
     <download-url>https://github.com/JetBrains/teamcity-s3-artifact-storage-plugin</download-url>
     <vendor>
-      <name>@VendorName@</name>
-      <url>@VendorURL@</url>
+      <name>JetBrains, s.r.o.</name>
+      <url>https://www.jetbrains.com</url>
     </vendor>
   </info>
   <deployment use-separate-classloader="true" />

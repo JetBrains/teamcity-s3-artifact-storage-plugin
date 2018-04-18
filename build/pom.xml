@@ -10,9 +10,7 @@
   <packaging>pom</packaging>
   <properties>
       <maven.build.timestamp.format>yyyyMMddHHmmss</maven.build.timestamp.format>
-      <teamcity.s3-artifact-storage.plugin.version>snapshot-${maven.build.timestamp}</teamcity.s3-artifact-storage.plugin.version>
-      <teamcity.s3-artifact-storage.plugin.vendorName>JetBrains, s.r.o.</teamcity.s3-artifact-storage.plugin.vendorName>
-      <teamcity.s3-artifact-storage.plugin.vendorUrl>https://www.jetbrains.com</teamcity.s3-artifact-storage.plugin.vendorUrl>
+      <plugin-version>snapshot-${maven.build.timestamp}</plugin-version>
   </properties>
   <dependencies>
       <dependency>
@@ -51,15 +49,7 @@
                 <replacements>
                     <replacement>
                         <token>@Version@</token>
-                        <value>${teamcity.s3-artifact-storage.plugin.version}</value>
-                    </replacement>
-                    <replacement>
-                        <token>@VendorName@</token>
-                        <value>${teamcity.s3-artifact-storage.plugin.vendorName}</value>
-                    </replacement>
-                    <replacement>
-                        <token>@VendorURL@</token>
-                        <value>${teamcity.s3-artifact-storage.plugin.vendorUrl}</value>
+                        <value>${plugin-version}</value>
                     </replacement>
                 </replacements>                        
             </configuration>
