@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactContentProvider;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.util.StringUtil;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactContentProvider.class.getName());
+  public static final String NETWORK_PROBLEM_MESSAGE = "Unable to execute HTTP request";
 
   @NotNull
   @Override
@@ -28,14 +30,20 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
   @Override
   public InputStream getContent(@NotNull StoredBuildArtifactInfo storedBuildArtifactInfo) throws IOException {
     final Map<String, String> params;
+    final ArtifactData artifactData = storedBuildArtifactInfo.getArtifactData();
+    if (artifactData == null) {
+      throw new IOException("Invalid artifact data: S3 object path property is not set");
+    }
+
+    final String artifactPath = artifactData.getPath();
     try {
       params = S3Util.validateParameters(storedBuildArtifactInfo.getStorageSettings());
     } catch (IllegalArgumentException e) {
-      throw new IOException("Failed to get artifact " + storedBuildArtifactInfo.getArtifactData() + " content from S3: " + e.getMessage(), e);
+      throw new IOException("Failed to get artifact " + artifactPath + " content: Invalid storage settings " + e.getMessage(), e);
     }
 
     final String bucketName = S3Util.getBucketName(params);
-    final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + storedBuildArtifactInfo.getArtifactData().getPath();
+    final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + artifactPath;
 
     try {
       return S3Util.withS3Client(params, client -> client.getObject(bucketName, key).getObjectContent());
@@ -44,10 +52,15 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
       final String details = awsException.getDetails();
       if (StringUtil.isNotEmpty(details)) {
-        LOG.warn(details);
+        final String message = awsException.getMessage() + details;
+        LOG.warn(message);
       }
 
-      throw new IOException("Failed to get artifact " + storedBuildArtifactInfo.getArtifactData() + " content from S3 bucket " + bucketName + ": " + awsException.getMessage(), awsException);
+      if (awsException.getMessage().startsWith(NETWORK_PROBLEM_MESSAGE)) {
+        throw new IOException("Failed to get artifact " + artifactPath + " content: Unable to connect to the AWS S3 storage");
+      }
+
+      throw new IOException("Failed to get artifact " + artifactPath + " content: " + awsException.getMessage(), awsException);
     }
   }
 }
