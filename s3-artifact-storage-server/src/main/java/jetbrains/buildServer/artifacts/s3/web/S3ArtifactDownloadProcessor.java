@@ -9,7 +9,6 @@ import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProvider;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
-import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
 
 import javax.servlet.http.HttpServletRequest;
@@ -54,7 +53,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       throw new IOException(message);
     }
 
-    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
+    httpServletResponse.setHeader("Cache-Control", "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
     httpServletResponse.sendRedirect(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(),params));
     return true;
   }
