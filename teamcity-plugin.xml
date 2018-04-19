@@ -4,7 +4,7 @@
     <name>s3-artifact-storage</name>
     <display-name>Amazon S3 Artifact Storage</display-name>
     <version>@Version@</version>
-    <description>Allows storing build artifacts in an AWS S3 bucket</description>
+    <description>Allows storing build artifacts in an Amazon S3 bucket</description>
     <vendor>
       <name>JetBrains, s.r.o.</name>
       <url>http://www.jetbrains.com</url>
