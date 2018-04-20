@@ -40,7 +40,7 @@
     <dependency>
       <groupId>jetbrains.buildServer.util</groupId>
       <artifactId>amazon-util</artifactId>
-      <version>17</version>
+      <version>22</version>
     </dependency>
       <dependency>
           <groupId>org.jetbrains.teamcity</groupId>
