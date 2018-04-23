@@ -59,22 +59,17 @@
     }
 
     function loadBuckets() {
-        var parameters = BS.EditStorageForm.serializeParameters();
-        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
 
+        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
         $j.post(window['base_uri'] + '${params.containersPath}', parameters)
                 .then(function (response) {
                     var $response = $j(response);
                     var errors = getErrors($response);
                     $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
-
-                    // Get list of locations for buckets
-                    bucketLocations = {};
-                    $response.find("buckets:eq(0) bucket").each(function () {
-                        var $this = $j(this);
-                        var bucketName = $this.text();
-                        bucketLocations[bucketName] = $this.attr('location');
-                    });
+                    if (errors) {
+                      return
+                    }
 
                     // Save selected option
                     var value = $bucketSelector.val();
@@ -84,9 +79,11 @@
 
                     // Redraw selector
                     $bucketSelector.empty();
-                    for (var name in bucketLocations) {
-                        $bucketSelector.append($j("<option></option>").attr("value", name).text(name));
-                    }
+                    $response.find("buckets:eq(0) bucket").each(function () {
+                      var $this = $j(this);
+                      var name = $this.text();
+                      $bucketSelector.append($j("<option></option>").attr("value", name).text(name));
+                    });
 
                     if (value) {
                         $bucketSelector.val(value);
@@ -113,9 +110,43 @@
 
     $bucketSelector.change(function () {
         var bucketName = $j(this).val();
+        if (!bucketName) {
+          return
+        }
+
         var location = bucketLocations[bucketName];
         if (location) {
-            $bucketRegion.val(location);
+          $bucketRegion.val(location);
+          return
         }
+
+        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=bucketLocation';
+
+        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+        $j.post(window['base_uri'] + '${params.containersPath}', parameters)
+            .then(function (response) {
+              var $response = $j(response);
+              var errors = getErrors($response);
+              $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
+              if (errors) {
+                return
+              }
+
+              // Save selected option
+              var value = $bucketSelector.val();
+              if (value && !bucketLocations[value]) {
+                bucketLocations[value] = $bucketRegion.val();
+              }
+
+              var $bucket = $response.find("bucket");
+              var name = $bucket.attr("name");
+
+              var location = $bucket.attr("location");
+              bucketLocations[name] = location;
+              $bucketRegion.val(location);
+            })
+            .always(function () {
+              $refreshButton.removeClass('icon-spin');
+            });
     });
 </script>
