@@ -56,7 +56,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
         LOG.warn(message);
       }
 
-      if (awsException.getMessage().startsWith(NETWORK_PROBLEM_MESSAGE)) {
+      if (awsException.getMessage().contains(NETWORK_PROBLEM_MESSAGE)) {
         throw new IOException("Failed to get artifact " + artifactPath + " content: Unable to connect to the AWS S3 storage");
       }
 
