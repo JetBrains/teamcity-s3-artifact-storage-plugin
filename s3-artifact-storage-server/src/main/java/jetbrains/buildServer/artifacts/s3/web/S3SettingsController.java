@@ -19,6 +19,7 @@ import org.springframework.web.servlet.ModelAndView;
 public class S3SettingsController extends BaseFormXmlController {
 
   private final static Logger LOG = Logger.getInstance(S3SettingsController.class.getName());
+  private static final String FAILED_TO_PROCESS_REQUEST_FORMAT = "Failed to process '%s' request: ";
   private final Map<String, ResourceHandler> myHandlers = new HashMap<>();
 
   public S3SettingsController(WebControllerManager manager,
@@ -52,8 +53,12 @@ public class S3SettingsController extends BaseFormXmlController {
       } else {
         try {
           xmlResponse.addContent(handler.getContent(parameters));
+        } catch (IllegalArgumentException e) {
+          final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource) + e.getMessage();
+          LOG.info(message);
+          errors.addError(resource, message);
         } catch (Throwable e) {
-          final StringBuilder messageBuilder = new StringBuilder(String.format("Failed to process '%s' request: ", resource));
+          final StringBuilder messageBuilder = new StringBuilder(String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource));
           if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
             messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
           } else {
