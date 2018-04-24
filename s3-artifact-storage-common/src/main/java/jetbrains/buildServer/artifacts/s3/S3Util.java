@@ -24,6 +24,7 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
 public class S3Util {
 
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+  private static final String TEXT_CONTENT_TYPE = "text/plain";
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
@@ -89,7 +90,8 @@ public class S3Util {
   }
 
   public static String getContentType(File file) {
-    return StringUtil.notEmpty(URLConnection.guessContentTypeFromName(file.getName()), DEFAULT_CONTENT_TYPE);
+    return file.getName().endsWith(".log") ? TEXT_CONTENT_TYPE :
+      StringUtil.notEmpty(URLConnection.guessContentTypeFromName(file.getName()), DEFAULT_CONTENT_TYPE);
   }
 
   public static String normalizeArtifactPath(final String path, final File file) {
