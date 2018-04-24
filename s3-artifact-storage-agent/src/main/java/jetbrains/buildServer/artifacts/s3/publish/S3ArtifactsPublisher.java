@@ -29,6 +29,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final CurrentBuildTracker myTracker;
   private final AgentArtifactHelper myHelper;
+  private AgentRunningBuild myBuild;
 
   private List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
   private S3FileUploader myFileUploader;
@@ -43,11 +44,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
         myFileUploader = null;
         myArtifacts.clear();
-      }
-
-      @Override
-      public void afterAtrifactsPublished(@NotNull AgentRunningBuild runningBuild, @NotNull BuildFinishedStatus status) {
-        publishArtifactsList(runningBuild);
+        myBuild = runningBuild;
       }
     });
   }
@@ -66,6 +63,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final String pathPrefix = getPathPrefix(build);
       final S3FileUploader fileUploader = getFileUploader(build);
       myArtifacts.addAll(fileUploader.publishFiles(build, pathPrefix, filteredMap));
+      publishArtifactsList(myBuild);
     }
 
     return filteredMap.size();
