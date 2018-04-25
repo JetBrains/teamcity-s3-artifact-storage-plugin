@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
-import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -9,11 +8,13 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 
+import static org.testng.Assert.*;
+
 /**
  * @author vbedrosova
  */
 @Test
-public class PathPatternFilterTest extends BaseTestCase {
+public class PathPatternFilterTest {
 
   @Test
   public void path_tree() {
@@ -98,7 +99,7 @@ public class PathPatternFilterTest extends BaseTestCase {
 
   @Test
   public void include_folder() {
-    assertEmpty(create("some/path").filterPaths(Arrays.asList("some/path/file", "some/path/another/file", "another/path")));
+    assertTrue(create("some/path").filterPaths(Arrays.asList("some/path/file", "some/path/another/file", "another/path")).isEmpty());
   }
 
   @Test
@@ -175,5 +176,11 @@ public class PathPatternFilterTest extends BaseTestCase {
   @Nullable
   private PathPatternFilter.PathNode getChild(@NotNull String path, @NotNull List<PathPatternFilter.PathNode> children) {
     return CollectionsUtil.findFirst(children, data -> path.equals(data.getPath()));
+  }
+
+  private static <T> void assertContains(@NotNull final Collection<T> collection, final T... items) {
+    for (T item : items) {
+      assertTrue(collection.contains(item), "Should contains " + item);
+    }
   }
 }

@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
 import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.io.StreamUtil;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
@@ -13,7 +14,6 @@ import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.RunningBuildsCollection;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
-import org.apache.commons.io.IOUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.servlet.ModelAndView;
@@ -79,7 +79,8 @@ public class S3PreSignedUrlController extends BaseController {
       return null;
     }
 
-    Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(IOUtils.toString(httpServletRequest.getReader()));
+    final String text = StreamUtil.readTextFrom(httpServletRequest.getReader());
+    final Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(text);
     if(s3ObjectKeys.isEmpty()){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". S3 object keys collection is empty.");

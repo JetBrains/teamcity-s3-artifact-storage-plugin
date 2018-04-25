@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <artifactId>s3-artifact-storage</artifactId>
@@ -27,10 +28,25 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.jetbrains.teamcity</groupId>
-      <artifactId>common-api</artifactId>
+      <groupId>local-common-api</groupId>
+      <artifactId>org.jetbrains.teamcity.internal</artifactId>
       <version>${teamcity-version}</version>
-      <scope>provided</scope>
+      <scope>system</scope>
+      <systemPath>${teamcity.path.lib}/common-api.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>local-open-api</groupId>
+      <artifactId>org.jetbrains.teamcity.internal</artifactId>
+      <version>${teamcity-version}</version>
+      <scope>system</scope>
+      <systemPath>${teamcity.path.lib}/openapi.jar</systemPath>
+    </dependency>
+    <dependency>
+      <groupId>local-jdom</groupId>
+      <artifactId>org.jetbrains.teamcity.internal</artifactId>
+      <version>${teamcity-version}</version>
+      <scope>system</scope>
+      <systemPath>${teamcity.path.lib}/jdom.jar</systemPath>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
@@ -42,11 +58,5 @@
       <artifactId>amazon-util</artifactId>
       <version>22</version>
     </dependency>
-      <dependency>
-          <groupId>org.jetbrains.teamcity</groupId>
-          <artifactId>tests-support</artifactId>
-          <version>${teamcity-version}</version>
-          <scope>test</scope>
-      </dependency>
   </dependencies>
 </project>
