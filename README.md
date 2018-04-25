@@ -1,6 +1,6 @@
-[![official project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0) <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk&tab=buildTypeHistoryList&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCityTrunk)/statusIcon.svg" alt=""/></a>
-
 # TeamCity S3 Artifact Storage Plugin
+
+[![official project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 This plugin allows replacing the TeamCity built-in artifacts storage with [AWS S3](https://aws.amazon.com/s3/). The artifacts storage can be changed at the project level. After changing the storage, new artifacts produced by the builds of this project will be published to the (specified) AWS S3 bucket. Besides publishing, the plugin also implements resolving of artifact dependencies and clean-up of build artifacts.
 
@@ -23,10 +23,13 @@ When installed and configured, the plugin:
 
 # Download
 
-| Download | Compatibility |
-|----------|---------------|
-|[Download](https://plugins.jetbrains.com/plugin/9623-s3-artifact-storage)| 2017.1.1 |
+You can [download the plugin](https://plugins.jetbrains.com/plugin/9623-s3-artifact-storage) and install it as [an additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins). The latest plugin builds:
 
+| Branch | Status | Download | TeamCity |
+|--------|--------|----------|----------|
+| master |        |          | 2018.1.x |
+| Indore-2017.2.x | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172/.lastSuccessful/s3-artifact-storage.zip?guest=1)| 2017.2.x |
+| Indore-2017.1.x | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171/.lastSuccessful/s3-artifact-storage.zip?guest=1)| 2017.1.1+ |
 
 # Installing
 
