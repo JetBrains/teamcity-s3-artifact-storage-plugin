@@ -29,15 +29,18 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final CurrentBuildTracker myTracker;
   private final AgentArtifactHelper myHelper;
+  @NotNull private final BuildAgentConfiguration myBuildAgentConfiguration;
 
   private List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
   private S3FileUploader myFileUploader;
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
-                              @NotNull final CurrentBuildTracker tracker) {
+                              @NotNull final CurrentBuildTracker tracker,
+                              @NotNull final BuildAgentConfiguration buildAgentConfiguration) {
     myHelper = helper;
     myTracker = tracker;
+    myBuildAgentConfiguration = buildAgentConfiguration;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
@@ -109,7 +112,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       if (S3Util.usePreSignedUrls(build.getArtifactStorageSettings())) {
         myFileUploader = new S3SignedUrlFileUploader();
       } else {
-        myFileUploader = new S3RegularFileUploader();
+        myFileUploader = new S3RegularFileUploader(myBuildAgentConfiguration);
       }
     }
     return myFileUploader;

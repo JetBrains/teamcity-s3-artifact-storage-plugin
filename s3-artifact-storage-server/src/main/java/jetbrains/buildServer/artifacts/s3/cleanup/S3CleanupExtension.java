@@ -8,9 +8,11 @@ import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
+import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
@@ -37,10 +39,15 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   @NotNull private final ServerArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull private final ServerArtifactHelper myHelper;
+  @NotNull private final ServerPaths myServerPaths;
 
-  public S3CleanupExtension(@NotNull ServerArtifactHelper helper, @NotNull ServerArtifactStorageSettingsProvider settingsProvider) {
+  public S3CleanupExtension(
+    @NotNull ServerArtifactHelper helper,
+    @NotNull ServerArtifactStorageSettingsProvider settingsProvider,
+    @NotNull ServerPaths serverPaths) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
+    myServerPaths = serverPaths;
   }
 
   @Override
@@ -60,7 +67,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
 
         final String bucketName = S3Util.getBucketName(params);
-        S3Util.withS3Client(params, client -> {
+        S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
           final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
           int succeededNum = 0;
