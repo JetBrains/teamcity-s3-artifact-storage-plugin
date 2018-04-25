@@ -59,8 +59,12 @@ public class S3SettingsController extends BaseFormXmlController {
         try {
           xmlResponse.addContent(handler.getContent(parameters));
         } catch (IllegalArgumentException e) {
-          final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource) + e.getMessage();
-          LOG.info(message);
+          final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(message, e);
+          } else {
+            LOG.info(message + e.getMessage());
+          }
           errors.addError(resource, message);
         } catch (Throwable e) {
           final StringBuilder messageBuilder = new StringBuilder(String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource));
