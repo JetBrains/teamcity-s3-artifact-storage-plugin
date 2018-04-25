@@ -26,13 +26,12 @@ import java.util.concurrent.TimeUnit;
  */
 public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   private static final Logger LOG = Logger.getInstance(S3PreSignedUrlProviderImpl.class.getName());
-
   private static final String TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED = "teamcity.s3.presignurl.get.cache.enabled";
 
-  @NotNull private final ServerPaths myServerPaths;
+  private final ServerPaths myServerPaths;
 
   public S3PreSignedUrlProviderImpl(@NotNull ServerPaths serverPaths) {
-    this.myServerPaths = serverPaths;
+    myServerPaths = serverPaths;
   }
 
   private final Cache<String, String> myGetLinksCache = CacheBuilder.newBuilder()

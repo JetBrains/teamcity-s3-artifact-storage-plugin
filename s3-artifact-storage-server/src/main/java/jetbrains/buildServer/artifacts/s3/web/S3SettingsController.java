@@ -7,7 +7,6 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -26,9 +25,9 @@ public class S3SettingsController extends BaseFormXmlController {
   private final Map<String, ResourceHandler> myHandlers = new HashMap<>();
   private final ServerPaths myServerPaths;
 
-  public S3SettingsController(WebControllerManager manager,
-                              PluginDescriptor descriptor,
-                              ServerPaths serverPaths) {
+  public S3SettingsController(@NotNull final WebControllerManager manager,
+                              @NotNull final PluginDescriptor descriptor,
+                              @NotNull final ServerPaths serverPaths) {
     myServerPaths = serverPaths;
     final String path = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".html");
     manager.registerController(path, this);
@@ -47,7 +46,7 @@ public class S3SettingsController extends BaseFormXmlController {
                         @NotNull final HttpServletResponse response,
                         @NotNull final Element xmlResponse) {
     final ActionErrors errors = new ActionErrors();
-    final Map<String, String> parameters = getProperties(request);
+    final Map<String, String> parameters = ParamUtil.putSslValues(myServerPaths, getProperties(request));
 
     final String resource = request.getParameter("resource");
     if (resource == null) {

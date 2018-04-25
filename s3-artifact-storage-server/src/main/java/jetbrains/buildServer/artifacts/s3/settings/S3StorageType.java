@@ -38,7 +38,7 @@ public class S3StorageType extends ArtifactStorageType {
                        @NotNull ServerPaths serverPaths) {
     mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
     myServerSettings = serverSettings;
-    this.myServerPaths = serverPaths;
+    myServerPaths = serverPaths;
     registry.registerStorageType(this);
   }
 
@@ -87,8 +87,10 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final String location = S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params),
-            client -> client.getBucketLocation(bucketName));
+          final String location = S3Util.withS3Client(
+            ParamUtil.putSslValues(myServerPaths, params),
+            client -> client.getBucketLocation(bucketName)
+          );
           if (location == null) {
             invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, "Bucket does not exist"));
           }

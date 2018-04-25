@@ -29,9 +29,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final CurrentBuildTracker myTracker;
   private final AgentArtifactHelper myHelper;
-  @NotNull private final BuildAgentConfiguration myBuildAgentConfiguration;
+  private final BuildAgentConfiguration myBuildAgentConfiguration;
 
-  private List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
+  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
   private S3FileUploader myFileUploader;
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,

@@ -22,7 +22,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
   private final static Logger LOG = Logger.getInstance(S3ArtifactContentProvider.class.getName());
   private static final String NETWORK_PROBLEM_MESSAGE = "Unable to execute HTTP request";
 
-  @NotNull private final ServerPaths myServerPaths;
+  private final ServerPaths myServerPaths;
 
   public S3ArtifactContentProvider(@NotNull ServerPaths serverPaths) {
     myServerPaths = serverPaths;
@@ -54,8 +54,10 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
     final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + artifactPath;
 
     try {
-      return S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params),
-        client -> client.getObject(bucketName, key).getObjectContent());
+      return S3Util.withS3Client(
+        ParamUtil.putSslValues(myServerPaths, params),
+        client -> client.getObject(bucketName, key).getObjectContent()
+      );
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
 
