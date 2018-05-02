@@ -62,12 +62,15 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
       }
     } catch (Exception e) {
       final AWSException awsException = new AWSException(e.getCause());
-      if (StringUtil.isNotEmpty(awsException.getDetails())) {
-        LOG.warn(awsException.getDetails());
+      final String details = awsException.getDetails();
+      if (StringUtil.isNotEmpty(details)) {
+        final String message = awsException.getMessage() + details;
+        LOG.warn(message);
       }
-      final String err = "Failed to create " + httpMethod.name() + " pre-signed URL for [" + objectKey + "] in bucket [" + bucketName + "]";
-      LOG.infoAndDebugDetails(err, awsException);
-      throw new IOException(err + ": " + awsException.getMessage(), awsException);
+      throw new IOException(String.format(
+        "Failed to create pre-signed URL to %s artifact '%s' in bucket '%s': %s",
+        httpMethod.name().toLowerCase(), objectKey, bucketName, awsException.getMessage()
+      ), awsException);
     }
   }
 

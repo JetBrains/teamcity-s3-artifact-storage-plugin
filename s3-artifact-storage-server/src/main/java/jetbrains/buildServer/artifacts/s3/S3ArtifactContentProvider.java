@@ -20,8 +20,6 @@ import java.util.Map;
 public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactContentProvider.class.getName());
-  private static final String NETWORK_PROBLEM_MESSAGE = "Unable to execute HTTP request";
-
   private final ServerPaths myServerPaths;
 
   public S3ArtifactContentProvider(@NotNull ServerPaths serverPaths) {
@@ -60,18 +58,15 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
       );
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
-
       final String details = awsException.getDetails();
       if (StringUtil.isNotEmpty(details)) {
         final String message = awsException.getMessage() + details;
         LOG.warn(message);
       }
-
-      if (awsException.getMessage().contains(NETWORK_PROBLEM_MESSAGE)) {
-        throw new IOException("Failed to get artifact " + artifactPath + " content: Unable to connect to the AWS S3 storage");
-      }
-
-      throw new IOException("Failed to get artifact " + artifactPath + " content: " + awsException.getMessage(), awsException);
+      throw new IOException(String.format(
+        "Failed to get artifact '%s' content in bucket '%s': %S",
+        artifactPath, bucketName, awsException.getMessage()
+      ), awsException);
     }
   }
 }
