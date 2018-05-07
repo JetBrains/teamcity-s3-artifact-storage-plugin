@@ -8,7 +8,7 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.ssl.SSLContextUtil;
-import jetbrains.buildServer.util.ssl.TrustStoreReader;
+import jetbrains.buildServer.util.ssl.TrustStoreIO;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
@@ -86,7 +86,7 @@ public class S3Util {
     if (directory == null) {
       return null;
     }
-    return TrustStoreReader.readTrustStoreFromDirectory(directory);
+    return TrustStoreIO.readTrustStoreFromDirectory(directory);
   }
 
   @Nullable
