@@ -64,7 +64,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
         LOG.warn(message);
       }
       throw new IOException(String.format(
-        "Failed to get artifact '%s' content in bucket '%s': %S",
+        "Failed to get artifact '%s' content in bucket '%s': %s",
         artifactPath, bucketName, awsException.getMessage()
       ), awsException);
     }
