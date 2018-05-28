@@ -23,6 +23,7 @@
             <div class="posRel">
                 <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
                 <props:selectProperty name="${params.bucketName}" className="longField">
+                    <props:option value="">-- Select bucket --</props:option>
                     <c:if test="${not empty bucket}">
                         <props:option value="${bucket}"><c:out value="${bucket}"/></props:option>
                     </c:if>
@@ -44,6 +45,8 @@
 
 <script type="text/javascript">
     var bucketLocations = {};
+    var keyId = BS.Util.escapeId('aws.access.key.id');
+    var keySecret = BS.Util.escapeId('secure:aws.secret.access.key');
     var $bucketRegion = $j(BS.Util.escapeId('aws.region.name'));
     var $bucketSelector = $j(BS.Util.escapeId('${params.bucketName}'));
 
@@ -59,8 +62,11 @@
     }
 
     function loadBuckets() {
-        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
+        if (!$j(keyId).val() || !$j(keySecret).val()) {
+            return
+        }
 
+        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
         var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
         $j.post(window['base_uri'] + '${params.containersPath}', parameters)
                 .then(function (response) {
@@ -79,6 +85,7 @@
 
                     // Redraw selector
                     $bucketSelector.empty();
+                    $bucketSelector.append($j("<option></option>").attr("value", "").text("-- Select bucket --"));
                     $response.find("buckets:eq(0) bucket").each(function () {
                       var $this = $j(this);
                       var name = $this.text();
@@ -96,9 +103,7 @@
                 });
     }
 
-    var selectors = BS.Util.escapeId('aws.access.key.id') + ', ' +
-            BS.Util.escapeId('secure:aws.secret.access.key');
-    $j(document).on('change', selectors, function () {
+    $j(document).on('change', keyId + ', ' + keySecret, function () {
         loadBuckets();
     });
     $j(document).on('ready', function () {
