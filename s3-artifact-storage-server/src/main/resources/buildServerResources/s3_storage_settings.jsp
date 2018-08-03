@@ -47,6 +47,7 @@
     var bucketLocations = {};
     var keyId = BS.Util.escapeId('aws.access.key.id');
     var keySecret = BS.Util.escapeId('secure:aws.secret.access.key');
+    var useDefaultCredentialProviderChain = BS.Util.escapeId('aws.use.default.credential.provider.chain');
     var $bucketRegion = $j(BS.Util.escapeId('aws.region.name'));
     var $bucketSelector = $j(BS.Util.escapeId('${params.bucketName}'));
 
@@ -62,7 +63,7 @@
     }
 
     function loadBuckets() {
-        if (!$j(keyId).val() || !$j(keySecret).val()) {
+        if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
             return
         }
 
@@ -110,6 +111,9 @@
         loadBuckets();
     });
     $j(document).on('click', '#buckets-refresh', function () {
+        loadBuckets();
+    });
+    $j(document).on('change', useDefaultCredentialProviderChain, function () {
         loadBuckets();
     });
 
