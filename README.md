@@ -27,7 +27,8 @@ You can [download the plugin](https://plugins.jetbrains.com/plugin/9623-s3-artif
 
 | Branch | Status | Download | TeamCity |
 |--------|--------|----------|----------|
-| master |        |          | 2018.1.x |
+| master |        |          | 2018.2.x |
+| Indore-2018.1.x | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20181&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20181)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20181/.lastSuccessful/s3-artifact-storage.zip?guest=1)| 2018.1.x |
 | Indore-2017.2.x | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20172/.lastSuccessful/s3-artifact-storage.zip?guest=1)| 2017.2.x |
 | Indore-2017.1.x | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamCityPluginsByJetBrains_AwsS3ArtifactStorage_TeamCity20171/.lastSuccessful/s3-artifact-storage.zip?guest=1)| 2017.1.1+ |
 
@@ -76,23 +77,9 @@ This value can be modified by setting a [internal TeamCity server property](http
 
 # Building 
 
-To build the plugin locally if it is located within a subdirectory of TeamCity project, run the
+To build the plugin locally run the following command in the plugin root directory:
 ```
-mvn package
+> gradle build
 ```
-command in the plugin project root directory.
 
-If TeamCity project sources are located elsewhere, please use the following command:
-```
-mvn package -Dteamcity.path.agentlib=TEAMCITY_PROJECT/.idea_artifacts/agent_deployment/lib -Dteamcity.path.lib=TEAMCITY_PROJECT/.idea_artifacts/web-deployment/WEB-INF/lib
-```
-Where TEAMCITY_PROJECT must be replaced with an absolute path to the TeamCity project directory.
-
-In the absence of the TeamCity project, you can build the plugin locally using libraries from the TeamCity distribution by running the following command:
-```
-mvn package -Dteamcity.path.agentlib=TEAMCITY_DISTR/buildAgent/lib -Dteamcity.path.lib=TEAMCITY_DISTR/webapps/ROOT/WEB-INF/lib
-```
-Where TEAMCITY_DISTR must be replaced with an absolute path to the TeamCity distribution directory.
-
-The target directory of the project root will contain the
-`s3-artifact-storage.zip` file, which is ready [to be installed](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).
+The plugin artifact will be produced in the following location `s3-artifact-storage-server/build/distributions/s3-artifact-storage.zip` and could be installed as [an external TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).

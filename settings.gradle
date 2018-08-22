@@ -1,0 +1,5 @@
+rootProject.name = 's3-artifact-storage'
+
+include 's3-artifact-storage-agent'
+include 's3-artifact-storage-common'
+include 's3-artifact-storage-server'
