@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 
 import javax.net.ssl.SSLContext;
 import java.io.File;
+import java.lang.reflect.Method;
 import java.net.URLConnection;
 import java.security.KeyStore;
 import java.util.Collection;
@@ -32,6 +33,8 @@ import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTO
 public class S3Util {
 
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+  private static final Method PROBE_CONTENT_TYPE_METHOD = getProbeContentTypeMethod();
+  private static final Method FILE_TO_PATH_METHOD = getFileToPathMethod();
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
@@ -144,7 +147,20 @@ public class S3Util {
   }
 
   public static String getContentType(File file) {
-    return StringUtil.notEmpty(URLConnection.guessContentTypeFromName(file.getName()), DEFAULT_CONTENT_TYPE);
+    String contentType = URLConnection.guessContentTypeFromName(file.getName());
+    if (StringUtil.isNotEmpty(contentType)) {
+      return contentType;
+    }
+    if (PROBE_CONTENT_TYPE_METHOD != null && FILE_TO_PATH_METHOD != null) {
+      try {
+        Object result = PROBE_CONTENT_TYPE_METHOD.invoke(null, FILE_TO_PATH_METHOD.invoke(file));
+        if (result instanceof String) {
+          contentType = (String)result;
+        }
+      } catch (Exception ignored) {
+      }
+    }
+    return StringUtil.notEmpty(contentType, DEFAULT_CONTENT_TYPE);
   }
 
   public static String normalizeArtifactPath(final String path, final File file) {
@@ -158,5 +174,25 @@ public class S3Util {
   public interface WithS3<T, E extends Throwable> {
     @Nullable
     T run(@NotNull AmazonS3 client) throws E;
+  }
+
+  private static Method getProbeContentTypeMethod() {
+      try {
+        Class<?> filesClass = Class.forName("java.nio.file.Files");
+        Class<?> pathClass = Class.forName("java.nio.file.Path");
+        if (filesClass != null && pathClass != null) {
+          return filesClass.getMethod("probeContentType", pathClass);
+        }
+      } catch (Exception ignored) {
+      }
+      return null;
+  }
+
+  private static Method getFileToPathMethod() {
+      try {
+          return File.class.getMethod("toPath");
+      } catch (Exception ignored) {
+      }
+      return null;
   }
 }
