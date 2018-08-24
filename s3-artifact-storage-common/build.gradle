@@ -10,3 +10,15 @@ dependencies {
 teamcity {
     version = teamcityVersion
 }
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = "1.6"
+    targetCompatibility = "1.6"
+
+    if (project.hasProperty('JDK_16')) {
+        options.bootstrapClasspath = layout.files(
+                "$JDK_16/jre/lib/rt.jar",
+                "$JDK_16/jre/lib/jsse.jar"
+        )
+    }
+}
