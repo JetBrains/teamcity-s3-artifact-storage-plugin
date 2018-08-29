@@ -78,6 +78,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
 
             final HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, uploadUrl, null);
             final PutMethod putMethod = new PutMethod(uploadUrl.toString());
+            putMethod.addRequestHeader("User-Agent", HttpUserAgent.getUserAgent());
             putMethod.setRequestEntity(new FileRequestEntity(file, S3Util.getContentType(file)));
             final int responseCode = httpClient.executeMethod(putMethod);
             if (responseCode == 200) {
@@ -128,6 +129,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(build.getAccessUser(), build.getAccessCode());
     HttpClient httpClient = HttpUtil.createHttpClient(connectionTimeout, new URL(targetUrl), credentials);
     PostMethod post = new PostMethod(targetUrl);
+    post.addRequestHeader("User-Agent", HttpUserAgent.getUserAgent());
     post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
     post.setDoAuthentication(true);
     int responseCode = httpClient.executeMethod(post);
