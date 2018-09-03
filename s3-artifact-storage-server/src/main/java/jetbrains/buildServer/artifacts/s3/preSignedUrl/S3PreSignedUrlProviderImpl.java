@@ -61,7 +61,8 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
         return resolver.call();
       }
     } catch (Exception e) {
-      final AWSException awsException = new AWSException(e.getCause());
+      final Throwable cause = e.getCause();
+      final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
       final String details = awsException.getDetails();
       if (StringUtil.isNotEmpty(details)) {
         final String message = awsException.getMessage() + details;
