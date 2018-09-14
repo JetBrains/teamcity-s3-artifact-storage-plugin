@@ -56,8 +56,10 @@ Now the artifacts of this project, its subprojects, and build configurations wil
 
 The plugin requires to have the following S3 permissions:
 
-* build agent: `ListBucket`, `PutObject` when pre-signed URLs option is disabled
+* build agent: `ListBucket`, `PutObject`
 * server: `DeleteObject`, `ListAllMyBuckets`, `GetBucketLocation`, `GetObject`
+
+**Note**: When pre-signed URLs option is enabled you need to grant required build agent permissions to the TeamCity server machine.
 
 # Known issues
 
