@@ -15,6 +15,8 @@ public class S3UtilTest {
       {"file.txt", "text/plain"},
       {"file.jpg", "image/jpeg"},
       {"file.bin", "application/octet-stream"},
+      {"file.htm", "text/html"},
+      {"file.html", "text/html"},
     };
   }
 
