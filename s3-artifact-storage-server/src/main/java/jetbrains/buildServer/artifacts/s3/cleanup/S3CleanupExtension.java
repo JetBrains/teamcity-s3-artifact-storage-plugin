@@ -105,10 +105,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           });
 
           if (errorNum.get() > 0) {
-            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errorNum + "] s3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
+            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
           }
 
-          Loggers.CLEANUP.info("Removed [" + succeededNum + "] s3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
+          Loggers.CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
 
           myHelper.removeFromArtifactList(build, toDelete);
 
@@ -117,7 +117,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
       } catch (Throwable e) {
         Loggers.CLEANUP.debug(e);
-        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove s3 artifacts: " + e.getMessage());
+        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
       }
     }
   }
