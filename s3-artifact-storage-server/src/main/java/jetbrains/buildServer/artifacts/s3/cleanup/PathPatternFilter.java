@@ -60,7 +60,7 @@ public class PathPatternFilter {
       Node parent = root;
       for (String part : path.split("/")) {
         final String parentPath = parent.getPath();
-        parent = parent.child(parentPath.isEmpty() ? part : parentPath + "/" + part);
+        parent = parent.getOrCreateChildByPath(parentPath.isEmpty() ? part : parentPath + "/" + part);
       }
     }
 
@@ -122,14 +122,14 @@ public class PathPatternFilter {
     }
 
     @NotNull
-    public Node child(@NotNull String path) {
+    public Node getOrCreateChildByPath(@NotNull String path) {
       if (myChildrenByName == null) {
         myChildrenByName = new HashMap<>();
       }
 
-      for (Node c : myChildrenByName.values()) {
-        if (path.equals(c.getPath())) {
-          return c;
+      for (Node child : myChildrenByName.values()) {
+        if (path.equals(child.getPath())) {
+          return child;
         }
       }
 
