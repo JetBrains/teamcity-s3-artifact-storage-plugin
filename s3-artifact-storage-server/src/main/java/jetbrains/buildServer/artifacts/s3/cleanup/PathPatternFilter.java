@@ -14,8 +14,8 @@ import java.util.*;
  */
 public class PathPatternFilter {
 
-  public static final String DEFAULT_INCLUDE_RULE = "**/*";
-  public static final Collection<String> INCLUDE_ALL_PATTERNS = Arrays.asList(DEFAULT_INCLUDE_RULE, "+:**/*", "", "+.");
+  private static final String DEFAULT_INCLUDE_RULE = "**/*";
+  private static final Collection<String> INCLUDE_ALL_PATTERNS = Arrays.asList(DEFAULT_INCLUDE_RULE, "+:**/*", "", "+.");
 
   @NotNull private final List<String> myIncludePatterns = new ArrayList<>();
   @NotNull private final List<String> myExcludePatterns = new ArrayList<>();
@@ -37,7 +37,9 @@ public class PathPatternFilter {
 
   @NotNull
   public List<String> filterPaths(@NotNull List<String> paths) {
-    if (isIncludeAll()) return paths;
+    if (isIncludeAll()) {
+      return paths;
+    }
 
     final Collection<PathNode> files = AntPatternTreeMatcher.scan(createPathTree(paths), myIncludePatterns, myExcludePatterns, AntPatternTreeMatcher.ScanOption.LEAFS_ONLY);
     return CollectionsUtil.convertCollection(files, PathNode::getPath);
@@ -48,7 +50,7 @@ public class PathPatternFilter {
   }
 
   @NotNull
-  /*package local*/ PathNode createPathTree(@NotNull List<String> paths) {
+  PathNode createPathTree(@NotNull List<String> paths) {
     final List<String> pathsList = new ArrayList<>(paths);
     Collections.sort(pathsList);
 
@@ -65,13 +67,17 @@ public class PathPatternFilter {
     return root;
   }
 
-  /*package local*/  static class PathNode implements jetbrains.buildServer.util.pathMatcher.PathNode<PathNode> {
+  static class PathNode implements jetbrains.buildServer.util.pathMatcher.PathNode<PathNode> {
     @NotNull private final String myPath;
     @Nullable private Set<PathNode> myChildren;
 
     public PathNode(@NotNull String path) {
-      if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
-      if (path.startsWith("/")) path = path.substring(1);
+      if (path.endsWith("/")) {
+        path = path.substring(0, path.length() - 1);
+      }
+      if (path.startsWith("/")) {
+        path = path.substring(1);
+      }
       myPath = path;
       myChildren = null;
     }
@@ -96,10 +102,14 @@ public class PathPatternFilter {
 
     @NotNull
     public PathNode child(@NotNull String path) {
-      if (myChildren == null) myChildren = new HashSet<>();
+      if (myChildren == null) {
+        myChildren = new HashSet<>();
+      }
 
       for (PathNode c : myChildren) {
-        if (path.equals(c.getPath())) return c;
+        if (path.equals(c.getPath())) {
+          return c;
+        }
       }
 
       final PathNode child = new PathNode(path);
@@ -108,11 +118,4 @@ public class PathPatternFilter {
     }
   }
 
-  /*package local*/ List<String> getIncludePatterns() {
-    return myIncludePatterns;
-  }
-
-  /*package local*/ List<String> getExcludePatterns() {
-    return myExcludePatterns;
-  }
 }
