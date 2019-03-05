@@ -6,6 +6,7 @@ import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.IncludeExcludeRules;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.pathMatcher.AntPatternTreeMatcher;
+import jetbrains.buildServer.util.pathMatcher.PathNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,8 +41,8 @@ public class PathPatternFilter {
       return paths;
     }
 
-    final Collection<PathNode> files = AntPatternTreeMatcher.scan(createPathTree(paths), myIncludePatterns, myExcludePatterns, AntPatternTreeMatcher.ScanOption.LEAFS_ONLY);
-    return CollectionsUtil.convertCollection(files, PathNode::getPath);
+    final Collection<Node> files = AntPatternTreeMatcher.scan(createPathTree(paths), myIncludePatterns, myExcludePatterns, AntPatternTreeMatcher.ScanOption.LEAFS_ONLY);
+    return CollectionsUtil.convertCollection(files, Node::getPath);
   }
 
   private boolean isIncludeAll() {
@@ -49,14 +50,14 @@ public class PathPatternFilter {
   }
 
   @NotNull
-  PathNode createPathTree(@NotNull List<String> paths) {
+  Node createPathTree(@NotNull List<String> paths) {
     final List<String> pathsList = new ArrayList<>(paths);
     Collections.sort(pathsList);
 
-    final PathNode root = new PathNode("");
+    final Node root = new Node("");
 
     for (String path : pathsList) {
-      PathNode parent = root;
+      Node parent = root;
       for (String part : path.split("/")) {
         final String parentPath = parent.getPath();
         parent = parent.child(parentPath.isEmpty() ? part : parentPath + "/" + part);
@@ -67,16 +68,16 @@ public class PathPatternFilter {
   }
 
   @VisibleForTesting
-  static class PathNode implements jetbrains.buildServer.util.pathMatcher.PathNode<PathNode> {
+  static class Node implements PathNode<Node> {
     @NotNull
     private final String myPath;
     @Nullable
-    private Set<PathNode> myChildren;
+    private Set<Node> myChildren;
 
-    PathNode(@NotNull String path) {
+    Node(@NotNull String path) {
       boolean startsWithSlash = path.startsWith("/");
       boolean endsWithSlash = path.endsWith("/");
-      if (startsWithSlash && endsWithSlash) {
+      if (startsWithSlash && endsWithSlash && path.length() >= 2) {
         myPath = path.substring(1, path.length() - 1);
       } else if (startsWithSlash) {
         myPath = path.substring(1);
@@ -91,8 +92,14 @@ public class PathPatternFilter {
     @NotNull
     @Override
     public String getName() {
-      final int slashIndex = myPath.lastIndexOf("/");
+      final int slashIndex = myPath.lastIndexOf('/');
       return slashIndex < 0 ? myPath : myPath.substring(slashIndex + 1);
+    }
+
+    @Nullable
+    @Override
+    public Iterable<Node> getChildren() {
+      return myChildren;
     }
 
     @NotNull
@@ -100,25 +107,19 @@ public class PathPatternFilter {
       return myPath;
     }
 
-    @Nullable
-    @Override
-    public Iterable<PathNode> getChildren() {
-      return myChildren;
-    }
-
     @NotNull
-    public PathNode child(@NotNull String path) {
+    public Node child(@NotNull String path) {
       if (myChildren == null) {
         myChildren = new HashSet<>();
       }
 
-      for (PathNode c : myChildren) {
+      for (Node c : myChildren) {
         if (path.equals(c.getPath())) {
           return c;
         }
       }
 
-      final PathNode child = new PathNode(path);
+      final Node child = new Node(path);
       myChildren.add(child);
       return child;
     }
