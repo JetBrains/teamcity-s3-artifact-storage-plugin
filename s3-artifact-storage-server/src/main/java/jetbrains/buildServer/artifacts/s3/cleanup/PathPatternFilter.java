@@ -1,13 +1,13 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.util.*;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.IncludeExcludeRules;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.pathMatcher.AntPatternTreeMatcher;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.*;
 
 /**
  * @author vbedrosova
@@ -21,11 +21,10 @@ public class PathPatternFilter {
   @NotNull private final List<String> myExcludePatterns = new ArrayList<>();
 
   public PathPatternFilter(@NotNull String patterns) {
-    if (StringUtil.isEmptyOrSpaces(patterns)) {
-      patterns = "+:" + DEFAULT_INCLUDE_RULE;
-    }
+    IncludeExcludeRules rules = StringUtil.isEmptyOrSpaces(patterns)
+      ? new IncludeExcludeRules("+:" + DEFAULT_INCLUDE_RULE)
+      : new IncludeExcludeRules(patterns);
 
-    final IncludeExcludeRules rules = new IncludeExcludeRules(patterns);
     for (IncludeExcludeRules.Rule r : rules.getRules()) {
       if (r.isInclude()) {
         myIncludePatterns.add(r.getRule());
@@ -67,18 +66,25 @@ public class PathPatternFilter {
     return root;
   }
 
+  @VisibleForTesting
   static class PathNode implements jetbrains.buildServer.util.pathMatcher.PathNode<PathNode> {
-    @NotNull private final String myPath;
-    @Nullable private Set<PathNode> myChildren;
+    @NotNull
+    private final String myPath;
+    @Nullable
+    private Set<PathNode> myChildren;
 
-    public PathNode(@NotNull String path) {
-      if (path.endsWith("/")) {
-        path = path.substring(0, path.length() - 1);
+    PathNode(@NotNull String path) {
+      boolean startsWithSlash = path.startsWith("/");
+      boolean endsWithSlash = path.endsWith("/");
+      if (startsWithSlash && endsWithSlash) {
+        myPath = path.substring(1, path.length() - 1);
+      } else if (startsWithSlash) {
+        myPath = path.substring(1);
+      } else if (endsWithSlash) {
+        myPath = path.substring(0, path.length() - 1);
+      } else {
+        myPath = path;
       }
-      if (path.startsWith("/")) {
-        path = path.substring(1);
-      }
-      myPath = path;
       myChildren = null;
     }
 
