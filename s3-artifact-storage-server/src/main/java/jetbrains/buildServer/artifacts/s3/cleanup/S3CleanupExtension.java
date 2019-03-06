@@ -3,6 +3,10 @@ package jetbrains.buildServer.artifacts.s3.cleanup;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.collect.Lists;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
@@ -26,14 +30,6 @@ import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 /**
  * Created by Nikita.Skvortsov
  * date: 08.04.2016.
@@ -54,7 +50,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @Override
-  public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) throws Exception {
+  public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) {
     for (SFinishedBuild build : buildCleanupContext.getBuilds()) {
       try {
         final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
@@ -64,7 +60,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         if (pathPrefix == null) continue;
 
         final String patterns = getPatternsForBuild(buildCleanupContext, build);
-        final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns, pathPrefix);
+        final List<String> toDelete = getPathsToDelete(artifactsInfo, patterns);
         if (toDelete.isEmpty()) continue;
 
         final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
@@ -105,7 +101,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           });
 
           if (errorNum.get() > 0) {
-            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
+            String errorMessage = "Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix;
+            buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), errorMessage);
           }
 
           Loggers.CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
@@ -123,13 +120,26 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @NotNull
-  private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String patterns, @NotNull String pathPrefix) throws IOException {
-    final List<String> keys = CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
-    return new ArrayList<>(new PathPatternFilter(patterns).filterPaths(keys));
+  private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String cleanPatterns) {
+    final List<String> paths = CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
+    return new ArrayList<>(new PathPatternFilter(cleanPatterns).filterPaths(paths));
+  }
+
+  // TW-8717 - new cleanup
+  @NotNull
+  private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull Collection<String> keepPatterns) {
+    List<String> paths = artifactsInfo.getArtifactList().stream().map(ArtifactData::getPath).collect(Collectors.toList());
+    Set<String> pathsToKeep = keepPatterns
+      .stream()
+      .map(keepPattern -> new PathPatternFilter(keepPattern).filterPaths(paths))
+      .flatMap(Collection::stream)
+      .collect(Collectors.toSet());
+    paths.removeAll(pathsToKeep);
+    return paths;
   }
 
   @Override
-  public void afterCleanup(@NotNull CleanupProcessState cleanupProcessState) throws Exception {
+  public void afterCleanup(@NotNull CleanupProcessState cleanupProcessState) {
     // do nothing
   }
 
