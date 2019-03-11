@@ -17,9 +17,9 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="s3-artifact-storage-common" />
-    <orderEntry type="library" name="Maven: jetbrains.buildServer.util:amazon-util" level="project" />
-    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-core" level="project" />
-    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-s3" level="project" />
+    <orderEntry type="library" name="aws-java-sdk-s3" level="project" />
+    <orderEntry type="library" name="aws-java-sdk-core" level="project" />
+    <orderEntry type="library" name="amazon-util" level="project" />
     <orderEntry type="library" name="annotations.jar" level="project" />
     <orderEntry type="module" module-name="common" />
     <orderEntry type="module" module-name="idea-obsolete-openapi" />

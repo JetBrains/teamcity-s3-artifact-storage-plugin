@@ -25,8 +25,8 @@
     <orderEntry type="module" module-name="runtime-util" />
     <orderEntry type="module" module-name="utils" />
     <orderEntry type="library" name="commons-httpclient" level="project" />
-    <orderEntry type="library" name="Maven: jetbrains.buildServer.util:amazon-util" level="project" />
-    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-core" level="project" />
-    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-s3" level="project" />
+    <orderEntry type="library" name="aws-java-sdk-s3" level="project" />
+    <orderEntry type="library" name="aws-java-sdk-core" level="project" />
+    <orderEntry type="library" name="amazon-util" level="project" />
   </component>
 </module>

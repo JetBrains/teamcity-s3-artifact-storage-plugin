@@ -1,3 +1,7 @@
 *.iml
 .idea/
 target/
+s3-artifact-storage-agent/out/*
+s3-artifact-storage-common/out/*
+s3-artifact-storage-server/out/*
+.gradle/*
