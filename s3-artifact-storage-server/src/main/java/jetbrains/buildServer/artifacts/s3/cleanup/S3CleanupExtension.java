@@ -15,13 +15,11 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.log.Loggers;
-import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.*;
-import jetbrains.buildServer.serverSide.impl.cleanup.HistoryRetentionPolicy;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.positioning.PositionAware;
@@ -32,7 +30,7 @@ import org.jetbrains.annotations.NotNull;
  * Created by Nikita.Skvortsov
  * date: 08.04.2016.
  */
-public class S3CleanupExtension implements CleanupExtension, PositionAware {
+public class S3CleanupExtension implements CleanupExtension, PositionAware, KeepCleanupExtension {
 
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
@@ -51,8 +49,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @Override
-  public void cleanupBuildsData(@NotNull BuildCleanupContext buildCleanupContext) {
-    for (SFinishedBuild build : buildCleanupContext.getBuilds()) {
+  public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) {
+    for (SFinishedBuild build : cleanupContext.getBuilds()) {
       try {
         final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
         if (artifactsInfo == null) {
@@ -62,15 +60,42 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         if (pathPrefix == null) {
           continue;
         }
-        final String patterns = getPatternsForBuild(buildCleanupContext, build);
-        final List<String> pathsToDelete = getPathsToDelete(artifactsInfo, patterns);
+        final List<String> pathsToDelete = cleanupContext.getCleanupLevel().isCleanHistoryEntry()
+          ? getAllPaths(artifactsInfo)
+          : getPathsToDelete(artifactsInfo, cleanupContext.getCleanupPolicyForBuild(build.getBuildId()).getArtifactPatterns());
         if (pathsToDelete.isEmpty()) {
           continue;
         }
-        doClean(buildCleanupContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
+        doClean(cleanupContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
       } catch (Throwable e) {
         Loggers.CLEANUP.debug(e);
-        buildCleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
+      }
+    }
+  }
+
+  @Override
+  public void cleanupBuildsData(@NotNull BuildKeepContext keepContext){
+    for (SFinishedBuild build : keepContext.getBuilds()) {
+      try {
+        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
+        if (artifactsInfo == null) {
+          continue;
+        }
+        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
+        if (pathPrefix == null) {
+          continue;
+        }
+        final List<String> pathsToDelete = !keepContext.getKeepLevel().isPreserveHistory()
+          ? getAllPaths(artifactsInfo)
+          : getPathsToDelete(artifactsInfo, keepContext.getKeepBuildData(build).getKeepArtifactsPatterns());
+        if (pathsToDelete.isEmpty()) {
+          continue;
+        }
+        doClean(keepContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
+      } catch (Throwable e) {
+        Loggers.CLEANUP.debug(e);
+        keepContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
       }
     }
   }
@@ -127,12 +152,16 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @NotNull
+  private List<String> getAllPaths(@NotNull ArtifactListData artifactsInfo) {
+    return CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
+  }
+
+  @NotNull
   private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull String cleanPatterns) {
     final List<String> paths = CollectionsUtil.convertCollection(artifactsInfo.getArtifactList(), ArtifactData::getPath);
     return new ArrayList<>(new PathPatternFilter(cleanPatterns).filterPaths(paths));
   }
 
-  // TW-8717 - new cleanup
   @NotNull
   private List<String> getPathsToDelete(@NotNull ArtifactListData artifactsInfo, @NotNull Collection<String> keepPatterns) {
     List<String> paths = artifactsInfo.getArtifactList().stream().map(ArtifactData::getPath).collect(Collectors.toList());
@@ -154,15 +183,6 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   @Override
   public PositionConstraint getConstraint() {
     return PositionConstraint.first();
-  }
-
-  @NotNull
-  private String getPatternsForBuild(@NotNull final BuildCleanupContext cleanupContext, @NotNull final SBuild build) {
-    if (cleanupContext.getCleanupLevel().isCleanHistoryEntry()) {
-      return StringUtil.EMPTY;
-    }
-    final CleanupPolicy policy = cleanupContext.getCleanupPolicyForBuild(build.getBuildId());
-    return StringUtil.emptyIfNull(policy.getParameters().get(HistoryRetentionPolicy.ARTIFACT_PATTERNS_PARAM));
   }
 
   @NotNull
