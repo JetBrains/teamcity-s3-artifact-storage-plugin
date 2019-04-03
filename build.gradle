@@ -1,7 +1,7 @@
 ext {
     versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
     projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-    teamcityVersion = findProperty('teamcityVersion') ?: '2018.1'
+    teamcityVersion = findProperty('teamcityVersion') ?: '2019.1-SNAPSHOT'
 }
 
 group = projectIds.group
