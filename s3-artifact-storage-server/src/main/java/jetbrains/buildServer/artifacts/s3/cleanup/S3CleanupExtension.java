@@ -20,18 +20,16 @@ import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.*;
-import jetbrains.buildServer.serverSide.impl.cleanup.v2019.preserves.KeepArtifacts;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * Created by Nikita.Skvortsov
- * date: 08.04.2016.
- */
 public class S3CleanupExtension implements CleanupExtension, PositionAware, KeepCleanupExtension {
+
+  // TODO: replace to KeepArtifacts.KEEP_ALL_PATTERN when core will be updated
+  private static final String KEEP_ALL_PATTERN = "+:**/*";
 
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
@@ -87,8 +85,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
         if (pathPrefix == null) {
           continue;
         }
-        final List<String> keepPatterns = keepContext.getKeepBuildData(build).getKeepArtifactsPatterns();
-        if (keepPatterns.size() == 1 && KeepArtifacts.KEEP_ALL_PATTERN.equals(keepPatterns.get(0))) {
+        final Collection<String> keepPatterns = keepContext.getKeepBuildData(build).getKeepArtifactsPatterns();
+        if (keepPatterns.size() == 1 && KEEP_ALL_PATTERN.equals(keepPatterns.iterator().next())) {
           continue;
         }
         final List<String> pathsToDelete = keepPatterns.isEmpty()
