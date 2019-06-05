@@ -12,6 +12,7 @@ teamcity {
 
 dependencies {
     compile project(':s3-artifact-storage-common')
+    testCompile group: 'org.mockito', name: 'mockito-all', version: '1.10.19'
     provided "org.jetbrains.teamcity.internal:server:${teamcityVersion}"
 
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
