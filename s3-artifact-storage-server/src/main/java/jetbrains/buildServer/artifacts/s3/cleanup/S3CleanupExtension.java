@@ -26,10 +26,9 @@ import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
-public class S3CleanupExtension implements CleanupExtension, PositionAware, KeepCleanupExtension {
+import static jetbrains.buildServer.serverSide.impl.cleanup.v2019.preserves.KeepArtifacts.KEEP_ALL_PATTERN;
 
-  // TODO: replace to KeepArtifacts.KEEP_ALL_PATTERN when core will be updated
-  private static final String KEEP_ALL_PATTERN = "+:**/*";
+public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
@@ -49,6 +48,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
 
   @Override
   public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) {
+    boolean keepMode = ((BuildCleanupContextEx)cleanupContext).getCleanupState().isKeepMode();
+
     for (SFinishedBuild build : cleanupContext.getBuilds()) {
       try {
         final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
@@ -59,12 +60,23 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
         if (pathPrefix == null) {
           continue;
         }
-        final List<String> pathsToDelete = cleanupContext.getCleanupLevel().isCleanHistoryEntry()
-          ? getAllPaths(artifactsInfo)
-          : getPathsToDelete(artifactsInfo, cleanupContext.getCleanupPolicyForBuild(build.getBuildId()).getArtifactPatterns());
-        if (pathsToDelete.isEmpty()) {
-          continue;
+
+        List<String> pathsToDelete;
+        if (keepMode) {
+          Collection<String> keepPatterns = cleanupContext.getKeepBuildData(build).getKeepArtifactsPatterns();
+          if (keepPatterns.size() == 1 && KEEP_ALL_PATTERN.equals(keepPatterns.iterator().next())) {
+            continue;
+          }
+          pathsToDelete = keepPatterns.isEmpty()
+            ? getAllPaths(artifactsInfo)
+            : getPathsToDelete(artifactsInfo, keepPatterns);
+        } else {
+          String cleanPatterns = cleanupContext.getCleanupPolicyForBuild(build.getBuildId()).getArtifactPatterns();
+          pathsToDelete = cleanupContext.getCleanupLevel().isCleanHistoryEntry()
+            ? getAllPaths(artifactsInfo)
+            : getPathsToDelete(artifactsInfo, cleanPatterns);
         }
+
         doClean(cleanupContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
       } catch (Throwable e) {
         Loggers.CLEANUP.debug(e);
@@ -73,38 +85,11 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
     }
   }
 
-  @Override
-  public void cleanupBuildsData(@NotNull BuildKeepContext keepContext){
-    for (SFinishedBuild build : keepContext.getBuilds()) {
-      try {
-        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
-        if (artifactsInfo == null) {
-          continue;
-        }
-        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
-        if (pathPrefix == null) {
-          continue;
-        }
-        final Collection<String> keepPatterns = keepContext.getKeepBuildData(build).getKeepArtifactsPatterns();
-        if (keepPatterns.size() == 1 && KEEP_ALL_PATTERN.equals(keepPatterns.iterator().next())) {
-          continue;
-        }
-        final List<String> pathsToDelete = keepPatterns.isEmpty()
-          ? getAllPaths(artifactsInfo)
-          : getPathsToDelete(artifactsInfo, keepPatterns);
-        if (pathsToDelete.isEmpty()) {
-          continue;
-        }
-        doClean(keepContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
-      } catch (Throwable e) {
-        Loggers.CLEANUP.debug(e);
-        keepContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
-      }
-    }
-  }
-
   private void doClean(@NotNull ErrorReporter errorReporter, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete)
     throws IOException {
+    if (pathsToDelete.isEmpty()) {
+      return;
+    }
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
     S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
