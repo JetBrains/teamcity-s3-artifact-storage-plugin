@@ -34,6 +34,12 @@
             <span class="error" id="error_${params.bucketName}"></span>
         </td>
     </tr>
+    <tr id="${params.numberOfRetriesOnError}_row">
+      <th><label for="${params.numberOfRetriesOnError}">Number of retries on error: </label></th>
+      <td>
+        <props:textProperty name="${params.numberOfRetriesOnError}" className="longField" maxlength="3"/>
+      </td>
+    </tr>
     <tr>
         <th>Options:</th>
         <td>

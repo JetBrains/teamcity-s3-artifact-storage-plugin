@@ -2,6 +2,14 @@ package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.transfer.Transfer;
+import java.io.File;
+import java.lang.reflect.Method;
+import java.net.URLConnection;
+import java.security.KeyStore;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -13,15 +21,6 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import javax.net.ssl.SSLContext;
-import java.io.File;
-import java.lang.reflect.Method;
-import java.net.URLConnection;
-import java.security.KeyStore;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
@@ -78,6 +77,14 @@ public class S3Util {
 
   public static boolean usePreSignedUrls(@NotNull Map<String, String> properties) {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
+  }
+
+  public static int getNumberOfRetries(@NotNull Map<String, String> properties) {
+    try {
+      return Integer.parseInt(properties.get(S3Constants.S3_NUMBER_OF_RETRIES_ON_ERROR));
+    } catch (NumberFormatException e) {
+      return 0;
+    }
   }
 
   private static boolean useSignatureVersion4(@NotNull Map<String, String> properties) {
