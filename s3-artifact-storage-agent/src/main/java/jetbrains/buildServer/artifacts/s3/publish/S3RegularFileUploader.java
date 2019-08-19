@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
+import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
@@ -7,6 +8,12 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.agent.BuildAgentConfiguration;
@@ -20,12 +27,6 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
 
@@ -47,6 +48,7 @@ public class S3RegularFileUploader implements S3FileUploader {
                                                        @NotNull final Map<File, String> filesToPublish) {
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
     final String certDirectory = TrustedCertificatesDirectory.getCertificateDirectoryFromHome(homeDir);
+    final int numberOfRetries = S3Util.getNumberOfRetries(build.getArtifactStorageSettings());
 
     final Map<String, String> params = S3Util.validateParameters(
       SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
@@ -55,27 +57,32 @@ public class S3RegularFileUploader implements S3FileUploader {
     try {
       prepareDestination(bucketName, params, build, pathPrefix);
       final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
+      final Retrier retrier = new Retrier(numberOfRetries, LOG);
       S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
         @Override
         public Collection<Upload> run(@NotNull final TransferManager transferManager) {
           return CollectionsUtil.convertAndFilterNulls(filesToPublish.entrySet(), new Converter<Upload, Map.Entry<File, String>>() {
             @Override
-            public Upload createFrom(@NotNull Map.Entry<File, String> entry) {
-              final File file = entry.getKey();
-              final String path = entry.getValue();
-              final String artifactPath = S3Util.normalizeArtifactPath(path, file);
-              final String objectKey = pathPrefix + artifactPath;
+            public Upload createFrom(@NotNull final Map.Entry<File, String> entry) {
+              return retrier.execute(new Callable<Upload>() {
+                @Override
+                public Upload call() throws AmazonClientException {
+                  final File file = entry.getKey();
+                  final String path = entry.getValue();
+                  final String artifactPath = S3Util.normalizeArtifactPath(path, file);
+                  final String objectKey = pathPrefix + artifactPath;
 
-              artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+                  artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
 
-              final ObjectMetadata metadata = new ObjectMetadata();
-              metadata.setContentType(S3Util.getContentType(file));
-              final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
-                .withCannedAcl(CannedAccessControlList.Private)
-                .withMetadata(metadata);
-
-              return transferManager.upload(putObjectRequest);
+                  final ObjectMetadata metadata = new ObjectMetadata();
+                  metadata.setContentType(S3Util.getContentType(file));
+                  final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
+                    .withCannedAcl(CannedAccessControlList.Private)
+                    .withMetadata(metadata);
+                  return transferManager.upload(putObjectRequest);
+                }
+              });
             }
           });
         }

@@ -10,7 +10,6 @@ public class S3UtilTest {
   @DataProvider
   public Object[][] getContentTypeData() {
     return new Object[][]{
-      {"file.css", "text/css"},
       {"file.zip", "application/zip"},
       {"file.txt", "text/plain"},
       {"file.jpg", "image/jpeg"},
