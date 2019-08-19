@@ -201,7 +201,6 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     params.setConnectionTimeout(1000 * connectionTimeout);
     params.setSoTimeout(1000 * connectionTimeout);
     final int maxConnections = TeamCityProperties.getInteger("teamcity.s3.artifactUploader.maxTotalConnections", DEFAULT_TOTAL_CONNECTIONS);
-    HttpUtil.patchHttpConnectionParameters(params);
     params.setStaleCheckingEnabled(true);
     params.setMaxTotalConnections(maxConnections);
     params.setDefaultMaxConnectionsPerHost(maxConnections);
