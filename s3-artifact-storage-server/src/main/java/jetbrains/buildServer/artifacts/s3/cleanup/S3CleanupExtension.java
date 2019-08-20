@@ -40,7 +40,6 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   private final ServerArtifactHelper myHelper;
   @NotNull
   private final ServerPaths myServerPaths;
-  private final ExecutorService myExecutorService;
 
   public S3CleanupExtension(
     @NotNull final ServerArtifactHelper helper,
@@ -49,7 +48,6 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
     myServerPaths = serverPaths;
-    myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService();
   }
 
   @Override
@@ -121,12 +119,15 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
       listStream.forEach(part -> {
         try {
-          final Future<Integer> submit = myExecutorService.submit(() -> {
+          final ClassLoader currentClassLoader = Thread.currentThread().getContextClassLoader();
+          try {
+            Thread.currentThread().setContextClassLoader(jetbrains.buildServer.util.amazon.S3Util.class.getClassLoader());
             final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
               .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
-            return client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
-          });
-          succeededNum.addAndGet(submit.get());
+            succeededNum.addAndGet(client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size());
+          } finally {
+            Thread.currentThread().setContextClassLoader(currentClassLoader);
+          }
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
 
@@ -139,9 +140,6 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
             }
           });
           errorNum.addAndGet(errors.size());
-        } catch (ExecutionException | InterruptedException e) {
-          Loggers.CLEANUP.error("Got an exception while processing chunk " + part, e);
-          errorNum.addAndGet(part.size());
         }
       });
 
