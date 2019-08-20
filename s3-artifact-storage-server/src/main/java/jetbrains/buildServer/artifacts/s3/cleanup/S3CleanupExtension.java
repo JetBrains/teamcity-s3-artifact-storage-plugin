@@ -5,6 +5,9 @@ import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,11 +28,11 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-public class S3CleanupExtension implements CleanupExtension, PositionAware, KeepCleanupExtension {
+import static jetbrains.buildServer.serverSide.impl.cleanup.v2019.preserves.KeepArtifacts.KEEP_ALL_PATTERN;
 
-  // TODO: replace to KeepArtifacts.KEEP_ALL_PATTERN when core will be updated
-  private static final String KEEP_ALL_PATTERN = "+:**/*";
+public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
@@ -37,14 +40,16 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
   private final ServerArtifactHelper myHelper;
   @NotNull
   private final ServerPaths myServerPaths;
+  private final ExecutorService myExecutorService;
 
   public S3CleanupExtension(
-    @NotNull ServerArtifactHelper helper,
-    @NotNull ServerArtifactStorageSettingsProvider settingsProvider,
-    @NotNull ServerPaths serverPaths) {
+    @NotNull final ServerArtifactHelper helper,
+    @NotNull final ServerArtifactStorageSettingsProvider settingsProvider,
+    @NotNull final ServerPaths serverPaths) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
     myServerPaths = serverPaths;
+    myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService();
   }
 
   @Override
@@ -59,12 +64,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
         if (pathPrefix == null) {
           continue;
         }
-        final List<String> pathsToDelete = cleanupContext.getCleanupLevel().isCleanHistoryEntry()
-          ? getAllPaths(artifactsInfo)
-          : getPathsToDelete(artifactsInfo, cleanupContext.getCleanupPolicyForBuild(build.getBuildId()).getArtifactPatterns());
-        if (pathsToDelete.isEmpty()) {
-          continue;
-        }
+
+        List<String> pathsToDelete = calculatePathsToDelete(cleanupContext, build, artifactsInfo);
+        if (pathsToDelete == null) continue;
+
         doClean(cleanupContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
       } catch (Throwable e) {
         Loggers.CLEANUP.debug(e);
@@ -73,38 +76,34 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
     }
   }
 
-  @Override
-  public void cleanupBuildsData(@NotNull BuildKeepContext keepContext){
-    for (SFinishedBuild build : keepContext.getBuilds()) {
-      try {
-        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
-        if (artifactsInfo == null) {
-          continue;
-        }
-        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
-        if (pathPrefix == null) {
-          continue;
-        }
-        final Collection<String> keepPatterns = keepContext.getKeepBuildData(build).getKeepArtifactsPatterns();
-        if (keepPatterns.size() == 1 && KEEP_ALL_PATTERN.equals(keepPatterns.iterator().next())) {
-          continue;
-        }
-        final List<String> pathsToDelete = keepPatterns.isEmpty()
-          ? getAllPaths(artifactsInfo)
-          : getPathsToDelete(artifactsInfo, keepPatterns);
-        if (pathsToDelete.isEmpty()) {
-          continue;
-        }
-        doClean(keepContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
-      } catch (Throwable e) {
-        Loggers.CLEANUP.debug(e);
-        keepContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
+  @Nullable
+  private List<String> calculatePathsToDelete(@NotNull final BuildCleanupContext cleanupContext,
+                                              @NotNull final SFinishedBuild build,
+                                              @NotNull final ArtifactListData artifactsInfo) {
+    List<String> pathsToDelete;
+    final boolean isKeepMode = ((BuildCleanupContextEx)cleanupContext).getCleanupState().isKeepMode();
+    if (isKeepMode) {
+      Collection<String> keepPatterns = cleanupContext.getKeepBuildData(build).getKeepArtifactsPatterns();
+      if (keepPatterns.size() == 1 && KEEP_ALL_PATTERN.equals(keepPatterns.iterator().next())) {
+        return null;
       }
+      pathsToDelete = keepPatterns.isEmpty()
+                      ? getAllPaths(artifactsInfo)
+                      : getPathsToDelete(artifactsInfo, keepPatterns);
+    } else {
+      final String cleanPatterns = cleanupContext.getCleanupPolicyForBuild(build.getBuildId()).getArtifactPatterns();
+      pathsToDelete = cleanupContext.getCleanupLevel().isCleanHistoryEntry()
+                      ? getAllPaths(artifactsInfo)
+                      : getPathsToDelete(artifactsInfo, cleanPatterns);
     }
+    return pathsToDelete;
   }
 
   private void doClean(@NotNull ErrorReporter errorReporter, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete)
     throws IOException {
+    if (pathsToDelete.isEmpty()) {
+      return;
+    }
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
     S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
@@ -117,15 +116,17 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
       final boolean useParallelStream = TeamCityProperties.getBooleanOrTrue(S3Constants.S3_CLEANUP_USE_PARALLEL);
       final List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
       final Stream<List<String>> listStream = partitions.size() > 1 && useParallelStream
-        ? partitions.parallelStream()
-        : partitions.stream();
+                                              ? partitions.parallelStream()
+                                              : partitions.stream();
 
       listStream.forEach(part -> {
         try {
-          final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
-            .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
-
-          succeededNum.addAndGet(client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size());
+          final Future<Integer> submit = myExecutorService.submit(() -> {
+            final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
+              .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
+            return client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+          });
+          succeededNum.addAndGet(submit.get());
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
 
@@ -138,6 +139,9 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware, Keep
             }
           });
           errorNum.addAndGet(errors.size());
+        } catch (ExecutionException | InterruptedException e) {
+          Loggers.CLEANUP.error("Got an exception while processing chunk " + part, e);
+          errorNum.addAndGet(part.size());
         }
       });
 
