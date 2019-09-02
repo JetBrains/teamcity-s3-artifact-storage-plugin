@@ -111,14 +111,22 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
               public Void call() throws IOException {
                 final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
                 final URL uploadUrl = fetchUploadUrlFromServer(tcServerClient, build, fileToS3ObjectKeyMap.get(file));
-                if (uploadUrl == null) {
-                  final String message = "Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.";
-                  LOG.info(message);
-                  throw new IOException(message);
+                try {
+                  if (uploadUrl == null) {
+                    final String message = "Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.";
+                    LOG.info(message);
+                    throw new IOException(message);
+                  }
+                  uploadArtifact(artifactPath, uploadUrl, file, awsHttpClient);
+                  artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+                  return null;
+                } catch (IOException e) {
+                  if (uploadUrl != null) {
+                    throw new IOException(e.getMessage() + " upload url: [" + uploadUrl + "]", e);
+                  } else {
+                    throw e;
+                  }
                 }
-                uploadArtifact(artifactPath, uploadUrl, file, awsHttpClient);
-                artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
-                return null;
               }
             });
           }
