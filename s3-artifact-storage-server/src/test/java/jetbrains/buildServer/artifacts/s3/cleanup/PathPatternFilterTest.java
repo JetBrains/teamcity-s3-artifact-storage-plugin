@@ -1,18 +1,18 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
+import java.util.*;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.testng.annotations.Test;
 
-import java.util.*;
-
 import static org.testng.Assert.*;
 
 /**
  * @author vbedrosova
  */
+@SuppressWarnings("UndeclaredTests")
 @Test
 public class PathPatternFilterTest {
 
@@ -181,10 +181,10 @@ public class PathPatternFilterTest {
     return CollectionsUtil.findFirst(children, data -> path.equals(data.getPath()));
   }
 
+  @SafeVarargs
   private static <T> void assertContains(@NotNull final Collection<T> collection, final T... items) {
     for (T item : items) {
-      assertTrue(collection.contains(item), "Should contains " + item);
+      assertTrue(collection.contains(item), "Should contain " + item);
     }
   }
-
 }

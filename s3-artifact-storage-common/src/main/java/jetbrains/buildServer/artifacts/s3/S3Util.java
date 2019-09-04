@@ -22,7 +22,7 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 
 /**
@@ -79,11 +79,21 @@ public class S3Util {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
   }
 
-  public static int getNumberOfRetries(@NotNull Map<String, String> properties) {
+  public static int getNumberOfRetries(@NotNull final Map<String, String> properties) {
     try {
-      return Integer.parseInt(properties.get(S3Constants.S3_NUMBER_OF_RETRIES_ON_ERROR));
+      final int nRetries = Integer.parseInt(properties.get(S3_NUMBER_OF_RETRIES_ON_ERROR));
+      return nRetries >= 0 ? nRetries : DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
     } catch (NumberFormatException e) {
-      return 0;
+      return DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
+    }
+  }
+
+  public static int getRetryDelayInMs(@NotNull final Map<String, String> properties) {
+    try {
+      final int delay = Integer.parseInt(properties.get(S3_RETRY_DELAY_MS_ON_ERROR));
+      return delay >= 0 ? delay : DEFAULT_S3_RETRY_DELAY_ON_ERROR;
+    } catch (NumberFormatException e) {
+      return DEFAULT_S3_RETRY_DELAY_ON_ERROR;
     }
   }
 
@@ -178,28 +188,28 @@ public class S3Util {
     }
   }
 
-  public interface WithS3<T, E extends Throwable> {
-    @Nullable
-    T run(@NotNull AmazonS3 client) throws E;
-  }
-
   private static Method getProbeContentTypeMethod() {
-      try {
-        Class<?> filesClass = Class.forName("java.nio.file.Files");
-        Class<?> pathClass = Class.forName("java.nio.file.Path");
-        if (filesClass != null && pathClass != null) {
-          return filesClass.getMethod("probeContentType", pathClass);
-        }
-      } catch (Exception ignored) {
+    try {
+      Class<?> filesClass = Class.forName("java.nio.file.Files");
+      Class<?> pathClass = Class.forName("java.nio.file.Path");
+      if (filesClass != null && pathClass != null) {
+        return filesClass.getMethod("probeContentType", pathClass);
       }
-      return null;
+    } catch (Exception ignored) {
+    }
+    return null;
   }
 
   private static Method getFileToPathMethod() {
-      try {
-          return File.class.getMethod("toPath");
-      } catch (Exception ignored) {
-      }
-      return null;
+    try {
+      return File.class.getMethod("toPath");
+    } catch (Exception ignored) {
+    }
+    return null;
+  }
+
+  public interface WithS3<T, E extends Throwable> {
+    @Nullable
+    T run(@NotNull AmazonS3 client) throws E;
   }
 }

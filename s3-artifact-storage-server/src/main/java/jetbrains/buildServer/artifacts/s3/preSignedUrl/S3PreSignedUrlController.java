@@ -3,6 +3,13 @@ package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.io.StreamUtil;
+import java.io.IOException;
+import java.net.URL;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
@@ -17,14 +24,6 @@ import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.web.servlet.ModelAndView;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.net.URL;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 
@@ -68,7 +67,8 @@ public class S3PreSignedUrlController extends BaseController {
       S3Util.validateParameters(storageSettings);
     } catch (IllegalArgumentException ex){
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
-      LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve storage settngs for running build with id " + LogUtil.describe(runningBuild));
+      LOG.debug(
+        "Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve storage settings for running build with id " + LogUtil.describe(runningBuild));
       return null;
     }
 

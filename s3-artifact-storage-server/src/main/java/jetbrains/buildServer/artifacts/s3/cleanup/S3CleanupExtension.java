@@ -5,9 +5,6 @@ import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -74,6 +71,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     }
   }
 
+  @SuppressWarnings("deprecation")
   @Nullable
   private List<String> calculatePathsToDelete(@NotNull final BuildCleanupContext cleanupContext,
                                               @NotNull final SFinishedBuild build,
