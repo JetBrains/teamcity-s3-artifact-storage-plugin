@@ -15,6 +15,10 @@ import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.retry.LoggingRetrier;
+import jetbrains.buildServer.artifacts.s3.retry.Retrier;
+import jetbrains.buildServer.artifacts.s3.retry.RetrierExponentialDelay;
+import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -89,6 +93,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
     final int numberOfRetries = S3Util.getNumberOfRetries(build.getArtifactStorageSettings());
+    final int retryDelay = S3Util.getRetryDelayInMs(build.getArtifactStorageSettings());
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
@@ -99,7 +104,10 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     final ConcurrentLinkedQueue<ArtifactDataInstance> artifacts = new ConcurrentLinkedQueue<ArtifactDataInstance>();
     final HttpClient awsHttpClient = createPooledHttpClient(build);
     final HttpClient tcServerClient = createPooledHttpClientToTCServer(build);
-    final Retrier retrier = new Retrier(numberOfRetries, LOG);
+    final Retrier retrier = new RetrierImpl(numberOfRetries)
+      .registerListener(new LoggingRetrier(LOG))
+      .registerListener(new RetrierExponentialDelay(retryDelay));
+
     final List<Callable<Void>> uploadTasks = CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), new Converter<Callable<Void>, File>() {
       @Override
       public Callable<Void> createFrom(@NotNull final File file) {

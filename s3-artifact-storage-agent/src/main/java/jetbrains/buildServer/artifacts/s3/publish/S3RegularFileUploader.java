@@ -21,6 +21,10 @@ import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
+import jetbrains.buildServer.artifacts.s3.retry.LoggingRetrier;
+import jetbrains.buildServer.artifacts.s3.retry.Retrier;
+import jetbrains.buildServer.artifacts.s3.retry.RetrierExponentialDelay;
+import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
@@ -47,17 +51,20 @@ public class S3RegularFileUploader implements S3FileUploader {
                                                        @NotNull final String pathPrefix,
                                                        @NotNull final Map<File, String> filesToPublish) {
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
-    final String certDirectory = TrustedCertificatesDirectory.getCertificateDirectoryFromHome(homeDir);
+    final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectoryFromHome(homeDir);
     final int numberOfRetries = S3Util.getNumberOfRetries(build.getArtifactStorageSettings());
+    final int retryDelay = S3Util.getRetryDelayInMs(build.getArtifactStorageSettings());
 
     final Map<String, String> params = S3Util.validateParameters(
       SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
     final String bucketName = getBucketName(params);
 
     try {
-      prepareDestination(bucketName, params, build, pathPrefix);
+      prepareDestination(bucketName, params);
       final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
-      final Retrier retrier = new Retrier(numberOfRetries, LOG);
+      final Retrier retrier = new RetrierImpl(numberOfRetries)
+        .registerListener(new LoggingRetrier(LOG))
+        .registerListener(new RetrierExponentialDelay(retryDelay));
       S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
         @Override
@@ -105,9 +112,7 @@ public class S3RegularFileUploader implements S3FileUploader {
   }
 
   private void prepareDestination(final String bucketName,
-                                  final Map<String, String> params,
-                                  final AgentRunningBuild build,
-                                  final String pathPrefix) throws Throwable {
+                                  final Map<String, String> params) throws Throwable {
     if (isDestinationPrepared) return;
 
     S3Util.withS3Client(params, new S3Util.WithS3<Void, Throwable>() {
