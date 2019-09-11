@@ -95,18 +95,6 @@ public class RetrierTest {
     Assert.assertEquals(myCountingRetrier.getNumberOfRetries(), 1);
   }
 
-  @Test
-  void testDelayedRetrierDelaysRetries() {
-    final String result = new RetrierImpl(10)
-      .registerListener(myCountingRetrier)
-      .registerListener(new RetrierExponentialDelay(50L))
-      .execute(failingNTimes(2, "expected"));
-    Assert.assertEquals(result, "expected");
-    Assert.assertEquals(myCountingRetrier.getNumberOfFailures(), 2);
-    Assert.assertEquals(myCountingRetrier.getNumberOfRetries(), 2);
-    Assert.assertTrue(myCountingRetrier.getExecutionTimeInMs() > 150L);
-  }
-
   @SuppressWarnings("SameParameterValue")
   @NotNull
   private <T> Callable<T> failingNTimes(final int nTimesToFail, final T retVal) {
