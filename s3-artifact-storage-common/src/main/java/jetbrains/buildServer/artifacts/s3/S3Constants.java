@@ -22,8 +22,8 @@ public class S3Constants {
   public static final String S3_CLEANUP_USE_PARALLEL = "storage.s3.cleanup.useParallel";
 
   public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
-  public static final int DEFAULT_S3_RETRY_DELAY_ON_ERROR = DEFAULT_S3_URL_LIFETIME_SEC * 1000;
-  public static final int DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR = 1;
+  public static final int DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS = 1000;
+  public static final int DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR = 5;
 
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 }
