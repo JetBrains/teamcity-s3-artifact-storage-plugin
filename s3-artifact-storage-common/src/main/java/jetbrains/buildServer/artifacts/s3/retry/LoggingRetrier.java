@@ -30,8 +30,6 @@ public class LoggingRetrier extends AbstractRetrierEventListener {
 
   @Override
   public <T> void onFailure(@NotNull final Callable<T> callable, final int retry, @NotNull final Exception e) {
-    if (myLogger.isDebugEnabled()) {
-      myLogger.debug("Calling [" + callable + "], retry: " + retry + " failed with exception.", e);
-    }
+    myLogger.info("Calling [" + callable + "], retry: " + retry + " failed with exception.", e);
   }
 }

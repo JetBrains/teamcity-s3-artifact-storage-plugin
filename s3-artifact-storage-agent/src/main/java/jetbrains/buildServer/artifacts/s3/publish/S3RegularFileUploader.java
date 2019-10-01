@@ -74,6 +74,11 @@ public class S3RegularFileUploader implements S3FileUploader {
             public Upload createFrom(@NotNull final Map.Entry<File, String> entry) {
               return retrier.execute(new Callable<Upload>() {
                 @Override
+                public String toString() {
+                  return "publishing file '" + entry.getValue() + "'";
+                }
+
+                @Override
                 public Upload call() throws AmazonClientException {
                   final File file = entry.getKey();
                   final String path = entry.getValue();

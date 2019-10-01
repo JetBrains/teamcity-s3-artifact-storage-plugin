@@ -116,6 +116,11 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
           public Void call() {
             return retrier.execute(new Callable<Void>() {
               @Override
+              public String toString() {
+                return "publishing file '" + fileToNormalizedArtifactPathMap.get(file) + "'";
+              }
+
+              @Override
               public Void call() throws IOException {
                 final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
                 final URL uploadUrl = fetchUploadUrlFromServer(tcServerClient, build, fileToS3ObjectKeyMap.get(file));
