@@ -52,8 +52,8 @@ public class S3RegularFileUploader implements S3FileUploader {
                                                        @NotNull final Map<File, String> filesToPublish) {
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
     final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectoryFromHome(homeDir);
-    final int numberOfRetries = S3Util.getNumberOfRetries(build.getArtifactStorageSettings());
-    final int retryDelay = S3Util.getRetryDelayInMs(build.getArtifactStorageSettings());
+    final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
+    final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
     final Map<String, String> params = S3Util.validateParameters(
       SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));

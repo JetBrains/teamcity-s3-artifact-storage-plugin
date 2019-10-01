@@ -79,18 +79,18 @@ public class S3Util {
     return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD));
   }
 
-  public static int getNumberOfRetries(@NotNull final Map<String, String> properties) {
+  public static int getNumberOfRetries(@NotNull final Map<String, String> configurationParameters) {
     try {
-      final int nRetries = Integer.parseInt(properties.get(S3_NUMBER_OF_RETRIES_ON_ERROR));
+      final int nRetries = Integer.parseInt(configurationParameters.get(S3_NUMBER_OF_RETRIES_ON_ERROR));
       return nRetries >= 0 ? nRetries : DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
     } catch (NumberFormatException e) {
       return DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
     }
   }
 
-  public static int getRetryDelayInMs(@NotNull final Map<String, String> properties) {
+  public static int getRetryDelayInMs(@NotNull final Map<String, String> configurationParameters) {
     try {
-      final int delay = Integer.parseInt(properties.get(S3_RETRY_DELAY_MS_ON_ERROR));
+      final int delay = Integer.parseInt(configurationParameters.get(S3_RETRY_DELAY_MS_ON_ERROR));
       return delay >= 0 ? delay : DEFAULT_S3_RETRY_DELAY_ON_ERROR;
     } catch (NumberFormatException e) {
       return DEFAULT_S3_RETRY_DELAY_ON_ERROR;

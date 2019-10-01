@@ -92,8 +92,8 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
 
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
-    final int numberOfRetries = S3Util.getNumberOfRetries(build.getArtifactStorageSettings());
-    final int retryDelay = S3Util.getRetryDelayInMs(build.getArtifactStorageSettings());
+    final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
+    final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
