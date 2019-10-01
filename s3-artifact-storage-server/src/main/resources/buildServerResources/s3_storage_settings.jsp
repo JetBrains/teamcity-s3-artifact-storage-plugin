@@ -34,18 +34,6 @@
             <span class="error" id="error_${params.bucketName}"></span>
         </td>
     </tr>
-    <tr id="${params.numberOfRetriesOnError}_row">
-      <th><label for="${params.numberOfRetriesOnError}">Number of retries on error: </label></th>
-      <td>
-        <props:textProperty name="${params.numberOfRetriesOnError}" className="longField" maxlength="3"/>
-      </td>
-    </tr>
-  <tr id="${params.retryDelayOnErrorMs}_row">
-    <th><label for="${params.retryDelayOnErrorMs}">Delay in milliseconds before the next retry: </label></th>
-    <td>
-      <props:textProperty name="${params.retryDelayOnErrorMs}" className="longField" maxlength="6"/>
-    </td>
-  </tr>
     <tr>
         <th>Options:</th>
         <td>

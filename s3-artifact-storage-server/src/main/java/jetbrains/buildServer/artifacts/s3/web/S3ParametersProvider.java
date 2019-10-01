@@ -15,14 +15,6 @@ public class S3ParametersProvider {
     return S3Constants.S3_USE_SIGNATURE_V4;
   }
 
-  public String getRetryDelayOnErrorMs() {
-    return S3Constants.S3_RETRY_DELAY_MS_ON_ERROR;
-  }
-
-  public String getNumberOfRetriesOnError(){
-    return S3Constants.S3_NUMBER_OF_RETRIES_ON_ERROR;
-  }
-
   public String getContainersPath() {
     return String.format("/plugins/s3-artifact-storage/%s.html", S3Constants.S3_SETTINGS_PATH);
   }
