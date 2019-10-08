@@ -3,7 +3,7 @@ plugins{
 }
 
 dependencies {
-    compile "jetbrains.buildServer.util:amazon-util:23"
+    compile "jetbrains.buildServer.util:amazon-util:45"
     testCompile "org.testng:testng:6.8.21"
 }
 
