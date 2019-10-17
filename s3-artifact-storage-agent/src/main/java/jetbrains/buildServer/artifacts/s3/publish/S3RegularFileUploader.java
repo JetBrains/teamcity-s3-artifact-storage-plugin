@@ -91,7 +91,13 @@ public class S3RegularFileUploader implements S3FileUploader {
                   final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
                     .withCannedAcl(CannedAccessControlList.Private)
                     .withMetadata(metadata);
-                  return transferManager.upload(putObjectRequest);
+                  final Upload upload = transferManager.upload(putObjectRequest);
+                  try {
+                    upload.waitForUploadResult();
+                  } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                  }
+                  return upload;
                 }
               });
             }
