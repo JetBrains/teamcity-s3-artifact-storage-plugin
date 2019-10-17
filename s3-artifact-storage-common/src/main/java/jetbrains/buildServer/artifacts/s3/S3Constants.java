@@ -8,6 +8,10 @@ public class S3Constants {
 
   public static final String S3_BUCKET_NAME = "storage.s3.bucket.name";
 
+  public static final String S3_BUCKET_NAME_PROVIDED_AS_STRING = "storage.s3.bucket.name.providedAsString";
+
+  public static final String S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING = "storage.s3.bucket.name.wasProvidedAsString";
+
   public static final String S3_STORAGE_TYPE = "S3_storage";
   public static final String S3_SETTINGS_PATH = "s3_storage_settings";
 

@@ -7,11 +7,19 @@ public class S3ParametersProvider {
     return S3Constants.S3_BUCKET_NAME;
   }
 
-  public String getUsePresignUrlsForUpload(){
+  public String getBucketNameProvidedAsString() {
+    return S3Constants.S3_BUCKET_NAME_PROVIDED_AS_STRING;
+  }
+
+  public String getBucketNameWasProvidedAsString() {
+    return S3Constants.S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING;
+  }
+
+  public String getUsePresignUrlsForUpload() {
     return S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
   }
 
-  public String getUseSignatureVersion4(){
+  public String getUseSignatureVersion4() {
     return S3Constants.S3_USE_SIGNATURE_V4;
   }
 

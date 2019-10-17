@@ -39,7 +39,7 @@ public class S3Util {
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
     final Map<String, String> invalids = new HashMap<String, String>();
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
-      invalids.put(S3_BUCKET_NAME, "S3 bucket name must not be empty");
+      invalids.put(beanPropertyNameForBucketName(params), "S3 bucket name must not be empty");
     }
     invalids.putAll(AWSCommonParams.validate(params, acceptReferences));
     return invalids;
@@ -60,9 +60,18 @@ public class S3Util {
     return sb.toString();
   }
 
+  @NotNull
+  public static String beanPropertyNameForBucketName(@NotNull final Map<String, String> params) {
+    return isBucketNameProvidedAsString(params) ? S3_BUCKET_NAME_PROVIDED_AS_STRING : S3_BUCKET_NAME;
+  }
+
+  private static boolean isBucketNameProvidedAsString(@NotNull final Map<String, String> params) {
+    return Boolean.parseBoolean(params.get(S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING));
+  }
+
   @Nullable
   public static String getBucketName(@NotNull Map<String, String> params) {
-    return params.get(S3Constants.S3_BUCKET_NAME);
+    return params.get(beanPropertyNameForBucketName(params));
   }
 
   @Nullable

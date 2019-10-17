@@ -5,7 +5,7 @@ import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.Nullable;
@@ -13,9 +13,9 @@ import org.jetbrains.annotations.Nullable;
 public class BucketLocationHandler extends S3ClientResourceHandler {
   @Override
   protected Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
-    final String bucketName = parameters.get(S3Constants.S3_BUCKET_NAME);
+    final String bucketName = S3Util.getBucketName(parameters);
     if (bucketName == null) {
-      final String message = String.format("Invalid request: %s parameter was not set", S3Constants.S3_BUCKET_NAME);
+      final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName(parameters));
       throw new IllegalArgumentException(message);
     }
 

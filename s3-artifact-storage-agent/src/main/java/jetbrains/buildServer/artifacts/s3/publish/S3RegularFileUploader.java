@@ -55,8 +55,7 @@ public class S3RegularFileUploader implements S3FileUploader {
     final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
     final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
-    final Map<String, String> params = S3Util.validateParameters(
-      SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
+    final Map<String, String> params = S3Util.validateParameters(SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
     final String bucketName = getBucketName(params);
 
     try {

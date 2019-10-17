@@ -17,30 +17,45 @@
 </jsp:include>
 
 <l:settingsGroup title="S3 Parameters">
-    <tr>
+
+  <props:selectSectionProperty name="${params.bucketNameWasProvidedAsString}" title="Specify S3 bucket:">
+    <props:selectSectionPropertyContent value="" caption="Choose from list">
+      <tr>
         <th><label for="${params.bucketName}">S3 bucket name: <l:star/></label></th>
         <td>
-            <div class="posRel">
-                <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
-                <props:selectProperty name="${params.bucketName}" className="longField">
-                    <props:option value="">-- Select bucket --</props:option>
-                    <c:if test="${not empty bucket}">
-                        <props:option value="${bucket}"><c:out value="${bucket}"/></props:option>
-                    </c:if>
-                </props:selectProperty>
-                <i class="icon-refresh" title="Reload buckets" id="buckets-refresh"></i>
-            </div>
-            <span class="smallNote">Existing S3 bucket to store artifacts</span>
-            <span class="error" id="error_${params.bucketName}"></span>
+          <div class="posRel">
+            <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
+            <props:selectProperty name="${params.bucketName}" className="longField">
+              <props:option value="">-- Select bucket --</props:option>
+              <c:if test="${not empty bucket}">
+                <props:option value="${bucket}"><c:out value="${bucket}"/></props:option>
+              </c:if>
+            </props:selectProperty>
+            <i class="icon-refresh" title="Reload buckets" id="buckets-refresh"></i>
+          </div>
+          <span class="smallNote">Existing S3 bucket to store artifacts</span>
+          <span class="error error_${params.bucketName}" id="error_${params.bucketName}"></span>
         </td>
-    </tr>
-    <tr>
-        <th>Options:</th>
+      </tr>
+    </props:selectSectionPropertyContent>
+    <props:selectSectionPropertyContent value="${true}" caption="Specify name">
+      <tr>
+        <th><label for="${params.bucketNameProvidedAsString}">S3 bucket name: <l:star/></label></th>
         <td>
-            <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/>Use Pre-Signed URLs for upload<br/>
-            <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption
+          <props:textProperty name="${params.bucketNameProvidedAsString}" className="longField"/>
+          <span class="smallNote">Specify bucket name</span>
+          <span class="error error_${params.bucketName}" id="error_${params.bucketNameProvidedAsString}"></span>
         </td>
-    </tr>
+      </tr>
+    </props:selectSectionPropertyContent>
+  </props:selectSectionProperty>
+  <tr>
+    <th>Options:</th>
+    <td>
+      <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/>Use Pre-Signed URLs for upload<br/>
+      <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption
+    </td>
+  </tr>
 </l:settingsGroup>
 
 <script type="text/javascript">
@@ -63,26 +78,25 @@
     }
 
     function loadBuckets() {
-        if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
-            return
+      if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
+        return
+      }
+
+      var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
+      var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+      $j.post(window['base_uri'] + '${params.containersPath}', parameters).then(function (response) {
+        var $response = $j(response);
+        var errors = getErrors($response);
+        $j('.error_${params.bucketName}').text(errors);
+        if (errors) {
+          return
         }
 
-        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
-        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
-        $j.post(window['base_uri'] + '${params.containersPath}', parameters)
-                .then(function (response) {
-                    var $response = $j(response);
-                    var errors = getErrors($response);
-                    $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
-                    if (errors) {
-                      return
-                    }
-
-                    // Save selected option
-                    var value = $bucketSelector.val();
-                    if (value && !bucketLocations[value]) {
-                        bucketLocations[value] = $bucketRegion.val();
-                    }
+        // Save selected option
+        var value = $bucketSelector.val();
+        if (value && !bucketLocations[value]) {
+          bucketLocations[value] = $bucketRegion.val();
+        }
 
                     // Redraw selector
                     $bucketSelector.empty();
@@ -108,54 +122,52 @@
         loadBuckets();
     });
     $j(document).on('ready', function () {
-        loadBuckets();
+      loadBuckets();
     });
     $j(document).on('click', '#buckets-refresh', function () {
-        loadBuckets();
+      loadBuckets();
     });
     $j(document).on('change', useDefaultCredentialProviderChain, function () {
-        loadBuckets();
+      loadBuckets();
     });
 
     $bucketSelector.change(function () {
-        var bucketName = $j(this).val();
-        if (!bucketName) {
+      var bucketName = $j(this).val();
+      if (!bucketName) {
+        return
+      }
+
+      var location = bucketLocations[bucketName];
+      if (location) {
+        $bucketRegion.val(location);
+        return
+      }
+
+      var parameters = BS.EditStorageForm.serializeParameters() + '&resource=bucketLocation';
+
+      var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
+      $j.post(window['base_uri'] + '${params.containersPath}', parameters).then(function (response) {
+        var $response = $j(response);
+        var errors = getErrors($response);
+        $j('.error_${params.bucketName}').text(errors);
+        if (errors) {
           return
         }
 
-        var location = bucketLocations[bucketName];
-        if (location) {
-          $bucketRegion.val(location);
-          return
+        // Save selected option
+        var value = $bucketSelector.val();
+        if (value && !bucketLocations[value]) {
+          bucketLocations[value] = $bucketRegion.val();
         }
 
-        var parameters = BS.EditStorageForm.serializeParameters() + '&resource=bucketLocation';
+        var $bucket = $response.find("bucket");
+        var name = $bucket.attr("name");
 
-        var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
-        $j.post(window['base_uri'] + '${params.containersPath}', parameters)
-            .then(function (response) {
-              var $response = $j(response);
-              var errors = getErrors($response);
-              $j(BS.Util.escapeId('error_${params.bucketName}')).text(errors);
-              if (errors) {
-                return
-              }
-
-              // Save selected option
-              var value = $bucketSelector.val();
-              if (value && !bucketLocations[value]) {
-                bucketLocations[value] = $bucketRegion.val();
-              }
-
-              var $bucket = $response.find("bucket");
-              var name = $bucket.attr("name");
-
-              var location = $bucket.attr("location");
-              bucketLocations[name] = location;
-              $bucketRegion.val(location);
-            })
-            .always(function () {
-              $refreshButton.removeClass('icon-spin');
-            });
+        var location = $bucket.attr("location");
+        bucketLocations[name] = location;
+        $bucketRegion.val(location);
+      }).always(function () {
+        $refreshButton.removeClass('icon-spin');
+      });
     });
 </script>

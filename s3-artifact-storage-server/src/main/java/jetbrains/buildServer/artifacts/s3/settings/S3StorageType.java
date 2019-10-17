@@ -1,5 +1,8 @@
 package jetbrains.buildServer.artifacts.s3.settings;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
@@ -14,10 +17,6 @@ import jetbrains.buildServer.util.amazon.AWSRegions;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
@@ -92,10 +91,10 @@ public class S3StorageType extends ArtifactStorageType {
             client -> client.getBucketLocation(bucketName)
           );
           if (location == null) {
-            invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, "Bucket does not exist"));
+            invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(params), "Bucket does not exist"));
           }
         } catch (Throwable e) {
-          invalids.add(new InvalidProperty(S3Constants.S3_BUCKET_NAME, e.getMessage()));
+          invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(params), e.getMessage()));
         }
       }
 
