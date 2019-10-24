@@ -15,7 +15,7 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
   protected Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
     final String bucketName = S3Util.getBucketName(parameters);
     if (bucketName == null) {
-      final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName(parameters));
+      final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
       throw new IllegalArgumentException(message);
     }
 

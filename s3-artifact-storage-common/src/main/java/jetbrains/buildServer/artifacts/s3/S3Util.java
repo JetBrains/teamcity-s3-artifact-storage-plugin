@@ -39,7 +39,7 @@ public class S3Util {
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
     final Map<String, String> invalids = new HashMap<String, String>();
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
-      invalids.put(beanPropertyNameForBucketName(params), "S3 bucket name must not be empty");
+      invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
     }
     invalids.putAll(AWSCommonParams.validate(params, acceptReferences));
     return invalids;
@@ -61,17 +61,13 @@ public class S3Util {
   }
 
   @NotNull
-  public static String beanPropertyNameForBucketName(@NotNull final Map<String, String> params) {
-    return isBucketNameProvidedAsString(params) ? S3_BUCKET_NAME_PROVIDED_AS_STRING : S3_BUCKET_NAME;
-  }
-
-  private static boolean isBucketNameProvidedAsString(@NotNull final Map<String, String> params) {
-    return Boolean.parseBoolean(params.get(S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING));
+  public static String beanPropertyNameForBucketName() {
+    return S3_BUCKET_NAME;
   }
 
   @Nullable
   public static String getBucketName(@NotNull Map<String, String> params) {
-    return params.get(beanPropertyNameForBucketName(params));
+    return params.get(beanPropertyNameForBucketName());
   }
 
   @Nullable
@@ -151,6 +147,7 @@ public class S3Util {
     });
   }
 
+  @SuppressWarnings("UnusedReturnValue")
   public static <T extends Transfer> Collection<T> withTransferManager(
     @NotNull final Map<String, String> params,
     @NotNull final jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<T> withTransferManager

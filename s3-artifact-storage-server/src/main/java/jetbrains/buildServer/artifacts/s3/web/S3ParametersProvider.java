@@ -7,10 +7,6 @@ public class S3ParametersProvider {
     return S3Constants.S3_BUCKET_NAME;
   }
 
-  public String getBucketNameProvidedAsString() {
-    return S3Constants.S3_BUCKET_NAME_PROVIDED_AS_STRING;
-  }
-
   public String getBucketNameWasProvidedAsString() {
     return S3Constants.S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING;
   }

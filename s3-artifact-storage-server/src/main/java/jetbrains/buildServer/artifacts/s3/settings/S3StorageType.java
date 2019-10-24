@@ -91,10 +91,10 @@ public class S3StorageType extends ArtifactStorageType {
             client -> client.getBucketLocation(bucketName)
           );
           if (location == null) {
-            invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(params), "Bucket does not exist"));
+            invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
           }
         } catch (Throwable e) {
-          invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(params), e.getMessage()));
+          invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), e.getMessage()));
         }
       }
 
