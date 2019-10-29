@@ -34,30 +34,28 @@ public class S3Util {
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
   private static final Method PROBE_CONTENT_TYPE_METHOD = getProbeContentTypeMethod();
   private static final Method FILE_TO_PATH_METHOD = getFileToPathMethod();
+  public static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params, boolean acceptReferences) {
+    final Map<String, String> commonErrors = AWSCommonParams.validate(params, acceptReferences);
+    if (!commonErrors.isEmpty()) {
+      return commonErrors;
+    }
     final Map<String, String> invalids = new HashMap<String, String>();
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
       invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
     }
-    invalids.putAll(AWSCommonParams.validate(params, acceptReferences));
     return invalids;
   }
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull Map<String, String> params) throws IllegalArgumentException {
     final Map<String, String> invalids = validateParameters(params, false);
-    if (invalids.isEmpty()) return params;
-    throw new IllegalArgumentException(joinStrings(invalids.values()));
-  }
-
-  @NotNull
-  private static String joinStrings(@NotNull Collection<String> strings) {
-    if (strings.isEmpty()) return StringUtil.EMPTY;
-    final StringBuilder sb = new StringBuilder();
-    for (String s : strings) sb.append(s).append("\n");
-    return sb.toString();
+    if (!invalids.isEmpty()) {
+      throw new InvalidSettingsException(invalids);
+    }
+    return params;
   }
 
   @NotNull
@@ -139,7 +137,7 @@ public class S3Util {
       @Override
       public T run(@NotNull AWSClients clients) throws E {
         if (useSignatureVersion4(params)) {
-          clients.setS3SignerType("AWSS3V4SignerType");
+          clients.setS3SignerType(V4_SIGNER_TYPE);
         }
         patchAWSClientsSsl(clients, params);
         return withClient.run(clients.createS3Client());
@@ -217,5 +215,23 @@ public class S3Util {
   public interface WithS3<T, E extends Throwable> {
     @Nullable
     T run(@NotNull AmazonS3 client) throws E;
+  }
+
+  public static class InvalidSettingsException extends RuntimeException {
+    private final Map<String, String> myInvalids;
+
+    public InvalidSettingsException(@NotNull final Map<String, String> invalids) {
+      myInvalids = new HashMap<String, String>(invalids);
+    }
+
+    @Override
+    public String getMessage() {
+      return StringUtil.join("\n", myInvalids.values());
+    }
+
+    @NotNull
+    public Map<String, String> getInvalids() {
+      return myInvalids;
+    }
   }
 }

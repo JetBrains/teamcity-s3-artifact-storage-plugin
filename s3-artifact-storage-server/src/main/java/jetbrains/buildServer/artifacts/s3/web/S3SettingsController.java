@@ -7,6 +7,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -54,10 +55,18 @@ public class S3SettingsController extends BaseFormXmlController {
     } else {
       final ResourceHandler handler = myHandlers.get(resource);
       if (handler == null) {
-        errors.addError("resource","Invalid request: unsupported resource " + resource);
+        errors.addError("resource", "Invalid request: unsupported resource " + resource);
       } else {
         try {
           xmlResponse.addContent(handler.getContent(parameters));
+        } catch (S3Util.InvalidSettingsException e) {
+          final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(message, e);
+          } else {
+            LOG.info(message + e.getMessage());
+          }
+          e.getInvalids().forEach(errors::addError);
         } catch (IllegalArgumentException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
           if (LOG.isDebugEnabled()) {
@@ -87,7 +96,7 @@ public class S3SettingsController extends BaseFormXmlController {
 
   private Map<String, String> getProperties(final HttpServletRequest request) {
     final BasePropertiesBean propsBean = new BasePropertiesBean(null);
-    PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
+    S3StoragePropertiesUtil.bindPropertiesFromRequest(request, propsBean);
     return propsBean.getProperties();
   }
 }

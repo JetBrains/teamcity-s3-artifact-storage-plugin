@@ -6,6 +6,7 @@ import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.artifacts.s3.web.S3StoragePropertiesUtil;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.serverSide.ServerPaths;
@@ -78,6 +79,7 @@ public class S3StorageType extends ArtifactStorageType {
   @Override
   public PropertiesProcessor getParametersProcessor() {
     return params -> {
+      S3StoragePropertiesUtil.processProperties(params);
       final ArrayList<InvalidProperty> invalids = new ArrayList<>();
       for (Map.Entry<String, String> e : S3Util.validateParameters(params, true).entrySet()) {
         invalids.add(new InvalidProperty(e.getKey(), e.getValue()));

@@ -55,6 +55,7 @@
       <props:hiddenProperty name="${params.bucketName}" id="${params.bucketName}" value="${propertiesBean.properties[params.bucketName]}"/>
       <span class="error" id="error_${params.bucketName}" style="margin-top: -1em; margin-bottom: 1em;"></span>
       <span class="error" id="error_bucketLocation" style="margin-top: -1em; margin-bottom: 1em;"></span>
+      <span class="error" id="error_buckets" style="margin-top: -1em; margin-bottom: 1em;"></span>
     </td>
   </tr>
   <tr>
@@ -79,19 +80,22 @@
 
     function parseErrors($response) {
       var $errors = $response.find("errors:eq(0) error");
-      if ($errors.length) {
-        return $j.map($errors, function (error) {
-          return $j(error).text();
-        }).join(", ");
+      if (!$errors.length) {
+        return null;
+      } else {
+        var result = {};
+        $j.each($errors, function (i, error) {
+          var $error = $j(error);
+          result[$error.attr('id')] = $error.text();
+        });
+        return result;
       }
-
-      return "";
     }
 
     function displayErrorsFromResponseIfAny($response) {
       var errors = parseErrors($response);
-      $j(BS.Util.escapeId('${params.bucketName}') + ',#error_bucketLocation').each(function () {
-        $j(this).text(errors);
+      $j.each(errors, function (k, v) {
+        BS.EditStorageForm.showError(k, v);
       });
       return errors;
     }
@@ -127,10 +131,9 @@
         addOptionToBucketSelector(bucket, bucket)
       });
       if (selectedBucket) {
-        if (!selectedValueExistsInList) {
-          addOptionToBucketSelector(selectedBucket, selectedBucket);
+        if (selectedValueExistsInList) {
+          $bucketSelect.val(selectedBucket);
         }
-        $bucketSelect.val(selectedBucket);
         $bucketString.val(selectedBucket);
         $realBucketInput.val(selectedBucket);
       }
@@ -149,6 +152,7 @@
       if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
         return;
       }
+      BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
 
       var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
       var $refreshButton = $j('#buckets-refresh').addClass('icon-spin');
@@ -163,6 +167,7 @@
         redrawBucketSelector(bucketList, selectedBucket);
         $realBucketInput.change();
       }).always(function () {
+        BS.ErrorsAwareListener.onCompleteSave(BS.EditStorageForm, "<errors/>", true);
         $refreshButton.removeClass('icon-spin');
       });
     }
@@ -179,7 +184,6 @@
     $j(document).on('change', useDefaultCredentialProviderChain, function () {
       loadBucketList();
     });
-
     $j(document).on('change', '#${bucketNameSelect}, #${bucketNameStringInput}', function () {
       var bucketName = $j(this).val();
       if (bucketName) {
@@ -195,6 +199,7 @@
 
       var location = bucketLocations[bucketName];
       if (location) {
+        BS.EditStorageForm.clearErrors();
         $bucketRegion.val(location);
         return;
       }
