@@ -152,6 +152,7 @@
       if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
         return;
       }
+      bucketLocations = {};
       BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
 
       var parameters = BS.EditStorageForm.serializeParameters() + '&resource=buckets';
@@ -159,6 +160,7 @@
       $j.post(window['base_uri'] + '${params.containersPath}', parameters).then(function (response) {
         var $response = $j(response);
         if (displayErrorsFromResponseIfAny($response)) {
+          redrawBucketSelector([], "");
           return;
         }
 
@@ -176,6 +178,7 @@
       loadBucketList();
     });
     $j(document).on('ready', function () {
+      redrawBucketSelector([], "");
       loadBucketList();
     });
     $j(document).on('click', '#buckets-refresh', function () {
