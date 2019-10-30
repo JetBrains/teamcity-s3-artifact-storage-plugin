@@ -3,7 +3,7 @@ package jetbrains.buildServer.artifacts.s3.web;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jdom.Content;
 import org.jdom.Element;
 
@@ -13,7 +13,7 @@ import org.jdom.Element;
 public class BucketsResourceHandler extends S3ClientResourceHandler {
   @Override
   public Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
-    S3Util.validateParameters(parameters);
+    AWSCommonParams.validate(parameters, true);
     final Element bucketsElement = new Element("buckets");
     for (Bucket bucket : s3Client.listBuckets()) {
       final Element bucketElement = new Element("bucket");
