@@ -117,7 +117,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
             return retrier.execute(new Callable<Void>() {
               @Override
               public String toString() {
-                return "publishing file '" + fileToNormalizedArtifactPathMap.get(file) + "'";
+                return "publishing file '" + file.getName() + "'";
               }
 
               @Override

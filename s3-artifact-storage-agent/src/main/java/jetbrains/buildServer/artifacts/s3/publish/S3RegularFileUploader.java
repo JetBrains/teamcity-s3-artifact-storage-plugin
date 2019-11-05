@@ -75,7 +75,8 @@ public class S3RegularFileUploader implements S3FileUploader {
               return retrier.execute(new Callable<Upload>() {
                 @Override
                 public String toString() {
-                  return "publishing file '" + entry.getValue() + "'";
+                  final String filename = entry.getKey() != null ? entry.getKey().getName() : "null";
+                  return "publishing file '" + filename + "'";
                 }
 
                 @Override
