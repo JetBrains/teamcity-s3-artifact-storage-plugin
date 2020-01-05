@@ -217,15 +217,10 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
 
   @NotNull
   private HttpConnectionManager createMultiThreadedHttpConnectionManager(final int connectionTimeout) {
-    final MultiThreadedHttpConnectionManager threadSafeConnectionManager = new MultiThreadedHttpConnectionManager();
-    final HttpConnectionManagerParams params = new HttpConnectionManagerParams();
-    params.setConnectionTimeout(1000 * connectionTimeout);
-    params.setSoTimeout(1000 * connectionTimeout);
+    final HttpConnectionManager threadSafeConnectionManager = HttpUtil.createMultiThreadedHttpConnectionManager(connectionTimeout);
     final int maxConnections = TeamCityProperties.getInteger("teamcity.s3.artifactUploader.maxTotalConnections", DEFAULT_TOTAL_CONNECTIONS);
-    params.setStaleCheckingEnabled(true);
-    params.setMaxTotalConnections(maxConnections);
-    params.setDefaultMaxConnectionsPerHost(maxConnections);
-    threadSafeConnectionManager.setParams(params);
+    threadSafeConnectionManager.getParams().setMaxTotalConnections(maxConnections);
+    threadSafeConnectionManager.getParams().setDefaultMaxConnectionsPerHost(maxConnections);
     return threadSafeConnectionManager;
   }
 
