@@ -3,7 +3,7 @@ plugins{
 }
 
 dependencies {
-    compile "jetbrains.buildServer.util:amazon-util:2019.2.71016"
+    compile "jetbrains.buildServer.util:amazon-util:${teamcityVersion}"
     testCompile "org.testng:testng:6.8.21"
 }
 
