@@ -12,7 +12,7 @@ teamcity {
 
 dependencies {
     compile project(':s3-artifact-storage-common')
-    provided "org.jetbrains.teamcity.internal:server:${teamcityVersion}"
+    provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}")
 
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
 }

@@ -7,6 +7,12 @@ ext {
 group = projectIds.group
 version = projectIds.version
 
+repositories {
+  maven { url "https://download.jetbrains.com/teamcity-repository" }
+  mavenCentral()
+  mavenLocal()
+}
+
 allprojects {
     group = projectIds.group
     version = projectIds.version
