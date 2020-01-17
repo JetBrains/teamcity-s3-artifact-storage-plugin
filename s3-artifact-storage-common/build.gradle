@@ -1,24 +1,20 @@
-plugins{
-    id 'com.github.rodm.teamcity-common' version "1.1.1"
-}
-
 dependencies {
-    compile "jetbrains.buildServer.util:amazon-util:2019.2.71016"
-    testCompile "org.testng:testng:6.8.21"
-}
-
-teamcity {
-    version = teamcityVersion
+  compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
+  compile("jetbrains.buildServer.util:amazon-util:${awsCoreVersion}") {
+    changing = true
+  }
+  testCompile "org.testng:testng:6.8.21"
+  testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
 }
 
 tasks.withType(JavaCompile) {
-    sourceCompatibility = "1.6"
-    targetCompatibility = "1.6"
+  sourceCompatibility = "1.6"
+  targetCompatibility = "1.6"
 
-    if (project.hasProperty('JDK_16')) {
-        options.bootstrapClasspath = layout.files(
-                "$JDK_16/jre/lib/rt.jar",
-                "$JDK_16/jre/lib/jsse.jar"
-        )
-    }
+  if (project.hasProperty('JDK_16')) {
+    options.bootstrapClasspath = layout.files(
+            "$JDK_16/jre/lib/rt.jar",
+            "$JDK_16/jre/lib/jsse.jar"
+    )
+  }
 }

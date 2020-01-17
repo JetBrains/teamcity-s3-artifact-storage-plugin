@@ -11,6 +11,7 @@
     <content url="file://$MODULE_DIR$/../s3-artifact-storage-agent">
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-agent/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-agent/src/main/resources" type="java-resource" />
+      <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-agent/build" />
       <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-agent/target" />
     </content>
     <orderEntry type="inheritedJdk" />

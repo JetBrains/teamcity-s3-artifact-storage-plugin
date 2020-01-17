@@ -12,6 +12,7 @@
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/resources" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/test/java" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-server/build" />
       <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-server/target" />
     </content>
     <orderEntry type="inheritedJdk" />

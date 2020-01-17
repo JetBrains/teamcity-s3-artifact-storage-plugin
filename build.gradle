@@ -1,30 +1,33 @@
 ext {
-    versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
-    projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-    teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2019.2.1-SNAPSHOT'
+  versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
+  projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
+  teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2019.2.1-SNAPSHOT'
+  awsCoreVersion = "${teamcityVersion}"
 }
 
 group = projectIds.group
 version = projectIds.version
 
-repositories {
-  maven { url "https://download.jetbrains.com/teamcity-repository" }
-  mavenCentral()
-  mavenLocal()
-}
-
 allprojects {
-    group = projectIds.group
-    version = projectIds.version
+  group = projectIds.group
+  version = projectIds.version
+
+  project.repositories.clear()
+
+  repositories {
+    mavenLocal()
+    maven { url "https://download.jetbrains.com/teamcity-repository" }
+    mavenCentral()
+  }
 }
 
 subprojects {
-    apply plugin: "java"
+  apply plugin: "java"
 
-    test.useTestNG()
-    jar.version = null
+  test.useTestNG()
+  jar.version = null
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.9'
+  gradleVersion = '4.9'
 }
