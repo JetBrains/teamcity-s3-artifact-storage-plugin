@@ -146,9 +146,7 @@ public class S3RegularFileUploader implements S3FileUploader {
       @Nullable
       @Override
       public Void run(@NotNull AmazonS3 s3Client) {
-        // Minio does not support #doesBucketExistsV2
-        // noinspection deprecation
-        if (s3Client.doesBucketExist(bucketName)) {
+        if (s3Client.doesBucketExistV2(bucketName)) {
           isDestinationPrepared = true;
           return null;
         }

@@ -117,7 +117,11 @@ public class S3Util {
   }
 
   private static boolean useSignatureVersion4(@NotNull Map<String, String> properties) {
-    return Boolean.parseBoolean(properties.get(S3Constants.S3_USE_SIGNATURE_V4));
+    return Boolean.parseBoolean(properties.get(S3_USE_SIGNATURE_V4));
+  }
+
+  private static boolean disablePathStyleAccess(@NotNull Map<String, String> properties) {
+    return Boolean.parseBoolean(properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING));
   }
 
   @Nullable
@@ -155,6 +159,7 @@ public class S3Util {
         if (useSignatureVersion4(params)) {
           clients.setS3SignerType(V4_SIGNER_TYPE);
         }
+        clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
         patchAWSClientsSsl(clients, params);
         return withClient.run(clients.createS3Client());
       }

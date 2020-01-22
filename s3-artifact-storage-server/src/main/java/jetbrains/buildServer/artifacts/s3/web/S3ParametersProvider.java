@@ -38,4 +38,8 @@ public class S3ParametersProvider {
   public String getContainersPath() {
     return String.format("/plugins/s3-artifact-storage/%s.html", S3Constants.S3_SETTINGS_PATH);
   }
+
+  public String getForceVirtualHostAddressing() {
+    return S3Constants.S3_FORCE_VIRTUAL_HOST_ADDRESSING;
+  }
 }
