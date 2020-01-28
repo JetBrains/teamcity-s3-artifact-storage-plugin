@@ -18,7 +18,7 @@ ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
   teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2019.2.1-SNAPSHOT'
-  awsCoreVersion = "${teamcityVersion}"
+  awsCoreVersion = project.hasProperty('awsCoreVersion') ? property('awsCoreVersion') : teamcityVersion
 }
 
 group = projectIds.group
