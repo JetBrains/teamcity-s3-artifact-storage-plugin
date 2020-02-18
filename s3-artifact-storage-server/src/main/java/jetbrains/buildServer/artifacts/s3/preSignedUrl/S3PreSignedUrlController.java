@@ -34,8 +34,8 @@ import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
 import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
-import jetbrains.buildServer.serverSide.RunningBuildsCollection;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
+import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -49,15 +49,15 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD
 public class S3PreSignedUrlController extends BaseController {
   private static final Logger LOG = Logger.getInstance(S3PreSignedUrlController.class.getName());
 
-  private RunningBuildsCollection myRunningBuildsCollection;
-  private S3PreSignedUrlProvider myPreSignedUrlProvider;
-  private ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
+  private final RunningBuildsManagerEx myRunningBuildsManager;
+  private final S3PreSignedUrlProvider myPreSignedUrlProvider;
+  private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
-                                  @NotNull RunningBuildsCollection runningBuildsCollection,
+                                  @NotNull RunningBuildsManagerEx runningBuildsManager,
                                   @NotNull S3PreSignedUrlProvider preSignedUrlProvider,
                                   @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider) {
-    myRunningBuildsCollection = runningBuildsCollection;
+    myRunningBuildsManager = runningBuildsManager;
     myPreSignedUrlProvider = preSignedUrlProvider;
     myStorageSettingsProvider = storageSettingsProvider;
     web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
@@ -125,10 +125,9 @@ public class S3PreSignedUrlController extends BaseController {
       if (cre != null) {
         long buildId = BuildAuthUtil.getBuildId(cre.getUsername());
         if (buildId == -1) return null;
-        return myRunningBuildsCollection.findRunningBuildById(buildId);
+        return myRunningBuildsManager.findRunningBuildById(buildId);
       }
     }
-
     return null;
   }
 }
