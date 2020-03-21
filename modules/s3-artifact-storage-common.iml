@@ -26,5 +26,6 @@
     <orderEntry type="module" module-name="test-api" scope="TEST" />
     <orderEntry type="library" name="commons-httpclient-4.3" level="project" />
     <orderEntry type="module" module-name="aws-core-common" />
+    <orderEntry type="library" name="aws-java-sdk-codebuild" level="project" />
   </component>
 </module>
