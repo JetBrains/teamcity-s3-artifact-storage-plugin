@@ -78,8 +78,7 @@
     <th>Options:</th>
     <td>
       <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/>Use Pre-Signed URLs for upload<br/>
-      <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption<br/>
-      <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/>Force Virtual Host Addressing
+      <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption
     </td>
   </tr>
 </l:settingsGroup>
