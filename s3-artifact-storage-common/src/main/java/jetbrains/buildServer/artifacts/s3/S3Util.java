@@ -17,6 +17,7 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.transfer.Transfer;
 import java.io.File;
 import java.lang.reflect.Method;
@@ -39,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
+import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 
 /**
@@ -231,6 +233,24 @@ public class S3Util {
     } catch (Exception ignored) {
     }
     return null;
+  }
+
+  public static <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
+                                                 @NotNull final Map<String, String> settings,
+                                                 @NotNull final WithS3<T, AmazonS3Exception> withClient) {
+    try {
+      return withClient.run(s3Client);
+    } catch (AmazonS3Exception awsException) {
+      if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") &&
+          awsException.getAdditionalDetails() != null &&
+          awsException.getAdditionalDetails().containsKey("Region")) {
+        final String correctRegion = awsException.getAdditionalDetails().get("Region");
+        settings.put(REGION_NAME_PARAM, correctRegion);
+        return withS3Client(settings, withClient);
+      } else {
+        throw awsException;
+      }
+    }
   }
 
   public interface WithS3<T, E extends Throwable> {

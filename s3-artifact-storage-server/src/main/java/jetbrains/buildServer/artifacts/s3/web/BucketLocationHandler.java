@@ -27,23 +27,6 @@ import org.jdom.Element;
 import org.jetbrains.annotations.Nullable;
 
 public class BucketLocationHandler extends S3ClientResourceHandler {
-  @Override
-  protected Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
-    final String bucketName = S3Util.getBucketName(parameters);
-    if (bucketName == null) {
-      final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
-      throw new IllegalArgumentException(message);
-    }
-
-    final String location = s3Client.getBucketLocation(bucketName);
-    final String regionName = getRegionName(location);
-
-    final Element bucketElement = new Element("bucket");
-    bucketElement.setAttribute("name", bucketName);
-    bucketElement.setAttribute("location", regionName);
-
-    return bucketElement;
-  }
 
   private static String getRegionName(@Nullable String location) {
     if (location == null) {
@@ -56,5 +39,18 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
     }
 
     return region != null ? region.getName() : location;
+  }
+
+  @Override
+  protected Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
+    final String bucketName = S3Util.getBucketName(parameters);
+    if (bucketName == null) {
+      final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
+      throw new IllegalArgumentException(message);
+    }
+    final Element bucketElement = new Element("bucket");
+    bucketElement.setAttribute("name", bucketName);
+    bucketElement.setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, client -> getRegionName(client.getBucketLocation(bucketName))));
+    return bucketElement;
   }
 }

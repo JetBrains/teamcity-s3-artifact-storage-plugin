@@ -106,7 +106,7 @@ public class S3StorageType extends ArtifactStorageType {
         try {
           final String location = S3Util.withS3Client(
             ParamUtil.putSslValues(myServerPaths, params),
-            client -> client.getBucketLocation(bucketName)
+            client -> S3Util.withClientCorrectingRegion(client, params, s3Client -> client.getBucketLocation(bucketName))
           );
           if (location == null) {
             invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
@@ -125,7 +125,7 @@ public class S3StorageType extends ArtifactStorageType {
   public SettingsPreprocessor getSettingsPreprocessor() {
     return input -> {
       final Map<String, String> output = new HashMap<>(input);
-      if(Boolean.parseBoolean(input.get(S3_USE_PRE_SIGNED_URL_FOR_UPLOAD))){
+      if (Boolean.parseBoolean(input.get(S3_USE_PRE_SIGNED_URL_FOR_UPLOAD))) {
         output.remove(SECURE_SECRET_ACCESS_KEY_PARAM);
       }
       return output;
