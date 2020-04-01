@@ -34,7 +34,7 @@ public class BucketsResourceHandler extends S3ClientResourceHandler {
   public Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
     AWSCommonParams.validate(parameters, true);
     final Element bucketsElement = new Element("buckets");
-    for (Bucket bucket : withClientCorrectingRegion(s3Client, new HashMap<>(parameters), client -> client.listBuckets())) {
+    for (Bucket bucket : withClientCorrectingRegion(s3Client, new HashMap<>(parameters), correctedClient -> correctedClient.listBuckets())) {
       final Element bucketElement = new Element("bucket");
       final String bucketName = bucket.getName();
       bucketElement.setText(bucketName);

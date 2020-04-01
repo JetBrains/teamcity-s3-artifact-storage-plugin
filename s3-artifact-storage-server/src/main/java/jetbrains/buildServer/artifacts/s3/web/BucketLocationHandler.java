@@ -50,7 +50,7 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
     }
     final Element bucketElement = new Element("bucket");
     bucketElement.setAttribute("name", bucketName);
-    bucketElement.setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, client -> getRegionName(client.getBucketLocation(bucketName))));
+    bucketElement.setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
     return bucketElement;
   }
 }

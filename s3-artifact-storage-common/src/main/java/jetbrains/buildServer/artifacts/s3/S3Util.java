@@ -238,16 +238,16 @@ public class S3Util {
 
   public static <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
                                                  @NotNull final Map<String, String> settings,
-                                                 @NotNull final WithS3<T, AmazonS3Exception> withClient) {
+                                                 @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
     try {
-      return withClient.run(s3Client);
+      return withCorrectedClient.run(s3Client);
     } catch (AmazonS3Exception awsException) {
       if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") &&
           awsException.getAdditionalDetails() != null &&
           awsException.getAdditionalDetails().containsKey("Region")) {
         final String correctRegion = awsException.getAdditionalDetails().get("Region");
         settings.put(REGION_NAME_PARAM, correctRegion);
-        return withS3Client(settings, withClient);
+        return withS3Client(settings, withCorrectedClient);
       } else {
         throw awsException;
       }

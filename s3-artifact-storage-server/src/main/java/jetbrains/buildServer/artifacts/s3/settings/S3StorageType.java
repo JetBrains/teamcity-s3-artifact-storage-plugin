@@ -106,7 +106,7 @@ public class S3StorageType extends ArtifactStorageType {
         try {
           final String location = S3Util.withS3Client(
             ParamUtil.putSslValues(myServerPaths, params),
-            client -> S3Util.withClientCorrectingRegion(client, params, s3Client -> client.getBucketLocation(bucketName))
+            client -> S3Util.withClientCorrectingRegion(client, params, correctedClient -> correctedClient.getBucketLocation(bucketName))
           );
           if (location == null) {
             invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
