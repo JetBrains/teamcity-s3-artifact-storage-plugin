@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.artifacts.ArtifactListData;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
@@ -52,6 +53,7 @@ public class S3Util {
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
   private static final Method PROBE_CONTENT_TYPE_METHOD = getProbeContentTypeMethod();
   private static final Method FILE_TO_PATH_METHOD = getFileToPathMethod();
+  @SuppressWarnings("WeakerAccess")
   public static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
 
   @NotNull
