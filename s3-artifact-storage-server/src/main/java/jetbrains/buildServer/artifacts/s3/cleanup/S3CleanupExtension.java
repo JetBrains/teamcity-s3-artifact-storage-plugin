@@ -43,12 +43,13 @@ import jetbrains.buildServer.serverSide.cleanup.*;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
-import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
+
+import static jetbrains.buildServer.util.NamedThreadFactory.executeWithNewThreadName;
+import static jetbrains.buildServer.util.Util.doUnderContextClassLoader;
 
 public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
@@ -109,7 +110,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
       final int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
       final List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
-      final AtomicInteger currentChunk = new AtomicInteger(0);
+      final AtomicInteger currentChunk = new AtomicInteger();
       partitions.forEach(part -> {
         try {
           final Future<Integer> submit = myExecutorService.submit(
@@ -153,18 +154,20 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
                                  @NotNull final AtomicInteger currentChunkNumber,
                                  final int size,
                                  final int chunkSize) {
-    return "Cleaning build artifacts of Build " + LogUtil.describe(build) + ": " +
-           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " with " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " elements";
+    return "Cleaning artifacts of Build " + LogUtil.describe(build) + ": " +
+           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " of " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " objects.";
   }
 
   @NotNull
-  private Integer deleteChunk(@NotNull final String pathPrefix, final String bucketName, final AmazonS3 client, final List<String> part, final Supplier<String> info)
-    throws Exception {
-    return NamedThreadFactory.executeWithNewThreadName(info.get(), () -> Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
-      final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
-        .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
-      return client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
-    }));
+  private Integer deleteChunk(@NotNull final String pathPrefix,
+                              @NotNull final String bucketName,
+                              @NotNull final AmazonS3 client,
+                              @NotNull final List<String> part,
+                              @NotNull final Supplier<String> info) throws Exception {
+    final List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
+    final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
+    return executeWithNewThreadName(info.get(),
+                                    () -> doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size()));
   }
 
   @Override
