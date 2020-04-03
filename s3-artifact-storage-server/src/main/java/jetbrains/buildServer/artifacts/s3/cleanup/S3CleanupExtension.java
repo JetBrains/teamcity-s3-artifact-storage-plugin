@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
+import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.collect.Lists;
@@ -26,8 +27,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -39,8 +40,12 @@ import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.*;
+import jetbrains.buildServer.serverSide.executors.ExecutorServices;
+import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
+import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
@@ -53,16 +58,18 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   private final ServerArtifactHelper myHelper;
   @NotNull
   private final ServerPaths myServerPaths;
+  @NotNull
   private final ExecutorService myExecutorService;
 
   public S3CleanupExtension(
     @NotNull final ServerArtifactHelper helper,
     @NotNull final ServerArtifactStorageSettingsProvider settingsProvider,
-    @NotNull final ServerPaths serverPaths) {
+    @NotNull final ServerPaths serverPaths,
+    @NotNull final ExecutorServices executorServices) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
     myServerPaths = serverPaths;
-    myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService();
+    myExecutorService = executorServices.getLowPriorityExecutorService();
   }
 
   @Override
@@ -78,7 +85,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           continue;
         }
 
-        List<String> pathsToDelete = ArtifactPathsEvaluator.getPathsToDelete((BuildCleanupContextEx) cleanupContext, build, artifactsInfo);
+        List<String> pathsToDelete = ArtifactPathsEvaluator.getPathsToDelete((BuildCleanupContextEx)cleanupContext, build, artifactsInfo);
         if (pathsToDelete.isEmpty()) {
           continue;
         }
@@ -101,19 +108,12 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
       final AtomicInteger errorNum = new AtomicInteger();
 
       final int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
-      final boolean useParallelStream = TeamCityProperties.getBooleanOrTrue(S3Constants.S3_CLEANUP_USE_PARALLEL);
       final List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
-      final Stream<List<String>> listStream = partitions.size() > 1 && useParallelStream
-        ? partitions.parallelStream()
-        : partitions.stream();
-
-      listStream.forEach(part -> {
+      final AtomicInteger currentChunk = new AtomicInteger(0);
+      partitions.forEach(part -> {
         try {
-          final Future<Integer> submit = myExecutorService.submit(() -> {
-            final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
-              .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
-            return client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
-          });
+          final Future<Integer> submit = myExecutorService.submit(
+            () -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size())));
           succeededNum.addAndGet(submit.get());
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
@@ -144,6 +144,27 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
       return null;
     });
+  }
+
+  @NotNull
+  private String progressMessage(@NotNull final SFinishedBuild build,
+                                 @NotNull final List<String> pathsToDelete,
+                                 @NotNull final AtomicInteger succeededNum,
+                                 @NotNull final AtomicInteger currentChunkNumber,
+                                 final int size,
+                                 final int chunkSize) {
+    return "Cleaning build artifacts of Build " + LogUtil.describe(build) + ": " +
+           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " with " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " elements";
+  }
+
+  @NotNull
+  private Integer deleteChunk(@NotNull final String pathPrefix, final String bucketName, final AmazonS3 client, final List<String> part, final Supplier<String> info)
+    throws Exception {
+    return NamedThreadFactory.executeWithNewThreadName(info.get(), () -> Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
+      final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName)
+        .withKeys(part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList()));
+      return client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size();
+    }));
   }
 
   @Override

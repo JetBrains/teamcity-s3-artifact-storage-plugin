@@ -37,7 +37,6 @@ public class S3Constants {
   public static final String S3_USE_SIGNATURE_V4 = "storage.s3.use.signature.v4";
   public static final String S3_FORCE_VIRTUAL_HOST_ADDRESSING = "storage.s3.forceVirtualHostAddressing";
   public static final String S3_CLEANUP_BATCH_SIZE = "storage.s3.cleanup.batchSize";
-  public static final String S3_CLEANUP_USE_PARALLEL = "storage.s3.cleanup.useParallel";
 
   public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
   public static final int DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS = 1000;
