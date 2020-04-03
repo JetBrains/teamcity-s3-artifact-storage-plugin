@@ -155,7 +155,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
                                  final int size,
                                  final int chunkSize) {
     return "Cleaning artifacts of Build " + LogUtil.describe(build) + ": " +
-           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " of " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " objects.";
+           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " of " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " objects";
   }
 
   @NotNull
