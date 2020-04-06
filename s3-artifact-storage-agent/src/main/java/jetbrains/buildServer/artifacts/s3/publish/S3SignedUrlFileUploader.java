@@ -40,15 +40,11 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.FileRequestEntity;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.PutMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
-import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -198,7 +194,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       LOG.debug(String.format("Successfully uploaded artifact %s to %s", artifactPath, uploadUrl));
     } catch (HttpClientCloseUtil.HttpErrorCodeException e) {
       final String msg;
-      if (e.getResponseCode() == 403) {
+      if (e.getResponseCode() == HttpStatus.SC_FORBIDDEN) {
         msg = "Failed to upload artifact " + artifactPath + ": received response code HTTP 403. Ensure that the credentials in S3 storage profile are correct.";
       } else {
         msg = "Failed to upload artifact " + artifactPath + " to " + uploadUrl + ": received response code HTTP " + e.getResponseCode() + ".";
