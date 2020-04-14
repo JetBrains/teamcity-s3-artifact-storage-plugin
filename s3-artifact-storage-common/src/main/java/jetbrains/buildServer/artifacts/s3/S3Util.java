@@ -19,6 +19,7 @@ package jetbrains.buildServer.artifacts.s3;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.transfer.Transfer;
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.net.URLConnection;
@@ -29,10 +30,12 @@ import java.util.Map;
 import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.amazon.S3Util.WithTransferManager;
 import jetbrains.buildServer.util.ssl.SSLContextUtil;
 import jetbrains.buildServer.util.ssl.TrustStoreIO;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -49,10 +52,15 @@ import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTO
  * date: 02.08.2016.
  */
 public class S3Util {
-
+  @NotNull
+  private static final Logger LOGGER = Logger.getInstance(S3Util.class.getName());
+  @NotNull
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+  @NotNull
   private static final Method PROBE_CONTENT_TYPE_METHOD = getProbeContentTypeMethod();
+  @NotNull
   private static final Method FILE_TO_PATH_METHOD = getFileToPathMethod();
+  @NotNull
   private static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
 
   @NotNull
@@ -170,19 +178,34 @@ public class S3Util {
   }
 
   @SuppressWarnings("UnusedReturnValue")
-  public static <T extends Transfer> Collection<T> withTransferManager(
-    @NotNull final Map<String, String> params,
-    @NotNull final jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<T> withTransferManager
-  ) throws Throwable {
-    return AWSCommonParams.withAWSClients(params, new AWSCommonParams.WithAWSClients<Collection<T>, Throwable>() {
+  public static <T extends Transfer> Collection<T> withTransferManagerCorrectingRegion(@NotNull final Map<String, String> s3Settings,
+                                                                                       @NotNull final WithTransferManager<T> withTransferManager) throws Throwable {
+    try {
+      return withTransferManager(s3Settings, withTransferManager);
+    } catch (RuntimeException e) {
+      final String correctRegion = extractCorrectedRegion(e);
+      if (correctRegion != null) {
+        LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", e);
+        s3Settings.put(REGION_NAME_PARAM, correctRegion);
+        return withTransferManager(s3Settings, withTransferManager);
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  private static <T extends Transfer> Collection<T> withTransferManager(@NotNull final Map<String, String> s3Settings,
+                                                                        @NotNull final WithTransferManager<T> withTransferManager) throws Throwable {
+    return AWSCommonParams.withAWSClients(s3Settings, new AWSCommonParams.WithAWSClients<Collection<T>, Throwable>() {
       @NotNull
       @Override
       public Collection<T> run(@NotNull AWSClients clients) throws Throwable {
-        patchAWSClientsSsl(clients, params);
+        patchAWSClientsSsl(clients, s3Settings);
         return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), true, withTransferManager);
       }
     });
   }
+
 
   private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = socketFactory(params);
@@ -242,15 +265,29 @@ public class S3Util {
     try {
       return withCorrectedClient.run(s3Client);
     } catch (AmazonS3Exception awsException) {
-      if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") &&
-          awsException.getAdditionalDetails() != null &&
-          awsException.getAdditionalDetails().containsKey("Region")) {
-        final String correctRegion = awsException.getAdditionalDetails().get("Region");
+      final String correctRegion = extractCorrectedRegion(awsException);
+      if (correctRegion != null) {
+        LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
         settings.put(REGION_NAME_PARAM, correctRegion);
         return withS3Client(settings, withCorrectedClient);
       } else {
         throw awsException;
       }
+    }
+  }
+
+  @Nullable
+  private static String extractCorrectedRegion(@NotNull final Throwable e) {
+    @Nullable final AmazonS3Exception awsException = e instanceof AmazonS3Exception ? (AmazonS3Exception)e : ExceptionUtil.getCause(e, AmazonS3Exception.class);
+    if (awsException != null && TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && awsException.getAdditionalDetails() != null) {
+      final String correctRegion = awsException.getAdditionalDetails().get("Region");
+      if (correctRegion != null) {
+        return correctRegion;
+      } else {
+        return awsException.getAdditionalDetails().get("x-amz-bucket-region");
+      }
+    } else {
+      return null;
     }
   }
 

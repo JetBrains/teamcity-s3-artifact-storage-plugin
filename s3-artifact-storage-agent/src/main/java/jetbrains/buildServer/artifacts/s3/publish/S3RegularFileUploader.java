@@ -37,10 +37,7 @@ import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
-import jetbrains.buildServer.artifacts.s3.retry.LoggingRetrier;
-import jetbrains.buildServer.artifacts.s3.retry.Retrier;
-import jetbrains.buildServer.artifacts.s3.retry.RetrierExponentialDelay;
-import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
+import jetbrains.buildServer.artifacts.s3.retry.*;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
@@ -79,8 +76,9 @@ public class S3RegularFileUploader implements S3FileUploader {
       final List<ArtifactDataInstance> artifacts = new ArrayList<ArtifactDataInstance>();
       final Retrier retrier = new RetrierImpl(numberOfRetries)
         .registerListener(new LoggingRetrier(LOG))
+        .registerListener(new AbortingListener())
         .registerListener(new RetrierExponentialDelay(retryDelay));
-      S3Util.withTransferManager(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
+      S3Util.withTransferManagerCorrectingRegion(params, new jetbrains.buildServer.util.amazon.S3Util.WithTransferManager<Upload>() {
         @NotNull
         @Override
         public Collection<Upload> run(@NotNull final TransferManager transferManager) {
