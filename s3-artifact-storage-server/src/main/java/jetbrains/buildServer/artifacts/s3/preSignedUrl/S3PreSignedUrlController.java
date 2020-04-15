@@ -30,6 +30,7 @@ import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.util.S3RegionCorrector;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
 import jetbrains.buildServer.http.SimpleCredentials;
@@ -105,8 +106,9 @@ public class S3PreSignedUrlController extends BaseController {
 
     try{
       Map<String, URL> data = new HashMap<>();
+      final Map<String, String> correctedSettings = S3RegionCorrector.correctRegion(bucketName, storageSettings);
       for(String objectKey : s3ObjectKeys){
-        data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.PUT, bucketName, objectKey, storageSettings)));
+        data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.PUT, bucketName, objectKey, correctedSettings)));
       }
       httpServletResponse.getWriter().append(S3PreSignUrlHelper.writePreSignUrlMapping(data));
       return null;

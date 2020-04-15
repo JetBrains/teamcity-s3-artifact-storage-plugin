@@ -36,6 +36,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
+import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
 
 /**
@@ -110,6 +111,10 @@ public class S3StorageType extends ArtifactStorageType {
           );
           if (location == null) {
             invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
+          } else {
+            if (!location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
+              params.put(REGION_NAME_PARAM, location);
+            }
           }
         } catch (Throwable e) {
           invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), e.getMessage()));
