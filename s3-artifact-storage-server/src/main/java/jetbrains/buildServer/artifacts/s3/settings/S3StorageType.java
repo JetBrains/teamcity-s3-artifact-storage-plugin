@@ -24,10 +24,7 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.artifacts.s3.web.BucketLocationHandler;
 import jetbrains.buildServer.artifacts.s3.web.S3StoragePropertiesUtil;
-import jetbrains.buildServer.serverSide.InvalidProperty;
-import jetbrains.buildServer.serverSide.PropertiesProcessor;
-import jetbrains.buildServer.serverSide.ServerPaths;
-import jetbrains.buildServer.serverSide.ServerSettings;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -113,7 +110,7 @@ public class S3StorageType extends ArtifactStorageType {
           if (location == null) {
             invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
           } else {
-            if (!location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
+            if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && !location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
               params.put(REGION_NAME_PARAM, BucketLocationHandler.getRegionName(location));
             }
           }
