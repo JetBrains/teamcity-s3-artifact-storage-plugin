@@ -22,6 +22,7 @@ import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.artifacts.s3.web.BucketLocationHandler;
 import jetbrains.buildServer.artifacts.s3.web.S3StoragePropertiesUtil;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
@@ -113,7 +114,7 @@ public class S3StorageType extends ArtifactStorageType {
             invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
           } else {
             if (!location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
-              params.put(REGION_NAME_PARAM, location);
+              params.put(REGION_NAME_PARAM, BucketLocationHandler.getRegionName(location));
             }
           }
         } catch (Throwable e) {

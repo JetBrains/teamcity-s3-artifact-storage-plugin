@@ -28,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
 
 public class BucketLocationHandler extends S3ClientResourceHandler {
 
-  private static String getRegionName(@Nullable String location) {
+  public static String getRegionName(@Nullable String location) {
     if (location == null) {
       return Regions.US_EAST_1.getName();
     }
