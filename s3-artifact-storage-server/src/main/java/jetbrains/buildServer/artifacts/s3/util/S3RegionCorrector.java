@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.artifacts.s3.S3Util.withClientCorrectingRegion;
 import static jetbrains.buildServer.artifacts.s3.S3Util.withS3Client;
+import static jetbrains.buildServer.artifacts.s3.web.BucketLocationHandler.getRegionName;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 
 public final class S3RegionCorrector {
@@ -20,7 +21,7 @@ public final class S3RegionCorrector {
     if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")) {
       final String initialRegion = storageSettings.get(REGION_NAME_PARAM);
       final String correctedRegion = withS3Client(storageSettings, s3Client -> withClientCorrectingRegion(s3Client, storageSettings,
-                                                                                                          client -> client.getBucketLocation(bucketName)));
+                                                                                                          client -> getRegionName(client.getBucketLocation(bucketName))));
       if (!correctedRegion.equalsIgnoreCase(initialRegion)) {
         final HashMap<String, String> correctedSettings = new HashMap<>(storageSettings);
         correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
