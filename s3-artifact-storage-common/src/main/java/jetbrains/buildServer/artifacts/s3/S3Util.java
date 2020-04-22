@@ -268,8 +268,9 @@ public class S3Util {
       final String correctRegion = extractCorrectedRegion(awsException);
       if (correctRegion != null) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
-        settings.put(REGION_NAME_PARAM, correctRegion);
-        return withS3Client(settings, withCorrectedClient);
+        final HashMap<String, String> correctedSettings = new HashMap<String, String>(settings);
+        correctedSettings.put(REGION_NAME_PARAM, correctRegion);
+        return withS3Client(correctedSettings, withCorrectedClient);
       } else {
         throw awsException;
       }

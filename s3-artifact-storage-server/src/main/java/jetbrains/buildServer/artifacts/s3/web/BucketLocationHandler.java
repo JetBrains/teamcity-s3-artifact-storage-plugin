@@ -37,8 +37,11 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
     if (region == null && location.equals("US")) {
       return Regions.US_EAST_1.getName();
     }
-
-    return region != null ? region.getName() : location;
+    if (region != null) {
+      return !"US".equals(region.getName()) ? region.getName() : Regions.US_EAST_1.getName();
+    } else {
+      return location;
+    }
   }
 
   @Override
@@ -50,7 +53,8 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
     }
     final Element bucketElement = new Element("bucket");
     bucketElement.setAttribute("name", bucketName);
-    bucketElement.setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
+    bucketElement
+      .setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
     return bucketElement;
   }
 }
