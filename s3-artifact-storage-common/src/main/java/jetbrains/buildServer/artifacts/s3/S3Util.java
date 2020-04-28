@@ -132,7 +132,12 @@ public class S3Util {
   }
 
   private static boolean disablePathStyleAccess(@NotNull Map<String, String> properties) {
-    return Boolean.parseBoolean(properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING));
+    final String fromSettings = properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING);
+    if (fromSettings != null) {
+      return Boolean.parseBoolean(fromSettings);
+    } else {
+      return TeamCityProperties.getBoolean("teamcity.internal." + S3_FORCE_VIRTUAL_HOST_ADDRESSING);
+    }
   }
 
   @Nullable
