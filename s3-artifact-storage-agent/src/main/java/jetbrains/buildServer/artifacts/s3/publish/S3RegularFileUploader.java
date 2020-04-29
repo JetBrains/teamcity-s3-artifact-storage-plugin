@@ -25,10 +25,7 @@ import com.amazonaws.services.s3.transfer.TransferManager;
 import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Callable;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
@@ -41,6 +38,7 @@ import jetbrains.buildServer.artifacts.s3.retry.*;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -68,7 +66,7 @@ public class S3RegularFileUploader implements S3FileUploader {
     final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
     final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
-    final Map<String, String> params = S3Util.validateParameters(SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory));
+    final Map<String, String> params = new HashMap<String, String>(S3Util.validateParameters(SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory)));
     final String bucketName = getBucketName(params);
 
     try {
@@ -139,6 +137,13 @@ public class S3RegularFileUploader implements S3FileUploader {
   private void prepareDestination(final String bucketName,
                                   final Map<String, String> params) throws Throwable {
     if (isDestinationPrepared) return;
+    try {
+      if ("US".equals(params.get(AWSCommonParams.REGION_NAME_PARAM))) {
+        params.put(AWSCommonParams.REGION_NAME_PARAM, "us-east-1");
+      }
+    } catch (Exception e) {
+      LOG.infoAndDebugDetails("Attempt to correct aws region from US to us-east-1 failed", e);
+    }
 
     S3Util.withS3Client(params, new S3Util.WithS3<Void, Throwable>() {
       @Nullable
