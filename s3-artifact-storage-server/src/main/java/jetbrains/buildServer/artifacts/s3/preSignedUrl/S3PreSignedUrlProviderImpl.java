@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -66,7 +67,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
       final Callable<String> resolver = () -> S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
         final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
           .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
-        return client.generatePresignedUrl(request).toString();
+        return IOGuard.allowNetworkCall(() -> client.generatePresignedUrl(request).toString());
       });
       if (httpMethod == HttpMethod.GET) {
         return TeamCityProperties.getBoolean(TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED)
