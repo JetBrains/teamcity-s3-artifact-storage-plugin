@@ -51,9 +51,9 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   }
 
   private final Cache<String, String> myGetLinksCache = CacheBuilder.newBuilder()
-    .expireAfterWrite(getUrlLifetimeSec(), TimeUnit.SECONDS)
-    .maximumSize(200)
-    .build();
+                                                                    .expireAfterWrite(getUrlLifetimeSec(), TimeUnit.SECONDS)
+                                                                    .maximumSize(200)
+                                                                    .build();
 
   @Override
   public int getUrlLifetimeSec() {
@@ -64,11 +64,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   @Override
   public String getPreSignedUrl(@NotNull HttpMethod httpMethod, @NotNull String bucketName, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException {
     try {
-      final Callable<String> resolver = () -> S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
-        final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
-          .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
-        return IOGuard.allowNetworkCall(() -> client.generatePresignedUrl(request).toString());
-      });
+      final Callable<String> resolver = getUrlResolver(httpMethod, bucketName, objectKey, params);
       if (httpMethod == HttpMethod.GET) {
         return TeamCityProperties.getBoolean(TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED)
           ? myGetLinksCache.get(getCacheIdentity(params, objectKey, bucketName), resolver)
@@ -89,6 +85,27 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
         httpMethod.name().toLowerCase(), objectKey, bucketName, awsException.getMessage()
       ), awsException);
     }
+  }
+
+  @NotNull
+  private Callable<String> getUrlResolver(@NotNull final HttpMethod httpMethod,
+                                          @NotNull final String bucketName,
+                                          @NotNull final String objectKey, @NotNull final Map<String, String> params) {
+    return () -> S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
+      final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
+        .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
+      return IOGuard.allowNetworkCall(() -> {
+        try {
+          return client.generatePresignedUrl(request).toString();
+        } catch (Throwable t) {
+          if (t instanceof Exception) {
+            throw (Exception)t;
+          } else {
+            throw new Exception(t);
+          }
+        }
+      });
+    });
   }
 
   @NotNull
