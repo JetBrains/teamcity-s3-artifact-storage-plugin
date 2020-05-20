@@ -134,6 +134,10 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
 
               @Override
               public Void call() throws IOException {
+                if (!file.exists()) {
+                  build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
+                  return null;
+                }
                 final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
                 final URL uploadUrl = fetchUploadUrlFromServer(tcServerClient, build, fileToS3ObjectKeyMap.get(file));
                 try {

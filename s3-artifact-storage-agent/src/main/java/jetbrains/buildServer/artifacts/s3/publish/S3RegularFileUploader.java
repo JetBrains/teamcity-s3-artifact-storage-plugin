@@ -94,6 +94,10 @@ public class S3RegularFileUploader implements S3FileUploader {
                 public Upload call() throws AmazonClientException {
                   final File file = entry.getKey();
                   final String path = entry.getValue();
+                  if (!file.exists()) {
+                    build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
+                    return null;
+                  }
                   final String artifactPath = S3Util.normalizeArtifactPath(path, file);
                   final String objectKey = pathPrefix + artifactPath;
 
