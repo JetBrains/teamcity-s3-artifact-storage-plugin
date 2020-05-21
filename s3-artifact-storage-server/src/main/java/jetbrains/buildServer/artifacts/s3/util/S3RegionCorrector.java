@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.util;
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.HashMap;
 import java.util.Map;
+import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,8 +21,14 @@ public final class S3RegionCorrector {
   public static Map<String, String> correctRegion(@NotNull final String bucketName, @NotNull final Map<String, String> storageSettings) {
     if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")) {
       final String initialRegion = storageSettings.get(REGION_NAME_PARAM);
-      final String correctedRegion = withS3Client(storageSettings, s3Client -> withClientCorrectingRegion(s3Client, storageSettings,
-                                                                                                          client -> getRegionName(client.getBucketLocation(bucketName))));
+      final String correctedRegion = IOGuard.allowNetworkCall(() -> {
+        try {
+          return withS3Client(storageSettings, s3Client -> withClientCorrectingRegion(s3Client, storageSettings,
+                                                                                      client -> getRegionName(client.getBucketLocation(bucketName))));
+        } catch (Throwable t) {
+          throw new RuntimeException(t);
+        }
+      });
       if (!correctedRegion.equalsIgnoreCase(initialRegion)) {
         final HashMap<String, String> correctedSettings = new HashMap<>(storageSettings);
         correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
