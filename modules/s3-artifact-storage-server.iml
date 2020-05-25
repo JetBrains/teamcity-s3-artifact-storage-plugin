@@ -5,7 +5,7 @@
       <configuration />
     </facet>
   </component>
-  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
+  <component name="NewModuleRootManager">
     <output url="file://$MODULE_DIR$/../s3-artifact-storage-server/target/classes" />
     <output-test url="file://$MODULE_DIR$/../s3-artifact-storage-server/target/test-classes" />
     <content url="file://$MODULE_DIR$/../s3-artifact-storage-server">
