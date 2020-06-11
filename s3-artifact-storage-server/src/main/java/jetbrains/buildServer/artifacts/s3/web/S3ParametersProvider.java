@@ -42,4 +42,8 @@ public class S3ParametersProvider {
   public String getForceVirtualHostAddressing() {
     return S3Constants.S3_FORCE_VIRTUAL_HOST_ADDRESSING;
   }
+
+  public String getPathPrefix() {
+    return S3Constants.S3_PATH_PREFIX_SETTING;
+  }
 }

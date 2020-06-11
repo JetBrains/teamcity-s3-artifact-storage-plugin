@@ -38,7 +38,6 @@ import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
-import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.FileRequestEntity;
@@ -102,66 +101,56 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
       throw new IllegalArgumentException("S3 bucket name must not be empty");
     }
 
-    final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<File, String>();
-    final Map<File, String> fileToS3ObjectKeyMap = new HashMap<File, String>();
+    final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<>();
+    final Map<File, String> fileToS3ObjectKeyMap = new HashMap<>();
     final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
     final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
-      String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
+      final String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
       fileToNormalizedArtifactPathMap.put(entry.getKey(), normalizeArtifactPath);
       fileToS3ObjectKeyMap.put(entry.getKey(), pathPrefix + normalizeArtifactPath);
     }
 
-    final ConcurrentLinkedQueue<ArtifactDataInstance> artifacts = new ConcurrentLinkedQueue<ArtifactDataInstance>();
+    final ConcurrentLinkedQueue<ArtifactDataInstance> artifacts = new ConcurrentLinkedQueue<>();
     final HttpClient awsHttpClient = createPooledHttpClient(build);
     final HttpClient tcServerClient = createPooledHttpClientToTCServer(build);
     final Retrier retrier = new RetrierImpl(numberOfRetries)
       .registerListener(new LoggingRetrier(LOG))
       .registerListener(new RetrierExponentialDelay(retryDelay));
 
-    final List<Callable<Void>> uploadTasks = CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), new Converter<Callable<Void>, File>() {
+    final List<Callable<Void>> uploadTasks = CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), file -> () -> retrier.execute(new Callable<Void>() {
       @Override
-      public Callable<Void> createFrom(@NotNull final File file) {
-        return new Callable<Void>() {
-          @Override
-          public Void call() {
-            return retrier.execute(new Callable<Void>() {
-              @Override
-              public String toString() {
-                return "publishing file '" + file.getName() + "'";
-              }
-
-              @Override
-              public Void call() throws IOException {
-                if (!file.exists()) {
-                  build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
-                  return null;
-                }
-                final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
-                final URL uploadUrl = fetchUploadUrlFromServer(tcServerClient, build, fileToS3ObjectKeyMap.get(file));
-                try {
-                  if (uploadUrl == null) {
-                    final String message = "Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.";
-                    LOG.info(message);
-                    throw new IOException(message);
-                  }
-                  uploadArtifact(artifactPath, uploadUrl, file, awsHttpClient);
-                  artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
-                  return null;
-                } catch (IOException e) {
-                  if (uploadUrl != null) {
-                    throw new IOException(e.getMessage() + " upload url: [" + uploadUrl + "]", e);
-                  } else {
-                    throw e;
-                  }
-                }
-              }
-            });
-          }
-        };
+      public String toString() {
+        return "publishing file '" + file.getName() + "'";
       }
-    });
+
+      @Override
+      public Void call() throws IOException {
+        if (!file.exists()) {
+          build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
+          return null;
+        }
+        final String artifactPath = fileToNormalizedArtifactPathMap.get(file);
+        final URL uploadUrl = fetchUploadUrlFromServer(tcServerClient, build, fileToS3ObjectKeyMap.get(file));
+        try {
+          if (uploadUrl == null) {
+            final String message = "Failed to publish artifact " + artifactPath + ". Can't get presigned upload url.";
+            LOG.info(message);
+            throw new IOException(message);
+          }
+          uploadArtifact(artifactPath, uploadUrl, file, awsHttpClient);
+          artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+          return null;
+        } catch (IOException e) {
+          if (uploadUrl != null) {
+            throw new IOException(e.getMessage() + " upload url: [" + uploadUrl + "]", e);
+          } else {
+            throw e;
+          }
+        }
+      }
+    }));
 
     try {
       final StringBuilder exceptions = new StringBuilder();

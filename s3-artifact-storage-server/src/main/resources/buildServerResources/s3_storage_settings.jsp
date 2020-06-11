@@ -1,4 +1,5 @@
 <%@ taglib prefix="props" tagdir="/WEB-INF/tags/props" %>
+<%@ taglib prefix="intprop" uri="/WEB-INF/functions/intprop"%>
 <%@ taglib prefix="l" tagdir="/WEB-INF/tags/layout" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
@@ -22,6 +23,7 @@
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
+<c:set var="pathPrefixesFeatureOn" value="${intprop:getBoolean('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
 
 <style type="text/css">
   .runnerFormTable {
@@ -65,6 +67,16 @@
       </tr>
     </props:selectSectionPropertyContent>
   </props:selectSectionProperty>
+  <c:if test="${pathPrefixesFeatureOn or propertiesBean.properties[params.pathPrefix]}">
+    <tr class="noBorder">
+      <th class="noBorder"><label for="${params.pathPrefix}">S3 path prefix: </label></th>
+      <td class="noBorder">
+        <props:textProperty name="${params.pathPrefix}" id="${params.pathPrefix}" className="longField" value="${propertiesBean.properties[params.pathPrefix]}"/>
+        <span class="smallNote">Specify path prefix</span>
+        <span class="error" id="error_${params.pathPrefix}"></span>
+      </td>
+    </tr>
+  </c:if>
   <tr class="noBorder">
     <th class="noBorder"></th>
     <td class="noBorder">

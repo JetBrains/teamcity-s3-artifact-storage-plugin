@@ -30,14 +30,11 @@ import org.jetbrains.annotations.Nullable;
  */
 final class HttpClientCloseUtil {
   private static final Logger LOG = Logger.getInstance(HttpClientCloseUtil.class.getName());
-  private static final Converter<String, HttpMethod> RESPONSE_BODY_EXTRACTING_CONVERTER = new Converter<String, HttpMethod>() {
-    @Override
-    public String createFrom(@NotNull final HttpMethod source) {
-      try {
-        return source.getResponseBodyAsString();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+  private static final Converter<String, HttpMethod> RESPONSE_BODY_EXTRACTING_CONVERTER = source -> {
+    try {
+      return source.getResponseBodyAsString();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   };
 

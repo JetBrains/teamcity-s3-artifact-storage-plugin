@@ -17,23 +17,23 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.ArtifactsConstants;
-import jetbrains.buildServer.agent.*;
-import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
-import jetbrains.buildServer.artifacts.ArtifactDataInstance;
-import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.log.LogUtil;
-import jetbrains.buildServer.util.CollectionsUtil;
-import jetbrains.buildServer.util.EventDispatcher;
-import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.filters.Filter;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import jetbrains.buildServer.ArtifactsConstants;
+import jetbrains.buildServer.agent.*;
+import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
+import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.log.LogUtil;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.util.EventDispatcher;
+import jetbrains.buildServer.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
@@ -47,7 +47,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private final AgentArtifactHelper myHelper;
   private final BuildAgentConfiguration myBuildAgentConfiguration;
 
-  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<ArtifactDataInstance>();
+  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<>();
   private S3FileUploader myFileUploader;
 
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
@@ -59,7 +59,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     myBuildAgentConfiguration = buildAgentConfiguration;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
-      public void buildStarted(@NotNull AgentRunningBuild runningBuild) {
+      public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myFileUploader = null;
         myArtifacts.clear();
       }
@@ -68,12 +68,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
-    Map<File, String> filteredMap = CollectionsUtil.filterMapByValues(map, new Filter<String>() {
-      @Override
-      public boolean accept(@NotNull String s) {
-        return !s.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR);
-      }
-    });
+    final Map<File, String> filteredMap = CollectionsUtil.filterMapByValues(map, s -> !s.startsWith(ArtifactsConstants.TEAMCITY_ARTIFACTS_DIR));
 
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
@@ -97,7 +92,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     return S3_STORAGE_TYPE;
   }
 
-  private void publishArtifactsList(AgentRunningBuild build) {
+  private void publishArtifactsList(@NotNull final AgentRunningBuild build) {
     if (!myArtifacts.isEmpty()) {
       final String pathPrefix = getPathPrefix(build);
       try {
@@ -110,8 +105,12 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   }
 
   @NotNull
-  private String getPathPrefix(@NotNull AgentRunningBuild build) {
-    final List<String> pathSegments = new ArrayList<String>();
+  private String getPathPrefix(@NotNull final AgentRunningBuild build) {
+    final List<String> pathSegments = new ArrayList<>();
+    final String prefix = build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_PATH_PREFIX_SETTING, "");
+    if (TeamCityProperties.getBoolean("teamcity.internal.storage.s3.bucket.prefix.enable") && !StringUtil.isEmptyOrSpaces(prefix)) {
+      pathSegments.add(prefix);
+    }
     pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
     pathSegments.add(build.getBuildTypeExternalId());
     pathSegments.add(Long.toString(build.getBuildId()));
