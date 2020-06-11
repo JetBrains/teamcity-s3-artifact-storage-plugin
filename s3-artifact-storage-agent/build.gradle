@@ -36,7 +36,7 @@ tasks.withType(JavaCompile) {
     sourceCompatibility = "1.8"
     targetCompatibility = "1.8"
 
-    if (project.hasProperty('JDK_16')) {
-        options.bootstrapClasspath = layout.files("$JDK_16/jre/lib/rt.jar")
-    }
+  if (project.hasProperty('JDK_18')) {
+    options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
+  }
 }
