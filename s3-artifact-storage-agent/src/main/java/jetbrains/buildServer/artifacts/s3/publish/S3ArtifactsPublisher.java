@@ -29,7 +29,6 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.log.LogUtil;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
@@ -108,7 +107,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private String getPathPrefix(@NotNull final AgentRunningBuild build) {
     final List<String> pathSegments = new ArrayList<>();
     final String prefix = build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_PATH_PREFIX_SETTING, "");
-    if (TeamCityProperties.getBoolean("teamcity.internal.storage.s3.bucket.prefix.enable") && !StringUtil.isEmptyOrSpaces(prefix)) {
+    if (!StringUtil.isEmptyOrSpaces(prefix)) {
       pathSegments.add(prefix);
     }
     pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
