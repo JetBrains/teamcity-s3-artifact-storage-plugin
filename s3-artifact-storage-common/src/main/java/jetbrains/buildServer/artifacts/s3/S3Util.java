@@ -54,7 +54,7 @@ import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTO
  */
 public class S3Util {
   @NotNull
-  private static final Pattern OUR_OBJECT_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9!\\-_.*'()]+$");
+  private static final Pattern OUR_OBJECT_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9!/\\-_.*'()]+$");
   private static final int OUT_MAX_PREFIX_LENGTH = 127;
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3Util.class.getName());
