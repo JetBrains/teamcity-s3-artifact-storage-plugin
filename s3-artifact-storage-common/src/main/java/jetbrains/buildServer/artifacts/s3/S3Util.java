@@ -182,7 +182,18 @@ public class S3Util {
       }
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
       patchAWSClientsSsl(clients, params);
-      return withClient.run(clients.createS3Client());
+      final AmazonS3 s3Client = clients.createS3Client();
+      try {
+        return withClient.run(s3Client);
+      } finally {
+        try {
+          LOGGER.debug(() -> "Shutting down s3 client " + s3Client + " started.");
+          s3Client.shutdown();
+          LOGGER.debug(() -> "Shutting down s3 client " + s3Client + " finished.");
+        } catch (Exception e) {
+          LOGGER.warnAndDebugDetails("Shutting down s3 client " + s3Client + " failed.", e);
+        }
+      }
     });
   }
 
