@@ -186,13 +186,7 @@ public class S3Util {
       try {
         return withClient.run(s3Client);
       } finally {
-        try {
-          LOGGER.debug(() -> "Shutting down s3 client " + s3Client + " started.");
-          s3Client.shutdown();
-          LOGGER.debug(() -> "Shutting down s3 client " + s3Client + " finished.");
-        } catch (Exception e) {
-          LOGGER.warnAndDebugDetails("Shutting down s3 client " + s3Client + " failed.", e);
-        }
+        jetbrains.buildServer.util.amazon.S3Util.shutdownClient(s3Client);
       }
     });
   }
