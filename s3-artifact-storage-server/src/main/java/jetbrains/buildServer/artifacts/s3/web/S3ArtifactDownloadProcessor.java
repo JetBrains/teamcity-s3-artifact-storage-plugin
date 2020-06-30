@@ -16,21 +16,24 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
-import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Map;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProvider;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
+import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
 import org.jetbrains.annotations.NotNull;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
-import java.util.Map;
+import static com.amazonaws.HttpMethod.valueOf;
 
 /**
  * @author vbedrosova
@@ -39,10 +42,13 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactDownloadProcessor.class.getName());
 
-  private S3PreSignedUrlProvider myPreSignedUrlProvider;
+  private final S3PreSignedUrlProvider myPreSignedUrlProvider;
+  private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
 
-  public S3ArtifactDownloadProcessor(@NotNull S3PreSignedUrlProvider preSignedUrlProvider) {
+  public S3ArtifactDownloadProcessor(@NotNull S3PreSignedUrlProvider preSignedUrlProvider,
+                                     @NotNull  ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
+    myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
   }
 
   @NotNull
@@ -69,8 +75,22 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       throw new IOException(message);
     }
 
+    final String preSignedUrl = myPreSignedUrlProvider.getPreSignedUrl(
+      valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(), params);
+
+    fixContentSecurityPolicy(preSignedUrl);
+
     httpServletResponse.setHeader("Cache-Control", "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
-    httpServletResponse.sendRedirect(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(),params));
+    httpServletResponse.sendRedirect(preSignedUrl);
     return true;
+  }
+
+  private void fixContentSecurityPolicy(final String preSignedUrl) {
+    try {
+      final URL url = new URL(preSignedUrl);
+      myContentSecurityPolicyConfig.addDirectiveItems("img-src", url.getProtocol() + "://" + url.getHost());
+    } catch (MalformedURLException e) {
+      LOG.warn(e);
+    }
   }
 }
