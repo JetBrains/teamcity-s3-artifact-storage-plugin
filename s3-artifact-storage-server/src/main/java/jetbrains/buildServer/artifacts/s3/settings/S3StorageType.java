@@ -103,7 +103,7 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final String location = S3Util.withS3Client(
+          final String location = S3Util.withS3ClientShuttingDownImmediately(
             ParamUtil.putSslValues(myServerPaths, params),
             client -> S3Util.withClientCorrectingRegion(client, params, correctedClient -> correctedClient.getBucketLocation(bucketName))
           );
