@@ -173,9 +173,17 @@ public class S3Util {
     return new SSLConnectionSocketFactory(sslContext);
   }
 
-  public static <T, E extends Throwable> T withS3Client(
-    @NotNull final Map<String, String> params,
-    @NotNull final WithS3<T, E> withClient) throws E {
+  public static <T, E extends Throwable> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
+    return withS3Client(params, withClient, true);
+  }
+
+  public static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
+    return withS3Client(params, withClient, false);
+  }
+
+  private static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params,
+                                                         @NotNull final WithS3<T, E> withClient,
+                                                         boolean shutdownImmediately) throws E {
     return AWSCommonParams.withAWSClients(params, clients -> {
       if (useSignatureVersion4(params)) {
         clients.setS3SignerType(V4_SIGNER_TYPE);
@@ -186,7 +194,9 @@ public class S3Util {
       try {
         return withClient.run(s3Client);
       } finally {
-        jetbrains.buildServer.util.amazon.S3Util.shutdownClient(s3Client);
+        if (shutdownImmediately) {
+          jetbrains.buildServer.util.amazon.S3Util.shutdownClient(s3Client);
+        }
       }
     });
   }
@@ -280,7 +290,7 @@ public class S3Util {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
         final HashMap<String, String> correctedSettings = new HashMap<>(settings);
         correctedSettings.put(REGION_NAME_PARAM, correctRegion);
-        return withS3Client(correctedSettings, withCorrectedClient);
+        return withS3ClientShuttingDownImmediately(correctedSettings, withCorrectedClient);
       } else {
         throw awsException;
       }

@@ -40,6 +40,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
+@SuppressWarnings("UnstableApiUsage")
 public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   private static final Logger LOG = Logger.getInstance(S3PreSignedUrlProviderImpl.class.getName());
   private static final String TEAMCITY_S3_PRESIGNURL_GET_CACHE_ENABLED = "teamcity.s3.presignurl.get.cache.enabled";
@@ -91,7 +92,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
   private Callable<String> getUrlResolver(@NotNull final HttpMethod httpMethod,
                                           @NotNull final String bucketName,
                                           @NotNull final String objectKey, @NotNull final Map<String, String> params) {
-    return () -> S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
+    return () -> S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
       final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
         .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
       return IOGuard.allowNetworkCall(() -> {

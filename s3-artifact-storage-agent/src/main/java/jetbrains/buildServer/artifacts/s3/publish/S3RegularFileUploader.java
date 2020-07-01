@@ -136,7 +136,7 @@ public class S3RegularFileUploader implements S3FileUploader {
       LOG.infoAndDebugDetails("Attempt to correct aws region from US to us-east-1 failed", e);
     }
 
-    S3Util.withS3Client(params, (S3Util.WithS3<Void, Throwable>)s3Client -> {
+    S3Util.withS3ClientShuttingDownImmediately(params, (S3Util.WithS3<Void, Throwable>)s3Client -> {
       if (s3Client.doesBucketExistV2(bucketName)) {
         isDestinationPrepared = true;
         return null;

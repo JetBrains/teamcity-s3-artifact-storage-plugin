@@ -102,7 +102,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   private void doClean(@NotNull ErrorReporter errorReporter, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete) throws IOException {
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
-    S3Util.withS3Client(ParamUtil.putSslValues(myServerPaths, params), client -> {
+    S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
       final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
       final AtomicInteger succeededNum = new AtomicInteger();
