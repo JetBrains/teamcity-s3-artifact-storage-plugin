@@ -32,6 +32,7 @@ import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.http.HttpHeaders;
 
 import static com.amazonaws.HttpMethod.valueOf;
 
@@ -46,7 +47,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
 
   public S3ArtifactDownloadProcessor(@NotNull S3PreSignedUrlProvider preSignedUrlProvider,
-                                     @NotNull  ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
+                                     @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
   }
@@ -75,12 +76,11 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       throw new IOException(message);
     }
 
-    final String preSignedUrl = myPreSignedUrlProvider.getPreSignedUrl(
-      valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(), params);
+    final String preSignedUrl = myPreSignedUrlProvider.getPreSignedUrl(valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(), params);
 
     fixContentSecurityPolicy(preSignedUrl);
 
-    httpServletResponse.setHeader("Cache-Control", "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
+    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;
   }
