@@ -174,8 +174,7 @@ public class S3Util {
   }
 
   public static <T, E extends Throwable> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
-    //TODO: Dmitrii Bogdanov Immediate shutting down is disabled until the correct handling of all the places where request might be prematurely closed due to shutted down client
-    return withS3Client(params, withClient, false);
+    return withS3Client(params, withClient, true);
   }
 
   public static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
