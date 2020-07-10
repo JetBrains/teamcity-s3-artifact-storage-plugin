@@ -78,7 +78,7 @@ public class S3Util {
       invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
     }
     final String pathPrefix = params.getOrDefault(S3_PATH_PREFIX_SETTING, "");
-    if (TeamCityProperties.getBoolean("teamcity.internal.storage.s3.bucket.prefix.enable") && !StringUtil.isEmptyOrSpaces(pathPrefix)) {
+    if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.bucket.prefix.enable") && !StringUtil.isEmptyOrSpaces(pathPrefix)) {
       if (pathPrefix.length() > OUT_MAX_PREFIX_LENGTH) {
         invalids.put(S3_PATH_PREFIX_SETTING, "Should be less than " + OUT_MAX_PREFIX_LENGTH + " characters");
       }

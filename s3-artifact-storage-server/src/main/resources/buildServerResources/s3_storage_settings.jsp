@@ -23,7 +23,7 @@
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
-<c:set var="pathPrefixesFeatureOn" value="${intprop:getBoolean('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
+<c:set var="pathPrefixesFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
 
 <style type="text/css">
   .runnerFormTable {
