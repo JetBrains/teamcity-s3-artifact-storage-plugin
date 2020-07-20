@@ -62,7 +62,7 @@
         <th class="noBorder"><label for="bucketNameStringInput">S3 bucket name: <l:star/></label></th>
         <td class="noBorder">
           <props:textProperty name="${bucketNameStringInput}" id="${bucketNameStringInput}" className="longField" value="${propertiesBean.properties[params.bucketName]}"/>
-          <span class="smallNote">Specify bucket name</span>
+          <span class="smallNote">Specify the bucket name</span>
         </td>
       </tr>
     </props:selectSectionPropertyContent>
@@ -72,7 +72,7 @@
       <th class="noBorder"><label for="${params.pathPrefix}">S3 path prefix: </label></th>
       <td class="noBorder">
         <props:textProperty name="${params.pathPrefix}" id="${params.pathPrefix}" className="longField" value="${propertiesBean.properties[params.pathPrefix]}"/>
-        <span class="smallNote">Specify path prefix</span>
+        <span class="smallNote">Specify the path prefix</span>
         <span class="error" id="error_${params.pathPrefix}"></span>
       </td>
     </tr>
