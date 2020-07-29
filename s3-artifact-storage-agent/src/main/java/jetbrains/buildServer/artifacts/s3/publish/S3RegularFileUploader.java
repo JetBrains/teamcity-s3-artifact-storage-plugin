@@ -24,7 +24,9 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.util.*;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.agent.BuildAgentConfiguration;
@@ -73,41 +75,71 @@ public class S3RegularFileUploader implements S3FileUploader {
         .registerListener(new AbortingListener())
         .registerListener(new RetrierExponentialDelay(retryDelay));
 
-      S3Util.withTransferManagerCorrectingRegion(params, transferManager -> CollectionsUtil
-        .convertAndFilterNulls(filesToPublish.entrySet(), entry -> retrier.execute(new Callable<Upload>() {
-          @Override
-          public String toString() {
-            final String filename = entry.getKey() != null ? entry.getKey().getName() : "null";
-            return "publishing file '" + filename + "'";
-          }
+      S3Util.withTransferManagerCorrectingRegion(params, (transferManager) -> {
+        //First create a Callable<Upload> for each file and trigger first upload attempt.
+        List<Callable<Upload>> callables = filesToPublish.entrySet().stream().map(entry -> {
+          return new Callable<Upload>() {
+            private Upload upload = null;
 
-          @Override
-          public Upload call() throws AmazonClientException {
-            final File file = entry.getKey();
-            final String path = entry.getValue();
-            if (!file.exists()) {
-              build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
-              return null;
+            @Override
+            public String toString() {
+              final String filename = entry.getKey() != null ? entry.getKey().getName() : "null";
+              return "publishing file '" + filename + "'";
             }
-            final String artifactPath = S3Util.normalizeArtifactPath(path, file);
-            final String objectKey = pathPrefix + artifactPath;
 
-            artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
-
-            final ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(S3Util.getContentType(file));
-            final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
-              .withCannedAcl(CannedAccessControlList.Private)
-              .withMetadata(metadata);
-            final Upload upload = transferManager.upload(putObjectRequest);
-            try {
-              upload.waitForUploadResult();
-            } catch (InterruptedException e) {
-              throw new RuntimeException(e);
+            private Callable<Upload> init(){
+              triggerUpload();
+              return this;
             }
-            return upload;
-          }
-        })));
+          
+            public void triggerUpload() {
+              final File file = entry.getKey();
+              final String path = entry.getValue();
+              if (!file.exists()) {
+                build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
+                upload = null;
+              }
+              final String artifactPath = S3Util.normalizeArtifactPath(path, file);
+              final String objectKey = pathPrefix + artifactPath;
+
+              artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+
+              final ObjectMetadata metadata = new ObjectMetadata();
+              metadata.setContentType(S3Util.getContentType(file));
+              final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
+                .withCannedAcl(CannedAccessControlList.Private)
+                .withMetadata(metadata);
+              upload = transferManager.upload(putObjectRequest);
+            }
+
+            /**
+             * If we already have an upload, we will wait on its result.
+             * This handles when first upload was triggered as part of init.
+             * 
+             * If Exception, we will clear the upload - this means subsequent calls to this method will trigger a new upload attempt.
+             */
+            @Override
+            public Upload call() throws AmazonClientException {
+              if (upload == null) {
+                triggerUpload();
+              }
+              try {
+                upload.waitForUploadResult();
+              } catch (AmazonClientException e) {
+                upload = null;
+                throw e;
+              } catch (InterruptedException e) {
+                upload = null;
+                throw new RuntimeException(e);
+              }
+              return upload;
+            }
+          }.init();
+        }).collect(Collectors.toList());
+			
+        // Now wrap callables with retrier which will wait for each upload result and retry if required.
+        return CollectionsUtil.convertAndFilterNulls(callables, callable -> retrier.execute(callable));
+      });
       return artifacts;
     } catch (ArtifactPublishingFailedException t) {
       throw t;
