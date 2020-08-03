@@ -94,13 +94,8 @@ public class S3PreSignUrlHelper {
 
   @NotNull
   public static String writeS3ObjectKeys(@NotNull final Collection<String> s3ObjectKeys) {
-    Element rootElement = new Element(S3_OBJECT_KEYS);
-    for (String s3ObjectKey : s3ObjectKeys) {
-      if (StringUtil.isEmpty(s3ObjectKey)) continue;
-      Element xmlElement = new Element(S3_OBJECT_KEY);
-      XmlUtil.addContentVerbatim(xmlElement, s3ObjectKey);
-      rootElement.addContent(xmlElement);
-    }
+    final Element rootElement = new Element(S3_OBJECT_KEYS);
+    s3ObjectKeys.stream().filter(StringUtil::isNotEmpty).forEach(s3ObjectKey -> rootElement.addContent(XmlUtil.createElementVerbatim(S3_OBJECT_KEY, s3ObjectKey)));
     return XmlUtil.writeDocumentVerbatim(rootElement);
   }
 }

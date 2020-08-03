@@ -67,13 +67,13 @@ public class S3PreSignedUrlController extends BaseController {
   @Nullable
   @Override
   protected ModelAndView doHandle(@NotNull HttpServletRequest httpServletRequest, @NotNull HttpServletResponse httpServletResponse) throws Exception {
-    if(!isPost(httpServletRequest)){
+    if (!isPost(httpServletRequest)) {
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       return null;
     }
 
     RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
-    if(runningBuild == null){
+    if (runningBuild == null) {
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve running build.");
       return null;
@@ -82,7 +82,7 @@ public class S3PreSignedUrlController extends BaseController {
     Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
     try {
       S3Util.validateParameters(storageSettings);
-    } catch (IllegalArgumentException ex){
+    } catch (IllegalArgumentException ex) {
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       LOG.debug(
         "Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve storage settings for running build with id " + LogUtil.describe(runningBuild));
@@ -90,7 +90,7 @@ public class S3PreSignedUrlController extends BaseController {
     }
 
     String bucketName = S3Util.getBucketName(storageSettings);
-    if(bucketName == null){
+    if (bucketName == null) {
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve target bucket name for build " + LogUtil.describe(runningBuild));
       return null;
@@ -98,21 +98,21 @@ public class S3PreSignedUrlController extends BaseController {
 
     final String text = StreamUtil.readTextFrom(httpServletRequest.getReader());
     final Collection<String> s3ObjectKeys = S3PreSignUrlHelper.readS3ObjectKeys(text);
-    if(s3ObjectKeys.isEmpty()){
+    if (s3ObjectKeys.isEmpty()) {
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
       LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". S3 object keys collection is empty.");
       return null;
     }
 
-    try{
+    try {
       Map<String, URL> data = new HashMap<>();
       final Map<String, String> correctedSettings = S3RegionCorrector.correctRegion(bucketName, storageSettings);
-      for(String objectKey : s3ObjectKeys){
+      for (String objectKey : s3ObjectKeys) {
         data.put(objectKey, new URL(myPreSignedUrlProvider.getPreSignedUrl(HttpMethod.PUT, bucketName, objectKey, correctedSettings)));
       }
       httpServletResponse.getWriter().append(S3PreSignUrlHelper.writePreSignUrlMapping(data));
       return null;
-    } catch (IOException ex){
+    } catch (IOException ex) {
       LOG.debug("Failed to resolve presigned upload urls for artifacts of build " + runningBuild.getBuildId(), ex);
       httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
       return null;

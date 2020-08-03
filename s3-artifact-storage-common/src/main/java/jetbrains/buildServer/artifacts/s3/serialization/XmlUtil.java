@@ -29,8 +29,14 @@ public class XmlUtil {
     }
   }
 
-  public static void addContentVerbatim(@NotNull final Element element, @NotNull final String text) {
-    element.addContent(new Text(text));
+  @NotNull
+  public static Element createElementVerbatim(@NotNull final String name, @NotNull final String text) {
+    return addContentVerbatim(new Element(name), text);
+  }
+
+  @NotNull
+  private static Element addContentVerbatim(@NotNull final Element element, @NotNull final String text) {
+    return element.addContent(new Text(text));
   }
 
   @NotNull
