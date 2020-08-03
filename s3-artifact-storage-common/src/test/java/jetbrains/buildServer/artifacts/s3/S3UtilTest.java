@@ -16,12 +16,12 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
+import java.io.File;
 import org.testng.Assert;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import java.io.File;
-
+@Test
 public class S3UtilTest {
   @DataProvider
   public Object[][] getContentTypeData() {

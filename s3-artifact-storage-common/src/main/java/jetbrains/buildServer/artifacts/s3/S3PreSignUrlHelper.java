@@ -20,6 +20,7 @@ import com.intellij.openapi.util.JDOMUtil;
 import java.io.IOException;
 import java.net.URL;
 import java.util.*;
+import jetbrains.buildServer.artifacts.s3.serialization.XmlUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -46,7 +47,7 @@ public class S3PreSignUrlHelper {
     }
     final Element rootElement = document.getRootElement();
     if (!rootElement.getName().equals(S3_PRESIGN_URL_MAPPING)) return Collections.emptyMap();
-    final Map<String, URL> result = new HashMap<String, URL>();
+    final Map<String, URL> result = new HashMap<>();
     for (Object mapEntryElement : rootElement.getChildren(S3_PRESIGN_URL_MAP_ENTRY)) {
       final Element mapEntryElementCasted = (Element)mapEntryElement;
       final String s3ObjectKey = mapEntryElementCasted.getChild(S3_OBJECT_KEY).getValue();
@@ -70,7 +71,7 @@ public class S3PreSignUrlHelper {
       mapEntry.addContent(s3ObjectKeyElement);
       rootElement.addContent(mapEntry);
     }
-    return JDOMUtil.writeDocument(new Document(rootElement), System.getProperty("line.separator"));
+    return XmlUtil.writeDocumentVerbatim(rootElement);
   }
 
   @NotNull
@@ -83,7 +84,7 @@ public class S3PreSignUrlHelper {
     }
     Element rootElement = document.getRootElement();
     if (!rootElement.getName().equals(S3_OBJECT_KEYS)) return Collections.emptyList();
-    Collection<String> result = new HashSet<String>();
+    Collection<String> result = new HashSet<>();
     for (Object element : rootElement.getChildren(S3_OBJECT_KEY)) {
       Element elementCasted = (Element)element;
       result.add(elementCasted.getValue());
@@ -92,14 +93,14 @@ public class S3PreSignUrlHelper {
   }
 
   @NotNull
-  public static String writeS3ObjectKeys(@NotNull Collection<String> s3ObjectKeys) {
+  public static String writeS3ObjectKeys(@NotNull final Collection<String> s3ObjectKeys) {
     Element rootElement = new Element(S3_OBJECT_KEYS);
     for (String s3ObjectKey : s3ObjectKeys) {
       if (StringUtil.isEmpty(s3ObjectKey)) continue;
       Element xmlElement = new Element(S3_OBJECT_KEY);
-      xmlElement.addContent(s3ObjectKey);
+      XmlUtil.addContentVerbatim(xmlElement, s3ObjectKey);
       rootElement.addContent(xmlElement);
     }
-    return JDOMUtil.writeDocument(new Document(rootElement), System.getProperty("line.separator"));
+    return XmlUtil.writeDocumentVerbatim(rootElement);
   }
 }

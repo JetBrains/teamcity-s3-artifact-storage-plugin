@@ -60,11 +60,8 @@ public class RetrierTest {
   void testRuntimeExceptionThrownUnchanged() {
     final DummyRuntimeException expected = new DummyRuntimeException("Oops!");
     try {
-      new RetrierImpl(1).execute(new Callable<Integer>() {
-        @Override
-        public Integer call() {
-          throw expected;
-        }
+      new RetrierImpl(1).execute((Callable<Integer>)() -> {
+        throw expected;
       });
     } catch (Exception actual) {
       Assert.assertEquals(actual, expected);
