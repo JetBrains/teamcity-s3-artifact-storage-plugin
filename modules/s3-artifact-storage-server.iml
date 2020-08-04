@@ -20,7 +20,6 @@
     <orderEntry type="module" module-name="s3-artifact-storage-common" />
     <orderEntry type="library" name="annotations.jar" level="project" />
     <orderEntry type="module" module-name="common" />
-    <orderEntry type="module" module-name="idea-obsolete-openapi" />
     <orderEntry type="module" module-name="server-openapi" />
     <orderEntry type="library" name="Guava" level="project" />
     <orderEntry type="module" module-name="server" />
