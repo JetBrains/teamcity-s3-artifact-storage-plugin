@@ -25,6 +25,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.util.Date;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
@@ -99,8 +100,11 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
         .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
 
       if (TeamCityProperties.getBoolean(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
-        request.withResponseHeaders(new ResponseHeaderOverrides()
-                                      .withContentDisposition("attachment; filename=\"" + objectKey + "\""));
+        final List<String> split = StringUtil.split(objectKey, "/");
+        if (!split.isEmpty()) {
+          request.withResponseHeaders(new ResponseHeaderOverrides()
+                                        .withContentDisposition("attachment; filename=\"" + split.get(split.size() - 1) + "\""));
+        }
       }
 
       return IOGuard.allowNetworkCall(() -> {
