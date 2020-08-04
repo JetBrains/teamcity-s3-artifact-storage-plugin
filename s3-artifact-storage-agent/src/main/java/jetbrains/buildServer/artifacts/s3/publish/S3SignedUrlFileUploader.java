@@ -69,6 +69,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
                                                            @NotNull final AgentRunningBuild build,
                                                            @NotNull final Collection<String> s3ObjectKeys) throws IOException {
     try {
+      System.out.println(build.getSharedConfigParameters());
       final PostMethod post = new PostMethod(targetUrl(build));
       post.addRequestHeader("User-Agent", "TeamCity Agent");
       post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));

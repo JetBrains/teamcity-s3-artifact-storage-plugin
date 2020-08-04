@@ -134,4 +134,10 @@ public class S3StorageType extends ArtifactStorageType {
       return output;
     };
   }
+
+  @NotNull
+  @Override
+  public boolean supportsMigration() {
+    return true;
+  }
 }

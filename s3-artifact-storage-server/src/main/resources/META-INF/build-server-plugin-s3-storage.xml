@@ -26,4 +26,6 @@
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3SettingsController"/>
   <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProviderImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlController"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.S3UploadingHelper"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.migration.S3MigrationUploader"/>
 </beans>

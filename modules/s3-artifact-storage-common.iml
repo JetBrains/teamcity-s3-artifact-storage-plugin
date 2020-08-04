@@ -11,6 +11,7 @@
     <content url="file://$MODULE_DIR$/../s3-artifact-storage-common">
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/src/main/java" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/src/test/java" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/src/main/resources" type="java-resource" />
       <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/build" />
       <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/target" />
     </content>
@@ -24,7 +25,8 @@
     <orderEntry type="library" scope="TEST" name="testng" level="project" />
     <orderEntry type="module" module-name="test-api" scope="TEST" />
     <orderEntry type="library" name="commons-httpclient-4.3" level="project" />
-    <orderEntry type="module" module-name="aws-core-common"/>
+    <orderEntry type="module" module-name="aws-core-common" />
     <orderEntry type="library" exported="" name="aws-sdk-services" level="project" />
+    <orderEntry type="module" module-name="common-impl" />
   </component>
 </module>

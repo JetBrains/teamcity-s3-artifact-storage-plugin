@@ -29,4 +29,5 @@ public interface S3FileUploader {
   Collection<ArtifactDataInstance> publishFiles(@NotNull final AgentRunningBuild build,
                                                 @NotNull final String pathPrefix,
                                                 @NotNull final Map<File, String> filesToPublish);
+
 }
