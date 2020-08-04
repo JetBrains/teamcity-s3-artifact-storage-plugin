@@ -5,7 +5,6 @@
       <class name="jetbrains.buildServer.artifacts.s3.retry.RetrierTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelperTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.S3UtilTest"/>
-      <class name="jetbrains.buildServer.artifacts.s3.serialization.XmlUtilTest"/>
     </classes>
   </test>
 </suite>

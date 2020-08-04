@@ -16,45 +16,48 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.intellij.openapi.util.JDOMUtil;
-import java.io.IOException;
+import com.intellij.openapi.diagnostic.Logger;
 import java.net.URL;
 import java.util.*;
-import jetbrains.buildServer.artifacts.s3.serialization.XmlUtil;
 import jetbrains.buildServer.util.StringUtil;
-import org.jdom.Document;
+import jetbrains.buildServer.util.XmlUtil;
 import org.jdom.Element;
-import org.jdom.JDOMException;
 import org.jetbrains.annotations.NotNull;
 
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 21.07.17.
  */
 public class S3PreSignUrlHelper {
+  @NotNull
+  private static final Logger LOGGER = Logger.getInstance(S3PreSignUrlHelper.class.getName());
+  @NotNull
   private static final String S3_OBJECT_KEY = "s3-object-key";
+  @NotNull
   private static final String PRE_SIGN_URL = "pre-sign-url";
+  @NotNull
   private static final String S3_PRESIGN_URL_MAP_ENTRY = "s3-presign-url-map-entry";
+  @NotNull
   private static final String S3_PRESIGN_URL_MAPPING = "s3-presign-url-mapping";
+  @NotNull
   private static final String S3_OBJECT_KEYS = "s3-object-keys";
 
   @NotNull
-  public static Map<String, URL> readPreSignUrlMapping(String data) throws IOException {
-    Document document;
+  public static Map<String, URL> readPreSignUrlMapping(@NotNull final String data) {
     try {
-      document = JDOMUtil.loadDocument(data);
-    } catch (JDOMException e) {
+      final Element rootElement = XmlUtil.from_s(data);
+      if (!rootElement.getName().equals(S3_PRESIGN_URL_MAPPING)) return Collections.emptyMap();
+      final Map<String, URL> result = new HashMap<>();
+      for (Object mapEntryElement : rootElement.getChildren(S3_PRESIGN_URL_MAP_ENTRY)) {
+        final Element mapEntryElementCasted = (Element)mapEntryElement;
+        final String s3ObjectKey = mapEntryElementCasted.getChild(S3_OBJECT_KEY).getValue();
+        final String preSignUrlString = mapEntryElementCasted.getChild(PRE_SIGN_URL).getValue();
+        result.put(s3ObjectKey, new URL(preSignUrlString));
+      }
+      return result;
+    } catch (Exception e) {
+      LOGGER.warnAndDebugDetails("Got exception while parsing XML", e);
       return Collections.emptyMap();
     }
-    final Element rootElement = document.getRootElement();
-    if (!rootElement.getName().equals(S3_PRESIGN_URL_MAPPING)) return Collections.emptyMap();
-    final Map<String, URL> result = new HashMap<>();
-    for (Object mapEntryElement : rootElement.getChildren(S3_PRESIGN_URL_MAP_ENTRY)) {
-      final Element mapEntryElementCasted = (Element)mapEntryElement;
-      final String s3ObjectKey = mapEntryElementCasted.getChild(S3_OBJECT_KEY).getValue();
-      final String preSignUrlString = mapEntryElementCasted.getChild(PRE_SIGN_URL).getValue();
-      result.put(s3ObjectKey, new URL(preSignUrlString));
-    }
-    return result;
   }
 
   @NotNull
@@ -71,31 +74,30 @@ public class S3PreSignUrlHelper {
       mapEntry.addContent(s3ObjectKeyElement);
       rootElement.addContent(mapEntry);
     }
-    return XmlUtil.writeDocumentVerbatim(rootElement);
+    return XmlUtil.toString(rootElement);
   }
 
   @NotNull
-  public static Collection<String> readS3ObjectKeys(String data) throws IOException {
-    Document document;
+  public static Collection<String> readS3ObjectKeys(@NotNull final String data) {
     try {
-      document = JDOMUtil.loadDocument(data);
-    } catch (JDOMException e) {
+      final Element rootElement = XmlUtil.from_s(data);
+      if (!rootElement.getName().equals(S3_OBJECT_KEYS)) return Collections.emptyList();
+      Collection<String> result = new HashSet<>();
+      for (Object element : rootElement.getChildren(S3_OBJECT_KEY)) {
+        Element elementCasted = (Element)element;
+        result.add(elementCasted.getValue());
+      }
+      return result;
+    } catch (Exception e) {
+      LOGGER.warnAndDebugDetails("Got exception while parsing XML", e);
       return Collections.emptyList();
     }
-    Element rootElement = document.getRootElement();
-    if (!rootElement.getName().equals(S3_OBJECT_KEYS)) return Collections.emptyList();
-    Collection<String> result = new HashSet<>();
-    for (Object element : rootElement.getChildren(S3_OBJECT_KEY)) {
-      Element elementCasted = (Element)element;
-      result.add(elementCasted.getValue());
-    }
-    return result;
   }
 
   @NotNull
   public static String writeS3ObjectKeys(@NotNull final Collection<String> s3ObjectKeys) {
     final Element rootElement = new Element(S3_OBJECT_KEYS);
-    s3ObjectKeys.stream().filter(StringUtil::isNotEmpty).forEach(s3ObjectKey -> rootElement.addContent(XmlUtil.createElementVerbatim(S3_OBJECT_KEY, s3ObjectKey)));
-    return XmlUtil.writeDocumentVerbatim(rootElement);
+    s3ObjectKeys.stream().filter(StringUtil::isNotEmpty).forEach(s3ObjectKey -> XmlUtil.addTextChild(rootElement, S3_OBJECT_KEY, s3ObjectKey));
+    return XmlUtil.toString(rootElement);
   }
 }
