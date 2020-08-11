@@ -4,6 +4,17 @@
     <facet type="Spring" name="Spring">
       <configuration />
     </facet>
+    <facet type="web" name="s3-storage">
+      <configuration>
+        <webroots>
+          <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/resources" relative="/plugins/s3-storage" />
+        </webroots>
+        <sourceRoots>
+          <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/java" />
+          <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/resources" />
+        </sourceRoots>
+      </configuration>
+    </facet>
   </component>
   <component name="NewModuleRootManager">
     <output url="file://$MODULE_DIR$/../s3-artifact-storage-server/target/classes" />
