@@ -99,7 +99,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
       final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucketName, objectKey, httpMethod)
         .withExpiration(new Date(System.currentTimeMillis() + getUrlLifetimeSec() * 1000));
 
-      if (TeamCityProperties.getBoolean(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
+      if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
         final List<String> split = StringUtil.split(objectKey, "/");
         if (!split.isEmpty()) {
           request.withResponseHeaders(new ResponseHeaderOverrides()
