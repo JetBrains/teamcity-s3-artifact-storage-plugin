@@ -103,7 +103,7 @@ public class S3PreSignedUrlProviderImpl implements S3PreSignedUrlProvider {
         final List<String> split = StringUtil.split(objectKey, "/");
         if (!split.isEmpty()) {
           request.withResponseHeaders(new ResponseHeaderOverrides()
-                                        .withContentDisposition("attachment; filename=\"" + split.get(split.size() - 1) + "\""));
+                                        .withContentDisposition("inline; filename=\"" + split.get(split.size() - 1) + "\""));
         }
       }
 
