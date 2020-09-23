@@ -87,6 +87,10 @@ public class S3PreSignedUrlController extends BaseController {
       LOG.debug(
         "Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve storage settings for running build with id " + LogUtil.describe(runningBuild));
       return null;
+    } catch (S3Util.InvalidSettingsException ex) {
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST);
+      LOG.infoAndDebugDetails(() -> "Failed to provide presigned urls, artifact storage settings are invalid " + ex.getMessage() + ". " + LogUtil.describe(runningBuild), ex);
+      return null;
     }
 
     String bucketName = S3Util.getBucketName(storageSettings);
