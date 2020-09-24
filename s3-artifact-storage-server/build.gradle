@@ -28,9 +28,14 @@ teamcity {
 
 dependencies {
     compile project(':s3-artifact-storage-common')
-    provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}")
+    provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}") {
+      exclude group: 'org.apache.httpcomponents', module: 'httpclient'
+      exclude group: 'org.apache.httpcomponents', module: 'httpcore'
+      exclude group: 'commons-codec', module: 'commons-codec'
+    }
 
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
+    server group: 'commons-codec', name: 'commons-codec', version: "1.11"
 }
 
 serverPlugin.version = null
