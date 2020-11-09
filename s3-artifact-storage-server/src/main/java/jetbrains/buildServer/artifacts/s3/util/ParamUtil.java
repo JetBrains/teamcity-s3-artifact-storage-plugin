@@ -17,6 +17,7 @@
 package jetbrains.buildServer.artifacts.s3.util;
 
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
+import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TrustedCertificatesDirectory;
 import org.jetbrains.annotations.NotNull;
@@ -48,7 +49,7 @@ public class ParamUtil {
     @NotNull Map<String, String> param
   ) {
     final String certDirectory = TrustedCertificatesDirectory.getCertificateDirectoryForProject(
-      serverPaths.getProjectsDir().getPath(), TrustedCertificatesDirectory.ROOT_PROJECT_ID);
+      serverPaths.getProjectsDir().getPath(), SProject.ROOT_PROJECT_ID);
     return SSLParamUtil.putSslDirectory(param, certDirectory);
   }
 }
