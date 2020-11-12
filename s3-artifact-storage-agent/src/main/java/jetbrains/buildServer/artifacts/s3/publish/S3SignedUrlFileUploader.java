@@ -35,6 +35,7 @@ import jetbrains.buildServer.artifacts.s3.retry.LoggingRetrier;
 import jetbrains.buildServer.artifacts.s3.retry.Retrier;
 import jetbrains.buildServer.artifacts.s3.retry.RetrierExponentialDelay;
 import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
+import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -70,7 +71,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
                                                            @NotNull final Collection<String> s3ObjectKeys) throws IOException {
     try {
       final PostMethod post = new PostMethod(targetUrl(build));
-      post.addRequestHeader("User-Agent", "TeamCity Agent");
+      post.addRequestHeader("User-Agent", HttpUserAgent.getUserAgent());
       post.setRequestEntity(new StringRequestEntity(S3PreSignUrlHelper.writeS3ObjectKeys(s3ObjectKeys), APPLICATION_XML, UTF_8));
       post.setDoAuthentication(true);
       final String responseBody = HttpClientCloseUtil.executeReleasingConnectionAndReadResponseBody(httpClient, post);
