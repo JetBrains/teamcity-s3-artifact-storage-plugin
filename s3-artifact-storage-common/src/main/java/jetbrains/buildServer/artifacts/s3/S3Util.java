@@ -36,6 +36,7 @@ import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import jetbrains.buildServer.util.amazon.S3Util.WithTransferManager;
 import jetbrains.buildServer.util.ssl.SSLContextUtil;
 import jetbrains.buildServer.util.ssl.TrustStoreIO;
@@ -131,6 +132,26 @@ public class S3Util {
     }
   }
 
+  @Nullable
+  public static Long getMultipartUploadThreshold(@NotNull final Map<String, String> configurationParameters) {
+    try {
+      final long multipartThreshold = Long.parseLong(configurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD));
+      return multipartThreshold >= 0 ? multipartThreshold : null;
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  @Nullable
+  public static Long getMinimumUploadPartSize(@NotNull final Map<String, String> configurationParameters) {
+    try {
+      final long multipartChunkSize = Long.parseLong(configurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
+      return multipartChunkSize >= 0 ? multipartChunkSize : null;
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
   public static int getRetryDelayInMs(@NotNull final Map<String, String> configurationParameters) {
     try {
       final int delay = Integer.parseInt(configurationParameters.get(S3_RETRY_DELAY_MS_ON_ERROR));
@@ -201,17 +222,18 @@ public class S3Util {
     });
   }
 
-  @SuppressWarnings("UnusedReturnValue")
   public static <T extends Transfer> Collection<T> withTransferManagerCorrectingRegion(@NotNull final Map<String, String> s3Settings,
-                                                                                       @NotNull final WithTransferManager<T> withTransferManager) throws Throwable {
+                                                                                       @NotNull final WithTransferManager<T> withTransferManager,
+                                                                                       @NotNull final S3AdvancedConfiguration advancedConfiguration)
+    throws Throwable {
     try {
-      return withTransferManager(s3Settings, withTransferManager);
+      return withTransferManager(s3Settings, withTransferManager, advancedConfiguration);
     } catch (RuntimeException e) {
       final String correctRegion = extractCorrectedRegion(e);
       if (correctRegion != null) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", e);
         s3Settings.put(REGION_NAME_PARAM, correctRegion);
-        return withTransferManager(s3Settings, withTransferManager);
+        return withTransferManager(s3Settings, withTransferManager, advancedConfiguration);
       } else {
         throw e;
       }
@@ -219,13 +241,14 @@ public class S3Util {
   }
 
   private static <T extends Transfer> Collection<T> withTransferManager(@NotNull final Map<String, String> s3Settings,
-                                                                        @NotNull final WithTransferManager<T> withTransferManager) throws Throwable {
+                                                                        @NotNull final WithTransferManager<T> withTransferManager,
+                                                                        @Nullable final S3AdvancedConfiguration advancedConfiguration)
+    throws Throwable {
     return AWSCommonParams.withAWSClients(s3Settings, clients -> {
       patchAWSClientsSsl(clients, s3Settings);
-      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), true, withTransferManager);
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), withTransferManager, advancedConfiguration);
     });
   }
-
 
   private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = socketFactory(params);

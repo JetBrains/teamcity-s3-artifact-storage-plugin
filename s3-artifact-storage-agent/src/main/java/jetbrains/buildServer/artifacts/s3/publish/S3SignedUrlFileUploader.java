@@ -31,10 +31,10 @@ import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelper;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.retry.LoggingRetrier;
-import jetbrains.buildServer.artifacts.s3.retry.Retrier;
-import jetbrains.buildServer.artifacts.s3.retry.RetrierExponentialDelay;
-import jetbrains.buildServer.artifacts.s3.retry.RetrierImpl;
+import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
+import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
+import jetbrains.buildServer.util.amazon.retry.impl.RetrierImpl;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -58,7 +58,7 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
   private static final String APPLICATION_XML = "application/xml";
   private static final String UTF_8 = "UTF-8";
 
-  private final ExecutorService myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService();
+  private final ExecutorService myExecutorService = jetbrains.buildServer.util.amazon.S3Util.createDefaultExecutorService(10);
 
   @NotNull
   private static String targetUrl(@NotNull final AgentRunningBuild build) {
@@ -117,8 +117,8 @@ public class S3SignedUrlFileUploader implements S3FileUploader {
     final HttpClient awsHttpClient = createPooledHttpClient(build);
     final HttpClient tcServerClient = createPooledHttpClientToTCServer(build);
     final Retrier retrier = new RetrierImpl(numberOfRetries)
-      .registerListener(new LoggingRetrier(LOG))
-      .registerListener(new RetrierExponentialDelay(retryDelay));
+      .registerListener(new LoggingRetrierListener(LOG))
+      .registerListener(new ExponentialDelayListener(retryDelay));
 
     final List<Callable<Void>> uploadTasks = CollectionsUtil.convertAndFilterNulls(filesToPublish.keySet(), file -> () -> retrier.execute(new Callable<Void>() {
       @Override

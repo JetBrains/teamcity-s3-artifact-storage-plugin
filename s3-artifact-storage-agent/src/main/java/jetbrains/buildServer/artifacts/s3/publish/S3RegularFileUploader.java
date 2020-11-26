@@ -17,29 +17,38 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.event.ProgressEvent;
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.transfer.PersistableTransfer;
 import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.s3.transfer.internal.S3ProgressListener;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.util.*;
-import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.agent.BuildAgentConfiguration;
+import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
-import jetbrains.buildServer.artifacts.s3.retry.*;
-import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.messages.Status;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
+import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
+import static jetbrains.buildServer.artifacts.s3.S3Util.*;
 
 public class S3RegularFileUploader implements S3FileUploader {
   @NotNull
@@ -57,10 +66,9 @@ public class S3RegularFileUploader implements S3FileUploader {
   public Collection<ArtifactDataInstance> publishFiles(@NotNull final AgentRunningBuild build,
                                                        @NotNull final String pathPrefix,
                                                        @NotNull final Map<File, String> filesToPublish) {
+    final BuildProgressLogger buildLog = build.getBuildLogger();
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
     final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectoryFromHome(homeDir);
-    final int numberOfRetries = S3Util.getNumberOfRetries(build.getSharedConfigParameters());
-    final int retryDelay = S3Util.getRetryDelayInMs(build.getSharedConfigParameters());
 
     final Map<String, String> params = new HashMap<>(S3Util.validateParameters(SSLParamUtil.putSslDirectory(build.getArtifactStorageSettings(), certDirectory)));
     final String bucketName = getBucketName(params);
@@ -68,46 +76,28 @@ public class S3RegularFileUploader implements S3FileUploader {
     try {
       prepareDestination(bucketName, params);
       final List<ArtifactDataInstance> artifacts = new ArrayList<>();
-      final Retrier retrier = new RetrierImpl(numberOfRetries)
-        .registerListener(new LoggingRetrier(LOG))
-        .registerListener(new AbortingListener())
-        .registerListener(new RetrierExponentialDelay(retryDelay));
 
-      S3Util.withTransferManagerCorrectingRegion(params, transferManager -> CollectionsUtil
-        .convertAndFilterNulls(filesToPublish.entrySet(), entry -> retrier.execute(new Callable<Upload>() {
-          @Override
-          public String toString() {
-            final String filename = entry.getKey() != null ? entry.getKey().getName() : "null";
-            return "publishing file '" + filename + "'";
-          }
+      final S3AdvancedConfiguration advancedConfiguration = new S3AdvancedConfiguration()
+        .withMinimumUploadPartSize(S3Util.getMinimumUploadPartSize(build.getSharedConfigParameters()))
+        .withMultipartUploadThreshold(S3Util.getMultipartUploadThreshold(build.getSharedConfigParameters()))
+        .withRetryDelayMs(getRetryDelayInMs(params))
+        .withRetryNum(getNumberOfRetries(params))
+        .withShutdownClient();
 
-          @Override
-          public Upload call() throws AmazonClientException {
-            final File file = entry.getKey();
-            final String path = entry.getValue();
-            if (!file.exists()) {
-              build.getBuildLogger().warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
-              return null;
-            }
-            final String artifactPath = S3Util.normalizeArtifactPath(path, file);
-            final String objectKey = pathPrefix + artifactPath;
-
-            artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
-
-            final ObjectMetadata metadata = new ObjectMetadata();
-            metadata.setContentType(S3Util.getContentType(file));
-            final PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, objectKey, file)
-              .withCannedAcl(CannedAccessControlList.Private)
-              .withMetadata(metadata);
-            final Upload upload = transferManager.upload(putObjectRequest);
-            try {
-              upload.waitForUploadResult();
-            } catch (InterruptedException e) {
-              throw new RuntimeException(e);
-            }
-            return upload;
-          }
-        })));
+      S3Util.withTransferManagerCorrectingRegion(params, transferManager ->
+        filesToPublish.entrySet()
+                      .stream()
+                      .map(entry -> createRequest(buildLog, pathPrefix, bucketName, artifacts, new Pair<>(entry.getValue(), entry.getKey())))
+                      .filter(Objects::nonNull)
+                      .map(request -> doUpload(buildLog, transferManager, request))
+                      .collect(Collectors.toList()), advancedConfiguration).forEach(upload -> {
+        try {
+          upload.waitForCompletion();
+        } catch (Exception e) {
+          LOG.infoAndDebugDetails("Got exception while waiting for upload completion", e);
+          buildLog.message("Got error while waiting for async artifact upload " + e.getMessage());
+        }
+      });
       return artifacts;
     } catch (ArtifactPublishingFailedException t) {
       throw t;
@@ -118,11 +108,70 @@ public class S3RegularFileUploader implements S3FileUploader {
       if (StringUtil.isNotEmpty(details)) {
         final String message = awsException.getMessage() + details;
         LOG.warn(message);
-        build.getBuildLogger().error(message);
+        buildLog.error(message);
+        buildLog.flush();
       }
 
       throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
     }
+  }
+
+  private Upload doUpload(@NotNull final BuildProgressLogger buildLog,
+                          @NotNull final com.amazonaws.services.s3.transfer.TransferManager transferManager,
+                          @NotNull final PutObjectRequest request) {
+    try {
+      return transferManager.upload(request, new S3ProgressListener() {
+        final AtomicLong fileSize = new AtomicLong(request.getFile().length());
+        final AtomicInteger reportCounter = new AtomicInteger(0);
+        final AtomicBoolean isPersistableTransfer = new AtomicBoolean();
+
+        @Override
+        public void onPersistableTransfer(PersistableTransfer persistableTransfer) {
+          isPersistableTransfer.set(true);
+        }
+
+        @Override
+        public void progressChanged(ProgressEvent progressEvent) {
+          if (isPersistableTransfer.get() && progressEvent.getEventType().isByteCountEvent()) {
+            final int percentage =
+              100 - (int)Math.round((fileSize.getAndAdd(-progressEvent.getBytesTransferred()) * 100.) / request.getFile().length());
+            if (percentage >= reportCounter.get() + 10) {
+              buildLog.debug("S3 Multipart Uploading [" + request.getFile().getName() + "] " + percentage + "%");
+              reportCounter.set(percentage);
+              buildLog.flush();
+            }
+          }
+        }
+      });
+    } catch (AmazonClientException e) {
+      buildLog
+        .message("Artifact upload " + request.getFile().getName() + " with key " + request.getKey() + " to " + request.getBucketName() + " failed with error " + e.getMessage(),
+                 Status.WARNING);
+      throw e;
+    }
+  }
+
+  @Nullable
+  private PutObjectRequest createRequest(@NotNull final BuildProgressLogger buildLog,
+                                         @NotNull final String pathPrefix,
+                                         @NotNull final String bucketName,
+                                         @NotNull final List<ArtifactDataInstance> artifacts,
+                                         @NotNull final Pair<String, File> fileWithPath) {
+    final File file = fileWithPath.getSecond();
+    if (!file.exists()) {
+      buildLog.warning("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
+      return null;
+    }
+    final String artifactPath = S3Util.normalizeArtifactPath(fileWithPath.getFirst(), file);
+    final String objectKey = pathPrefix + artifactPath;
+
+    artifacts.add(ArtifactDataInstance.create(artifactPath, file.length()));
+
+    final ObjectMetadata metadata = new ObjectMetadata();
+    metadata.setContentType(S3Util.getContentType(file));
+    return new PutObjectRequest(bucketName, objectKey, file)
+      .withCannedAcl(CannedAccessControlList.Private)
+      .withMetadata(metadata);
   }
 
   private void prepareDestination(final String bucketName,
