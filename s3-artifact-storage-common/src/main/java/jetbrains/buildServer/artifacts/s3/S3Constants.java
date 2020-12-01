@@ -37,8 +37,8 @@ public class S3Constants {
   public static final String S3_USE_SIGNATURE_V4 = "storage.s3.use.signature.v4";
   public static final String S3_FORCE_VIRTUAL_HOST_ADDRESSING = "storage.s3.forceVirtualHostAddressing";
   public static final String S3_CLEANUP_BATCH_SIZE = "storage.s3.cleanup.batchSize";
-  public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "storage.s3.upload.multipart.uploadThreshold";
-  public static final String S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE = "storage.s3.upload.multipart.minimumUploadPartSize";
+  public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "teamcity.internal.storage.s3.upload.multipart.uploadThreshold";
+  public static final String S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE = "teamcity.internal.storage.s3.upload.multipart.minimumUploadPartSize";
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
