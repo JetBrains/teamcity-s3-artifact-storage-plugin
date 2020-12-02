@@ -134,20 +134,31 @@ public class S3Util {
 
   @Nullable
   public static Long getMultipartUploadThreshold(@NotNull final Map<String, String> configurationParameters) {
+    final String stringValue = configurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD);
     try {
-      final long multipartThreshold = Long.parseLong(configurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD));
-      return multipartThreshold >= 0 ? multipartThreshold : null;
+      final long multipartThreshold = Long.parseLong(stringValue);
+      if (multipartThreshold < 1024 * 1024 * 5 + 1) {
+        LOGGER.warn(S3_MULTIPART_UPLOAD_THRESHOLD + " [" + multipartThreshold + "] should be larger than 5MB (" + (1024 * 1024 * 5 + 1) + "), the default value will be used");
+        return null;
+      }
+      return multipartThreshold;
     } catch (NumberFormatException e) {
+      LOGGER.warn(S3_MULTIPART_UPLOAD_THRESHOLD + " [" + stringValue + "] should be integer");
       return null;
     }
   }
 
   @Nullable
   public static Long getMinimumUploadPartSize(@NotNull final Map<String, String> configurationParameters) {
+    final String stringValue = configurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE);
     try {
-      final long multipartChunkSize = Long.parseLong(configurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
+      final long multipartChunkSize = Long.parseLong(stringValue);
+      if (multipartChunkSize < 1024 * 1024 * 5 + 1) {
+        LOGGER.warn(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + " [" + multipartChunkSize + "] is unreasonably small and will slow down the upload");
+      }
       return multipartChunkSize >= 0 ? multipartChunkSize : null;
     } catch (NumberFormatException e) {
+      LOGGER.warn(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + " [" + stringValue + "] should be integer");
       return null;
     }
   }
