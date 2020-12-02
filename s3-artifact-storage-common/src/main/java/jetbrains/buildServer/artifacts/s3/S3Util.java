@@ -135,6 +135,9 @@ public class S3Util {
   @Nullable
   public static Long getMultipartUploadThreshold(@NotNull final Map<String, String> configurationParameters) {
     final String stringValue = configurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD);
+    if (stringValue == null) {
+      return null;
+    }
     try {
       final long multipartThreshold = Long.parseLong(stringValue);
       if (multipartThreshold < 1024 * 1024 * 5 + 1) {
@@ -151,6 +154,9 @@ public class S3Util {
   @Nullable
   public static Long getMinimumUploadPartSize(@NotNull final Map<String, String> configurationParameters) {
     final String stringValue = configurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE);
+    if (stringValue == null) {
+      return null;
+    }
     try {
       final long multipartChunkSize = Long.parseLong(stringValue);
       if (multipartChunkSize < 1024 * 1024 * 5 + 1) {
