@@ -85,3 +85,7 @@ To build the plugin locally run the following command in the plugin root directo
 ```
 
 The plugin artifact will be produced in the following location `s3-artifact-storage-server/build/distributions/s3-artifact-storage.zip` and could be installed as [an external TeamCity plugin](https://www.jetbrains.com/help/teamcity/?Installing+Additional+Plugins).
+
+# Reporting issues
+
+Please report issues to our [YouTrack](https://youtrack.jetbrains.com/newIssue?project=TW&summary=%5BS3%20Storage%5D%20Issue%20Summary&description=Steps%20to%20reproduce%3A%0A1.%0A2.%0A...%0A%0AExpected%20Behaviour%3A%0A...%0A%0AActual%20Behaviour%3A%0A...&c=Subsystem%20plugins%3A%20other&c=tag%20S3%20Artifacts%20Storage).
