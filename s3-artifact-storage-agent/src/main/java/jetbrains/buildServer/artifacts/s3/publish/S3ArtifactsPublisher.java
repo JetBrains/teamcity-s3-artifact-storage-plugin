@@ -72,7 +72,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final String pathPrefix = getPathPrefix(build);
       final S3FileUploader fileUploader = getFileUploader(build);
-      myArtifacts.addAll(fileUploader.publishFiles(build, pathPrefix, filteredMap));
+      myArtifacts.addAll(fileUploader.publish(build, pathPrefix, filteredMap));
       publishArtifactsList(build);
     }
 

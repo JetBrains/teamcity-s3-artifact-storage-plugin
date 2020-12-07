@@ -48,9 +48,9 @@ import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.S3Util.*;
+import static jetbrains.buildServer.artifacts.s3.S3Util.getBucketName;
 
-public class S3RegularFileUploader implements S3FileUploader {
+public class S3RegularFileUploader extends S3FileUploader {
   @NotNull
   private static final Logger LOG = Logger.getInstance(S3RegularFileUploader.class.getName());
   @NotNull
@@ -63,9 +63,9 @@ public class S3RegularFileUploader implements S3FileUploader {
 
   @NotNull
   @Override
-  public Collection<ArtifactDataInstance> publishFiles(@NotNull final AgentRunningBuild build,
-                                                       @NotNull final String pathPrefix,
-                                                       @NotNull final Map<File, String> filesToPublish) {
+  public Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
+                                                  @NotNull final String pathPrefix,
+                                                  @NotNull final Map<File, String> filesToPublish) {
     final BuildProgressLogger buildLog = build.getBuildLogger();
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
     final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectoryFromHome(homeDir);
@@ -76,13 +76,7 @@ public class S3RegularFileUploader implements S3FileUploader {
     try {
       prepareDestination(bucketName, params);
       final List<ArtifactDataInstance> artifacts = new ArrayList<>();
-
-      final S3AdvancedConfiguration advancedConfiguration = new S3AdvancedConfiguration()
-        .withMinimumUploadPartSize(S3Util.getMinimumUploadPartSize(build.getSharedConfigParameters()))
-        .withMultipartUploadThreshold(S3Util.getMultipartUploadThreshold(build.getSharedConfigParameters()))
-        .withRetryDelayMs(getRetryDelayInMs(params))
-        .withRetryNum(getNumberOfRetries(params))
-        .withShutdownClient();
+      final S3AdvancedConfiguration configuration = configuration(build.getSharedConfigParameters());
 
       S3Util.withTransferManagerCorrectingRegion(params, transferManager ->
         filesToPublish.entrySet()
@@ -90,7 +84,7 @@ public class S3RegularFileUploader implements S3FileUploader {
                       .map(entry -> createRequest(buildLog, pathPrefix, bucketName, artifacts, new Pair<>(entry.getValue(), entry.getKey())))
                       .filter(Objects::nonNull)
                       .map(request -> doUpload(buildLog, transferManager, request))
-                      .collect(Collectors.toList()), advancedConfiguration).forEach(upload -> {
+                      .collect(Collectors.toList()), configuration).forEach(upload -> {
         try {
           upload.waitForCompletion();
         } catch (Exception e) {
@@ -133,8 +127,7 @@ public class S3RegularFileUploader implements S3FileUploader {
         @Override
         public void progressChanged(ProgressEvent progressEvent) {
           if (isPersistableTransfer.get() && progressEvent.getEventType().isByteCountEvent()) {
-            final int percentage =
-              100 - (int)Math.round((fileSize.getAndAdd(-progressEvent.getBytesTransferred()) * 100.) / request.getFile().length());
+            final int percentage = 100 - (int)Math.round((fileSize.getAndAdd(-progressEvent.getBytesTransferred()) * 100.) / request.getFile().length());
             if (percentage >= reportCounter.get() + 10) {
               buildLog.debug("S3 Multipart Uploading [" + request.getFile().getName() + "] " + percentage + "%");
               reportCounter.set(percentage);

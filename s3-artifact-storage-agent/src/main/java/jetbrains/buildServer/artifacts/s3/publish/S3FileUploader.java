@@ -16,17 +16,28 @@
 
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.artifacts.ArtifactDataInstance;
-import org.jetbrains.annotations.NotNull;
-
 import java.io.File;
 import java.util.Collection;
 import java.util.Map;
+import jetbrains.buildServer.agent.AgentRunningBuild;
+import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.util.amazon.S3Util;
+import org.jetbrains.annotations.NotNull;
 
-public interface S3FileUploader {
+public abstract class S3FileUploader {
   @NotNull
-  Collection<ArtifactDataInstance> publishFiles(@NotNull final AgentRunningBuild build,
-                                                @NotNull final String pathPrefix,
-                                                @NotNull final Map<File, String> filesToPublish);
+  public abstract Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
+                                                           @NotNull final String pathPrefix,
+                                                           @NotNull final Map<File, String> filesToPublish);
+
+  @NotNull
+  public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> configuration) {
+    return new S3Util.S3AdvancedConfiguration()
+      .withRetryNum(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(configuration))
+      .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(configuration))
+      .withMinimumUploadPartSize(jetbrains.buildServer.artifacts.s3.S3Util.getMinimumUploadPartSize(configuration))
+      .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(configuration))
+      .withConnectionTimeout(10000)
+      .withShutdownClient();
+  }
 }

@@ -18,8 +18,10 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
+import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.Converter;
 import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.jetbrains.annotations.NotNull;
@@ -28,8 +30,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * @author Dmitrii Bogdanov
  */
-final class HttpClientCloseUtil {
-  private static final Logger LOG = Logger.getInstance(HttpClientCloseUtil.class.getName());
+final class HttpClientUtil {
+  private static final Logger LOG = Logger.getInstance(HttpClientUtil.class.getName());
   private static final Converter<String, HttpMethod> RESPONSE_BODY_EXTRACTING_CONVERTER = source -> {
     try {
       return source.getResponseBodyAsString();
@@ -38,7 +40,7 @@ final class HttpClientCloseUtil {
     }
   };
 
-  private HttpClientCloseUtil() {
+  private HttpClientUtil() {
   }
 
   static void shutdown(@NotNull final HttpClient... httpClients) {
@@ -87,6 +89,14 @@ final class HttpClientCloseUtil {
         LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
       }
     }
+  }
+
+  @NotNull
+  static HttpConnectionManager createConnectionManager(final int connectionTimeout, final int maxConnections) {
+    final HttpConnectionManager threadSafeConnectionManager = HttpUtil.createMultiThreadedHttpConnectionManager(connectionTimeout);
+    threadSafeConnectionManager.getParams().setMaxTotalConnections(maxConnections);
+    threadSafeConnectionManager.getParams().setDefaultMaxConnectionsPerHost(maxConnections);
+    return threadSafeConnectionManager;
   }
 
   static class HttpErrorCodeException extends RuntimeException {
