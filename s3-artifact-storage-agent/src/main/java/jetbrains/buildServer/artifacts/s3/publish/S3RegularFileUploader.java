@@ -103,7 +103,6 @@ public class S3RegularFileUploader extends S3FileUploader {
         final String message = awsException.getMessage() + details;
         LOG.warn(message);
         buildLog.error(message);
-        buildLog.flush();
       }
 
       throw new ArtifactPublishingFailedException(awsException.getMessage(), false, awsException);
@@ -131,7 +130,6 @@ public class S3RegularFileUploader extends S3FileUploader {
             if (percentage >= reportCounter.get() + 10) {
               buildLog.debug("S3 Multipart Uploading [" + request.getFile().getName() + "] " + percentage + "%");
               reportCounter.set(percentage);
-              buildLog.flush();
             }
           }
         }
