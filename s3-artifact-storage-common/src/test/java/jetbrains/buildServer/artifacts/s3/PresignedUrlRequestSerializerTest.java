@@ -24,7 +24,6 @@ import java.util.stream.Collectors;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.util.TestFor;
-import org.assertj.core.api.Assertions;
 import org.jetbrains.annotations.NotNull;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
