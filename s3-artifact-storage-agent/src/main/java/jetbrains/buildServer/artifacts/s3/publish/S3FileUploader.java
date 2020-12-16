@@ -33,11 +33,13 @@ public abstract class S3FileUploader {
   @NotNull
   public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> configuration) {
     return new S3Util.S3AdvancedConfiguration()
-      .withRetryNum(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(configuration))
+      .withNumberOfRetries(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(configuration))
       .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(configuration))
       .withMinimumUploadPartSize(jetbrains.buildServer.artifacts.s3.S3Util.getMinimumUploadPartSize(configuration))
       .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(configuration))
-      .withConnectionTimeout(10000)
+      .withPresignedMultipartUploadEnabled(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedMultipartUploadEnabled(configuration))
+      .withConnectionTimeout(jetbrains.buildServer.artifacts.s3.S3Util.getConnectionTimeout(configuration))
+      .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreads(configuration))
       .withShutdownClient();
   }
 }

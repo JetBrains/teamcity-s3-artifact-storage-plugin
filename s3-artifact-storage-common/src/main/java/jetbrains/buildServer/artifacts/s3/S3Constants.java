@@ -39,10 +39,13 @@ public class S3Constants {
   public static final String S3_CLEANUP_BATCH_SIZE = "storage.s3.cleanup.batchSize";
   public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "teamcity.internal.storage.s3.upload.multipart_threshold";
   public static final String S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE = "teamcity.internal.storage.s3.upload.multipart_chunksize";
+  public static final String S3_ENABLE_PRESIGNED_MULTIPART_UPLOAD = "teamcity.internal.storage.s3.upload.presignedUrl.multipart.enabled";
+  public static final String S3_CONNECTION_TIMEOUT = "teamcity.internal.storage.s3.upload.connectionTimeout";
+  public static final String S3_NUMBER_OF_THREADS = "teamcity.internal.storage.s3.upload.numberOfThreads";
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
-  public static final int DEFAULT_S3_URL_LIFETIME_SEC = 60;
+  public static final int DEFAULT_S3_URL_LIFETIME_SEC = 600;
   public static final int DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS = 0;
   public static final int DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR = 5;
 

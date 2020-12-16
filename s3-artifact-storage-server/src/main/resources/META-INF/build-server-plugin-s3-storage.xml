@@ -15,8 +15,8 @@
   ~ limitations under the License.
   -->
 
-<beans xmlns="http://www.springframework.org/schema/beans"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
@@ -24,6 +24,6 @@
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3SettingsController"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProviderImpl"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManagerImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlController"/>
 </beans>

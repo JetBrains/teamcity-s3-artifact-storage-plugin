@@ -26,7 +26,7 @@ import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManager;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
@@ -43,10 +43,10 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactDownloadProcessor.class.getName());
 
-  private final S3PreSignedUrlProvider myPreSignedUrlProvider;
+  private final S3PreSignedManager myPreSignedUrlProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
 
-  public S3ArtifactDownloadProcessor(@NotNull S3PreSignedUrlProvider preSignedUrlProvider,
+  public S3ArtifactDownloadProcessor(@NotNull S3PreSignedManager preSignedUrlProvider,
                                      @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
@@ -76,11 +76,11 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       throw new IOException(message);
     }
 
-    final String preSignedUrl = myPreSignedUrlProvider.getPreSignedUrl(valueOf(httpServletRequest.getMethod()), bucketName, pathPrefix + artifactData.getPath(), params);
+    final String preSignedUrl = myPreSignedUrlProvider.generateUrl(valueOf(httpServletRequest.getMethod()), pathPrefix + artifactData.getPath(), params);
 
     fixContentSecurityPolicy(preSignedUrl);
 
-    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + myPreSignedUrlProvider.getUrlLifetimeSec());
+    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + S3Util.getUrlTtlSeconds(params));
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;
   }

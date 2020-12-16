@@ -45,9 +45,12 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static com.amazonaws.ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
+import static jetbrains.buildServer.util.amazon.S3Util.DEFAULT_S3_THREAD_POOL_SIZE;
+import static jetbrains.buildServer.util.amazon.S3Util.S3_THREAD_POOL_SIZE;
 
 /**
  * Created by Nikita.Skvortsov
@@ -176,6 +179,22 @@ public class S3Util {
     } catch (NumberFormatException e) {
       return DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS;
     }
+  }
+
+  public static boolean getPresignedMultipartUploadEnabled(@NotNull final Map<String, String> configuration) {
+    return Boolean.parseBoolean(configuration.get(S3_ENABLE_PRESIGNED_MULTIPART_UPLOAD));
+  }
+
+  public static int getConnectionTimeout(@NotNull final Map<String, String> configuration) {
+    return Integer.parseInt(configuration.getOrDefault(S3_CONNECTION_TIMEOUT, String.valueOf(TeamCityProperties.getInteger(S3_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT))));
+  }
+
+  public static int getNumberOfThreads(@NotNull final Map<String, String> configuration) {
+    return Integer.parseInt(configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(S3_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
+  }
+
+  public static int getUrlTtlSeconds(@NotNull final Map<String, String> configuration) {
+    return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_S3_URL_LIFETIME_SEC))));
   }
 
   private static boolean useSignatureVersion4(@NotNull final Map<String, String> properties) {

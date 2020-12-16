@@ -2,7 +2,7 @@
 <suite name="S3 Tests">
   <test name="S3 tests">
     <classes>
-      <class name="jetbrains.buildServer.artifacts.s3.S3PreSignUrlHelperTest"/>
+      <class name="jetbrains.buildServer.artifacts.s3.PresignedUrlRequestSerializerTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.S3UtilTest"/>
     </classes>
   </test>

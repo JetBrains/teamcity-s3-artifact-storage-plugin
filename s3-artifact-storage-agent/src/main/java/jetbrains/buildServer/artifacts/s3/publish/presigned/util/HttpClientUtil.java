@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.artifacts.s3.publish;
+package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * @author Dmitrii Bogdanov
  */
-final class HttpClientUtil {
+public final class HttpClientUtil {
   private static final Logger LOG = Logger.getInstance(HttpClientUtil.class.getName());
   private static final Converter<String, HttpMethod> RESPONSE_BODY_EXTRACTING_CONVERTER = source -> {
     try {
@@ -43,36 +43,41 @@ final class HttpClientUtil {
   private HttpClientUtil() {
   }
 
-  static void shutdown(@NotNull final HttpClient... httpClients) {
+  public static void shutdown(@NotNull final HttpClient... httpClients) {
     for (final HttpClient httpClient : httpClients) {
       if (httpClient.getHttpConnectionManager() instanceof MultiThreadedHttpConnectionManager) {
         try {
           ((MultiThreadedHttpConnectionManager)httpClient.getHttpConnectionManager()).shutdown();
         } catch (Exception e) {
-          LOG.debug("Got exception while shutting down httpClient " + httpClient + ".", e);
+          LOG.infoAndDebugDetails("Got exception while shutting down httpClient " + httpClient + ".", e);
         }
       }
     }
   }
 
-  static void executeAndReleaseConnection(@NotNull final HttpClient client,
-                                          @NotNull final HttpMethod method) throws IOException {
+  public static void executeAndReleaseConnection(@NotNull final HttpClient client,
+                                                 @NotNull final HttpMethod method) throws IOException {
     executeAndReleaseConnectionInternal(client, method, null);
   }
 
-  static String executeReleasingConnectionAndReadResponseBody(@NotNull final HttpClient client,
-                                                              @NotNull final HttpMethod method) throws IOException {
+  public static String executeReleasingConnectionAndReadResponseBody(@NotNull final HttpClient client,
+                                                                     @NotNull final HttpMethod method) throws IOException {
     return executeAndReleaseConnectionInternal(client, method, RESPONSE_BODY_EXTRACTING_CONVERTER);
   }
 
-  @SuppressWarnings("ThrowFromFinallyBlock")
   private static <T> T executeAndReleaseConnectionInternal(@NotNull final HttpClient client,
                                                            @NotNull final HttpMethod method,
                                                            @Nullable final Converter<T, HttpMethod> resultConverter) throws IOException {
     try {
       final int code = client.executeMethod(method);
       if (code != 200) {
-        throw new HttpErrorCodeException(code);
+        String response = null;
+        try {
+          response = method.getResponseBodyAsString();
+        } catch (Exception e) {
+          LOG.infoAndDebugDetails(() -> "Got exception while trying to get error response: " + e.getMessage(), e);
+        }
+        throw new HttpErrorCodeException(code, response);
       }
       if (resultConverter != null) {
         return resultConverter.createFrom(method);
@@ -82,9 +87,6 @@ final class HttpClientUtil {
     } finally {
       try {
         method.releaseConnection();
-      } catch (final HttpErrorCodeException e) {
-        LOG.debug(e.getMessage());
-        throw e;
       } catch (Exception e) {
         LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
       }
@@ -92,23 +94,35 @@ final class HttpClientUtil {
   }
 
   @NotNull
-  static HttpConnectionManager createConnectionManager(final int connectionTimeout, final int maxConnections) {
+  public static HttpConnectionManager createConnectionManager(final int connectionTimeout, final int maxConnections) {
     final HttpConnectionManager threadSafeConnectionManager = HttpUtil.createMultiThreadedHttpConnectionManager(connectionTimeout);
     threadSafeConnectionManager.getParams().setMaxTotalConnections(maxConnections);
     threadSafeConnectionManager.getParams().setDefaultMaxConnectionsPerHost(maxConnections);
     return threadSafeConnectionManager;
   }
 
-  static class HttpErrorCodeException extends RuntimeException {
+  public static class HttpErrorCodeException extends RuntimeException {
     private final int myResponseCode;
+    @Nullable
+    private final String myResponse;
 
     public HttpErrorCodeException(final int responseCode) {
-      super("Got response code " + responseCode);
+      this(responseCode, null);
+    }
+
+    public HttpErrorCodeException(final int responseCode, @Nullable final String responseString) {
+      super("Got response code " + responseCode + "." + responseString == null ? "" : " Response: " + responseString);
       myResponseCode = responseCode;
+      myResponse = responseString;
     }
 
     public int getResponseCode() {
       return myResponseCode;
+    }
+
+    @Nullable
+    public String getResponse() {
+      return myResponse;
     }
   }
 }
