@@ -149,7 +149,7 @@ public class PresignedUrlRequestSerializer {
   }
 
   @NotNull
-  public static String serializeRequest(@NotNull final PresignedUrlListRequestDto request, final boolean isVersion2) {
+  private static String serializeRequest(@NotNull final PresignedUrlListRequestDto request, final boolean isVersion2) {
     final Element document = new Element(OBJECT_KEYS);
     if (isVersion2) {
       document.setAttribute(PRE_SIGN_V2, "true");
