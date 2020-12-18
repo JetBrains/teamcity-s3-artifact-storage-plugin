@@ -52,14 +52,15 @@ public class LowLevelS3Client implements AutoCloseable {
       @Override
       public void writeRequest(@NotNull final OutputStream out) throws IOException {
         long remaining = size;
+        final byte[] buffer = new byte[(int)Math.min(OUR_CHUNK_SIZE, remaining)];
         do {
-          final byte[] buffer = new byte[(int)Math.min(OUR_CHUNK_SIZE, remaining)];
-          final int read = content.read(buffer);
-          if (read != buffer.length) {
+          final int currentChunkSize = (int)Math.min(buffer.length, remaining);
+          final int read = content.read(buffer, 0, currentChunkSize);
+          if (read != currentChunkSize) {
             throw new IOException("Reader has read " + read + " bytes when supposed to read " + buffer.length);
           }
-          remaining -= buffer.length;
-          out.write(buffer);
+          remaining -= currentChunkSize;
+          out.write(buffer, 0, currentChunkSize);
         } while (remaining > 0);
       }
 
