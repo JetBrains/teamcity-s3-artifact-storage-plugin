@@ -106,12 +106,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
           final int chunkSize = (int)Math.min(remainingBytes, myChunkSizeInBytes);
           myRemainingBytes.getAndAdd(-chunkSize);
           try {
-            final byte[] content = new byte[chunkSize];
-            final int read = bis.read(content);
-            if (read != chunkSize) {
-              throw new IllegalArgumentException("Couldn't read enough bytes " + chunkSize + " from " + myFile);
-            }
-            final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, content, getContentType(myFile));
+            final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, bis, chunkSize, getContentType(myFile));
             myProgressListener.onPartUploadSuccess(this);
             etags.add(etag);
           } catch (Exception e) {
