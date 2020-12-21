@@ -20,13 +20,13 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManager;
+import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManagerImpl;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
@@ -65,22 +65,14 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
                                  @NotNull HttpServletResponse httpServletResponse) throws IOException {
     final ArtifactData artifactData = storedBuildArtifactInfo.getArtifactData();
     if (artifactData == null) throw new IOException("Can not process artifact download request for a folder");
-
-    final Map<String, String> params = S3Util.validateParameters(storedBuildArtifactInfo.getStorageSettings());
+    final S3PreSignedManagerImpl.S3Settings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings());
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
-    final String bucketName = S3Util.getBucketName(params);
-    if (bucketName == null) {
-      final String message = "Failed to create pre-signed URL: bucket name is not specified, check S3 storage profile settings";
-      LOG.warn(message);
-      throw new IOException(message);
-    }
-
-    final String preSignedUrl = myPreSignedUrlProvider.generateUrl(valueOf(httpServletRequest.getMethod()), pathPrefix + artifactData.getPath(), params);
+    final String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), pathPrefix + artifactData.getPath(), settings);
 
     fixContentSecurityPolicy(preSignedUrl);
 
-    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + S3Util.getUrlTtlSeconds(params));
+    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + settings.getUrlTtlSeconds());
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;
   }

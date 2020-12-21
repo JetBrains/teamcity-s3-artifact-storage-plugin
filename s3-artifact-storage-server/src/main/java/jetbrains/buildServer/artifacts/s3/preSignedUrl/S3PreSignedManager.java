@@ -26,16 +26,28 @@ import org.jetbrains.annotations.Nullable;
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
 public interface S3PreSignedManager {
-  @NotNull
-  String generateUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull Map<String, String> params) throws IOException;
 
   @NotNull
-  String generateUrlForPart(@NotNull HttpMethod httpMethod, @NotNull String objectKey, final int nPart, @NotNull final String uploadId, @NotNull Map<String, String> params)
-    throws IOException;
-
-  void finishMultipartUpload(@NotNull String uploadId, @NotNull String objectKey, @NotNull Map<String, String> params, @Nullable final String[] etags, boolean isSuccessful)
-    throws Exception;
+  String generateDownloadUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
 
   @NotNull
-  String startMultipartUpload(@NotNull String objectKey, @NotNull Map<String, String> params) throws Exception;
+  String generateUploadUrl(@NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
+
+  @NotNull
+  String generateUploadUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull S3Settings settings) throws IOException;
+
+  void finishMultipartUpload(@NotNull String uploadId, @NotNull String objectKey, @NotNull S3Settings settings, @Nullable String[] etags, boolean isSuccessful) throws IOException;
+
+  @NotNull
+  String startMultipartUpload(@NotNull String objectKey, @NotNull S3Settings settings) throws Exception;
+
+  @NotNull
+  S3Settings settings(@NotNull Map<String, String> rawSettings);
+
+  interface S3Settings {
+    @NotNull
+    String getBucketName();
+
+    int getUrlTtlSeconds();
+  }
 }

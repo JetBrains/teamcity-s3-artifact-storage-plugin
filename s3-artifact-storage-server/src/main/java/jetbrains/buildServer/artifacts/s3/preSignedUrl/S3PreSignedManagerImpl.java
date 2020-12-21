@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.artifacts.s3.util.S3RegionCorrector;
 import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -58,18 +59,23 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
 
   @NotNull
   @Override
-  public String generateUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final Map<String, String> params) throws IOException {
-    return generateUrl(httpMethod, objectKey, null, null, params);
+  public String generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
+    return generateUrl(httpMethod, objectKey, null, null, settings);
   }
 
   @NotNull
   @Override
-  public String generateUrlForPart(@NotNull final HttpMethod httpMethod,
-                                   @NotNull final String objectKey,
-                                   final int nPart,
-                                   @NotNull final String uploadId,
-                                   @NotNull final Map<String, String> params) throws IOException {
-    return generateUrl(httpMethod, objectKey, nPart, uploadId, params);
+  public String generateUploadUrl(@NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
+    return generateUrl(HttpMethod.PUT, objectKey, null, null, settings);
+  }
+
+  @NotNull
+  @Override
+  public String generateUploadUrlForPart(@NotNull final String objectKey,
+                                         final int nPart,
+                                         @NotNull final String uploadId,
+                                         @NotNull final S3Settings settings) throws IOException {
+    return generateUrl(HttpMethod.PUT, objectKey, nPart, uploadId, settings);
   }
 
   @NotNull
@@ -77,11 +83,10 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
                              @NotNull final String objectKey,
                              @Nullable final Integer nPart,
                              @Nullable final String uploadId,
-                             @NotNull final Map<String, String> params) throws IOException {
+                             @NotNull final S3Settings settings) throws IOException {
     try {
-
-      final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(S3Util.getBucketName(params), objectKey, httpMethod)
-        .withExpiration(new Date(myTimeService.now() + (S3Util.getUrlTtlSeconds(params) * 1000)));
+      final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(settings.getBucketName(), objectKey, httpMethod)
+        .withExpiration(new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
       if (nPart != null) {
         request.addRequestParameter("partNumber", String.valueOf(nPart));
       }
@@ -96,7 +101,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
                                         .withContentDisposition("inline; filename=\"" + split.get(split.size() - 1) + "\""));
         }
       }
-      return callS3WithIOGuard(client -> client.generatePresignedUrl(request).toString(), params);
+      return callS3WithIOGuard(client -> client.generatePresignedUrl(request).toString(), settings);
     } catch (Exception e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
@@ -106,27 +111,27 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
         LOG.warnAndDebugDetails(message, cause);
       }
       throw new IOException(String.format("Failed to create pre-signed URL to %s artifact '%s' in bucket '%s': %s",
-                                          httpMethod.name().toLowerCase(), objectKey, S3Util.getBucketName(params), awsException.getMessage()), awsException);
+                                          httpMethod.name().toLowerCase(), objectKey, settings.getBucketName(), awsException.getMessage()), awsException);
     }
   }
 
   @NotNull
   @Override
-  public String startMultipartUpload(@NotNull final String objectKey, @NotNull final Map<String, String> params) throws Exception {
+  public String startMultipartUpload(@NotNull final String objectKey, @NotNull final S3Settings settings) throws Exception {
     return callS3WithIOGuard(client -> {
-      final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(S3Util.getBucketName(params), objectKey);
+      final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(settings.getBucketName(), objectKey);
       final InitiateMultipartUploadResult initiateMultipartUploadResult =
         client.initiateMultipartUpload(initiateMultipartUploadRequest);
       return initiateMultipartUploadResult.getUploadId();
-    }, params);
+    }, settings);
   }
 
   @Override
   public void finishMultipartUpload(@NotNull final String uploadId,
                                     @NotNull final String objectKey,
-                                    @NotNull final Map<String, String> params,
+                                    @NotNull final S3Settings settings,
                                     @Nullable final String[] etags,
-                                    final boolean isSuccessful) throws Exception {
+                                    final boolean isSuccessful) throws IOException {
     callS3WithIOGuard(client -> {
       if (isSuccessful) {
         if (etags == null || etags.length == 0) {
@@ -136,25 +141,59 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
         for (int i = 0; i < etags.length; i++) {
           partETags.add(new PartETag(i + 1, etags[i]));
         }
-        client.completeMultipartUpload(new CompleteMultipartUploadRequest(S3Util.getBucketName(params), objectKey, uploadId, partETags));
+        client.completeMultipartUpload(new CompleteMultipartUploadRequest(settings.getBucketName(), objectKey, uploadId, partETags));
       } else {
-        client.abortMultipartUpload(new AbortMultipartUploadRequest(S3Util.getBucketName(params), objectKey, uploadId));
+        client.abortMultipartUpload(new AbortMultipartUploadRequest(settings.getBucketName(), objectKey, uploadId));
       }
       return null;
-    }, params);
+    }, settings);
   }
 
-  private <T> T callS3WithIOGuard(@NotNull final Function<AmazonS3, T> callable, @NotNull final Map<String, String> params) throws Exception {
-    return S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> IOGuard.allowNetworkCall(() -> {
+  private <T> T callS3WithIOGuard(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
+    return S3Util.withS3ClientShuttingDownImmediately(((S3SettingsImpl)settings).getSettings(), client -> IOGuard.allowNetworkCall(() -> {
       try {
         return callable.apply(client);
       } catch (final Throwable t) {
-        if (t instanceof Exception) {
-          throw (Exception)t;
+        if (t instanceof IOException) {
+          throw (IOException)t;
         } else {
-          throw new Exception(t);
+          throw new IOException(t);
         }
       }
     }));
+  }
+
+  @NotNull
+  public S3Settings settings(@NotNull final Map<String, String> rawSettings) {
+    if (S3Util.getBucketName(rawSettings) == null) {
+      throw new IllegalArgumentException("Settings don't contain bucket name");
+    }
+    final Map<String, String> sslSettings = ParamUtil.putSslValues(myServerPaths, rawSettings);
+    return new S3SettingsImpl(S3RegionCorrector.correctRegion(S3Util.getBucketName(sslSettings), sslSettings));
+  }
+
+  private static class S3SettingsImpl implements S3Settings {
+    @NotNull
+    private final Map<String, String> mySettings;
+
+    private S3SettingsImpl(@NotNull final Map<String, String> params) {
+      mySettings = params;
+    }
+
+    @NotNull
+    @Override
+    public String getBucketName() {
+      return S3Util.getBucketName(mySettings);
+    }
+
+    @Override
+    public int getUrlTtlSeconds() {
+      return S3Util.getUrlTtlSeconds(mySettings);
+    }
+
+    @NotNull
+    private Map<String, String> getSettings() {
+      return mySettings;
+    }
   }
 }
