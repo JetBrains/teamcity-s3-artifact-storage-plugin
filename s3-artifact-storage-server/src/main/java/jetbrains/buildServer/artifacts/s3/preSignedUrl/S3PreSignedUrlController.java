@@ -86,6 +86,8 @@ public class S3PreSignedUrlController extends BaseController {
       httpServletResponse.setStatus(HttpServletResponse.SC_OK);
     } catch (HttpServerErrorException e) {
       httpServletResponse.sendError(e.getStatusCode().value(), e.getMessage());
+    } catch (Exception e) {
+      httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
     }
     return null;
   }
