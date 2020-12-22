@@ -16,10 +16,9 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.*;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.transport.*;
@@ -83,13 +82,46 @@ public class PresignedUrlRequestSerializerTest extends BaseTestCase {
     Assert.assertEquals(extractObjectKeys(readData), initial);
   }
 
-  @NotNull
-  private List<String> extractObjectKeys(@NotNull final PresignedUrlListRequestDto readData) {
-    return readData.presignedUrlRequests.stream().map(url -> url.objectKey).collect(Collectors.toList());
+  public void testRequestBackwardsCompatibilityWith_2020_2() {
+    final List<String> initialKeys = Arrays.asList("other key", "one key");
+    final String oldData = OldS3PreSignUrlHelper.writeS3ObjectKeys(initialKeys);
+
+    final PresignedUrlListRequestDto requestList = PresignedUrlRequestSerializer.deserializeRequest(oldData);
+    assertSameElements(requestList.presignedUrlRequests.stream().map(request -> request.objectKey).collect(Collectors.toList()), initialKeys);
+
+    final Collection<String> deserializedKeys = OldS3PreSignUrlHelper.readS3ObjectKeys(PresignedUrlRequestSerializer.serializeRequestV1(initialKeys));
+    assertSameElements(deserializedKeys, initialKeys);
+  }
+
+  public void testResponseBackwardsCompatibilityWith_2020_2() throws MalformedURLException {
+    final HashMap<String, URL> initialMap = new HashMap<String, URL>() {{
+      put("some key", new URL("http://some url"));
+      put("another key", new URL("http://another url"));
+    }};
+    final Collection<String> initialKeys = initialMap.keySet();
+    final Collection<String> initialUrls = initialMap.values().stream().map(Objects::toString).collect(Collectors.toList());
+
+
+    final PresignedUrlListResponseDto response = PresignedUrlRequestSerializer.deserializeResponseV1(OldS3PreSignUrlHelper.writePreSignUrlMapping(initialMap));
+    assertSameElements(extractObjectKeys(response), initialKeys);
+    assertSameElements(extractUrls(response), initialUrls);
+
+    final Map<String, URL> deserializedMap = OldS3PreSignUrlHelper.readPreSignUrlMapping(PresignedUrlRequestSerializer.serializeResponseV1(response));
+    assertContains(deserializedMap, initialMap);
   }
 
   @NotNull
-  private List<String> extractObjectKeys(@NotNull final PresignedUrlListResponseDto readData) {
-    return readData.presignedUrls.stream().map(url -> url.objectKey).collect(Collectors.toList());
+  private List<String> extractObjectKeys(@NotNull final PresignedUrlListRequestDto request) {
+    return request.presignedUrlRequests.stream().map(url -> url.objectKey).collect(Collectors.toList());
+  }
+
+  @NotNull
+  private List<String> extractObjectKeys(@NotNull final PresignedUrlListResponseDto response) {
+    return response.presignedUrls.stream().map(url -> url.objectKey).collect(Collectors.toList());
+  }
+
+  @NotNull
+  private List<String> extractUrls(@NotNull final PresignedUrlListResponseDto response) {
+    return response.presignedUrls.stream().map(url -> url.presignedUrlParts.stream().findFirst().orElseThrow(IllegalArgumentException::new).url).collect(Collectors.toList());
   }
 }

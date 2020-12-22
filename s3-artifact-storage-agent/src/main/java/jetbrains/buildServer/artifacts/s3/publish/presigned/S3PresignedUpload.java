@@ -126,6 +126,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
       myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile);
+      myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess(this);
     } catch (final Exception e) {
       myProgressListener.onFileUploadFailed(this, e);
