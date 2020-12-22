@@ -16,6 +16,8 @@
 
 package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
+import com.amazonaws.SdkBaseException;
+import com.amazonaws.SdkClientException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
@@ -36,6 +38,7 @@ import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
+import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jetbrains.annotations.NotNull;
@@ -86,8 +89,15 @@ public class S3PreSignedUrlController extends BaseController {
       httpServletResponse.setStatus(HttpServletResponse.SC_OK);
     } catch (HttpServerErrorException e) {
       httpServletResponse.sendError(e.getStatusCode().value(), e.getMessage());
+    } catch (SdkBaseException | IOException | IllegalArgumentException e) {
+      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
     } catch (Exception e) {
-      httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+      final SdkBaseException sdkException = ExceptionUtil.getCause(e, SdkBaseException.class);
+      if (sdkException != null) {
+        httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, sdkException.getMessage());
+      } else {
+        httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+      }
     }
     return null;
   }
