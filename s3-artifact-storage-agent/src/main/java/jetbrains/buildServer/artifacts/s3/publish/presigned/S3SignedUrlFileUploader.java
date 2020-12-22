@@ -18,7 +18,6 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -26,10 +25,13 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
+import jetbrains.buildServer.agent.BuildInterruptReason;
 import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -107,63 +109,77 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(s3Config.getNThreads());
          final LowLevelS3Client lowLevelS3Client = createAwsClient(s3Config);
-         final S3SignedUploadManager signedUrlProvider = new S3SignedUploadManager(teamcityConnectionConfiguration(build), fileToS3ObjectKeyMap.values())) {
+         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(teamcityConnectionConfiguration(build), fileToS3ObjectKeyMap.values())) {
       try {
         return filesToPublish.keySet()
                              .stream()
-                             .map(file -> forkJoinPool.submit(() -> retrier
-                               .execute(new S3PresignedUpload(
-                                 fileToNormalizedArtifactPathMap.get(file),
-                                 fileToS3ObjectKeyMap.get(file),
-                                 file,
-                                 s3Config,
-                                 signedUrlProvider,
-                                 lowLevelS3Client,
-                                 new PresignedUploadProgressListener() {
-                                   @Override
-                                   public void onPartUploadFailed(@NotNull S3PresignedUpload upload, @NotNull Exception e) {
-                                     buildLog.warning("Upload chunk " + upload.description() + " failed with error " + e.getMessage());
-                                   }
-
-                                   @Override
-                                   public void onPartUploadSuccess(@NotNull S3PresignedUpload upload) {
-                                     buildLog.debug("Artifact upload " + upload.description() + " " + upload.getFinishedPercentage() + "%");
-                                   }
-
-                                   @Override
-                                   public void onFileUploadFailed(@NotNull S3PresignedUpload upload, @NotNull Exception e) throws IOException {
-                                     buildLog.warning("Upload " + upload.description() + " failed with error " + e.getMessage());
-                                     signedUrlProvider.onUploadFailed(upload);
-                                   }
-
-                                   @Override
-                                   public void onFileUploadSuccess(@NotNull S3PresignedUpload upload) throws IOException {
-                                     buildLog.debug("Artifact upload " + upload.description() + " finished");
-                                     signedUrlProvider.onUploadSuccess(upload);
-                                   }
-                                 }))))
-                             .map(this::waitForCompletion)
+                             .map(file -> {
+                               try {
+                                 return forkJoinPool.submit(() -> retrier
+                                   .execute(S3PresignedUpload.create(fileToNormalizedArtifactPathMap.get(file),
+                                                                     fileToS3ObjectKeyMap.get(file),
+                                                                     file,
+                                                                     s3Config,
+                                                                     uploadManager,
+                                                                     lowLevelS3Client,
+                                                                     new PresignedUploadProgressListenerImpl(build, uploadManager))));
+                               } catch (RejectedExecutionException e) {
+                                 if (isPoolTerminating(forkJoinPool)) {
+                                   LOGGER.debug("Artifact publishing rejected by pool shutdown");
+                                 } else {
+                                   LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
+                                 }
+                                 return null;
+                               }
+                             })
+                             .filter(Objects::nonNull)
+                             .map((ForkJoinTask<ArtifactDataInstance> future) -> waitForCompletion(future, e -> {
+                               if (e instanceof PublishingInterruptedException || e instanceof InterruptedException) {
+                                 shutdownPool(forkJoinPool);
+                               }
+                               logPublishingError(e);
+                             }))
                              .filter(Objects::nonNull)
                              .collect(Collectors.toList());
       } catch (Throwable th) {
-        LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
-        forkJoinPool.shutdownNow();
+        if (!(th instanceof InterruptedException)) {
+          LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
+        }
         throw new ArtifactPublishingFailedException(th.getMessage(), false, th);
       }
     }
   }
 
+  private boolean isPoolTerminating(CloseableForkJoinPoolAdapter forkJoinPool) {
+    return forkJoinPool.isShutdown() || forkJoinPool.isTerminated() || forkJoinPool.isTerminating();
+  }
+
+  private void logPublishingError(@NotNull final Throwable e) {
+    if ((e instanceof HttpClientUtil.HttpErrorCodeException && ((HttpClientUtil.HttpErrorCodeException)e).isBuildFinishedReason()) || e instanceof InterruptedException) {
+      myBuild.get().getBuildLogger().debug("Artifact publishing has been interrupted");
+      LOGGER.debug("Artifact upload has been interrupted, will not continue with current upload");
+    } else {
+      myBuild.get().getBuildLogger().debug("Artifact publishing failed with error " + ExceptionUtil.getDisplayMessage(e));
+      LOGGER.infoAndDebugDetails("Got exception while waiting for upload to finish, the upload will not continue and the artifact will be ignored", e);
+    }
+  }
+
+  private void shutdownPool(@NotNull final CloseableForkJoinPoolAdapter pool) {
+    if (!isPoolTerminating(pool)) {
+      LOGGER.debug("Shutting down artifact publishing pool");
+      pool.shutdownNow();
+    }
+  }
+
   @Nullable
-  private ArtifactDataInstance waitForCompletion(@NotNull final ForkJoinTask<ArtifactDataInstance> future) {
+  private ArtifactDataInstance waitForCompletion(@NotNull final ForkJoinTask<ArtifactDataInstance> future, @NotNull final Consumer<Throwable> onError) {
     try {
       return future.get();
-    } catch (InterruptedException e) {
-      myBuild.get().getBuildLogger().message("Artifact publishing got interrupted " +  e.getMessage());
-      LOGGER.info("Artifact upload has been interrupted, will not continue with current upload");
+    } catch (final ExecutionException e) {
+      onError.accept(e.getCause());
       return null;
-    } catch (ExecutionException e) {
-      myBuild.get().getBuildLogger().warning("Artifact publishing failed with error " + e.getMessage());
-      LOGGER.error("Got exception while waiting for upload to finish, the upload will not continue and the artifact will be ignored", e);
+    } catch (Throwable e) {
+      onError.accept(e);
       return null;
     }
   }
@@ -182,5 +198,62 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     final HttpConnectionManager httpConnectionManager = HttpClientUtil.createConnectionManager(advancedConfiguration.getConnectionTimeout(), advancedConfiguration.getNThreads());
     httpClient.setHttpConnectionManager(httpConnectionManager);
     return new LowLevelS3Client(httpClient);
+  }
+
+  private static class PresignedUploadProgressListenerImpl implements PresignedUploadProgressListener {
+    @NotNull
+    private final AgentRunningBuild myBuild;
+    @NotNull
+    private final S3SignedUploadManager myUploadManager;
+    private S3PresignedUpload myUpload;
+
+    private PresignedUploadProgressListenerImpl(@NotNull final AgentRunningBuild build, @NotNull final S3SignedUploadManager uploadManager) {
+      myBuild = build;
+      myUploadManager = uploadManager;
+    }
+
+    @Override
+    public void setUpload(@NotNull S3PresignedUpload upload) {
+      this.myUpload = upload;
+    }
+
+    @Override
+    public void onPartUploadFailed(@NotNull Exception e) {
+      myBuild.getBuildLogger().message("Upload chunk " + myUpload.description() + " failed with error " + e.getMessage());
+    }
+
+    @Override
+    public void onPartUploadSuccess() {
+      myBuild.getBuildLogger().debug("Artifact upload " + myUpload.description() + " " + myUpload.getFinishedPercentage() + "%");
+    }
+
+    @Override
+    public void onFileUploadFailed(@NotNull Exception e) {
+      myBuild.getBuildLogger().message("Upload " + myUpload.description() + " failed with error " + e.getMessage());
+      myUploadManager.onUploadFailed(myUpload);
+    }
+
+    @Override
+    public void onFileUploadSuccess() {
+      myBuild.getBuildLogger().debug("Artifact upload " + myUpload.description() + " finished");
+      myUploadManager.onUploadSuccess(myUpload);
+    }
+
+    @Override
+    public void beforeUploadStarted() {
+      checkInterrupted();
+    }
+
+    @Override
+    public void beforePartUploadStarted() {
+      checkInterrupted();
+    }
+
+    private void checkInterrupted() {
+      final BuildInterruptReason reason = myBuild.getInterruptReason();
+      if (reason != null) {
+        throw new PublishingInterruptedException(reason.getUserDescription());
+      }
+    }
   }
 }

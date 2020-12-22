@@ -43,13 +43,13 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   private final int myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
 
-  public S3PresignedUpload(@NotNull final String artifactPath,
-                           @NotNull final String objectKey,
-                           @NotNull final File file,
-                           @NotNull final S3Util.S3AdvancedConfiguration configuration,
-                           @NotNull final S3SignedUploadManager s3SignedUploadManager,
-                           @NotNull final LowLevelS3Client lowLevelS3Client,
-                           @NotNull final PresignedUploadProgressListener progressListener) {
+  private S3PresignedUpload(@NotNull final String artifactPath,
+                            @NotNull final String objectKey,
+                            @NotNull final File file,
+                            @NotNull final S3Util.S3AdvancedConfiguration configuration,
+                            @NotNull final S3SignedUploadManager s3SignedUploadManager,
+                            @NotNull final LowLevelS3Client lowLevelS3Client,
+                            @NotNull final PresignedUploadProgressListener progressListener) {
     myArtifactPath = artifactPath;
     myObjectKey = objectKey;
     myFile = file;
@@ -61,6 +61,18 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     myProgressListener = progressListener;
   }
 
+  @NotNull
+  public static S3PresignedUpload create(@NotNull final String artifactPath,
+                                         @NotNull final String objectKey,
+                                         @NotNull final File file,
+                                         @NotNull final S3Util.S3AdvancedConfiguration configuration,
+                                         @NotNull final S3SignedUploadManager s3SignedUploadManager,
+                                         @NotNull final LowLevelS3Client lowLevelS3Client,
+                                         @NotNull final PresignedUploadProgressListener progressListener) {
+    final S3PresignedUpload s3PresignedUpload = new S3PresignedUpload(artifactPath, objectKey, file, configuration, s3SignedUploadManager, lowLevelS3Client, progressListener);
+    progressListener.setUpload(s3PresignedUpload);
+    return s3PresignedUpload;
+  }
 
   @Override
   public ArtifactDataInstance call() {
@@ -83,6 +95,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   }
 
   private void upload() throws IOException {
+    myProgressListener.beforeUploadStarted();
     if (isMultipartUpload()) {
       multipartUpload();
     } else {
@@ -95,29 +108,30 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
     final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, nParts);
-
+    myProgressListener.beforeUploadStarted();
     try (final FileInputStream fis = new FileInputStream(myFile);
          final BufferedInputStream bis = new BufferedInputStream(fis)) {
       multipartUploadUrls.presignedUrlParts
         .stream()
         .sorted(Comparator.comparing(presignedUrlPartDto -> presignedUrlPartDto.partNumber))
         .forEachOrdered(presignedUrlPartDto -> {
+          myProgressListener.beforePartUploadStarted();
           final long remainingBytes = myRemainingBytes.get();
           final int chunkSize = (int)Math.min(remainingBytes, myChunkSizeInBytes);
           myRemainingBytes.getAndAdd(-chunkSize);
           try {
             final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, bis, chunkSize, getContentType(myFile));
-            myProgressListener.onPartUploadSuccess(this);
+            myProgressListener.onPartUploadSuccess();
             etags.add(etag);
           } catch (Exception e) {
-            myProgressListener.onPartUploadFailed(this, e);
+            myProgressListener.onPartUploadFailed(e);
             ExceptionUtil.rethrowAsRuntimeException(e);
           }
         });
-      myProgressListener.onFileUploadSuccess(this);
+      myProgressListener.onFileUploadSuccess();
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      myProgressListener.onFileUploadFailed(this, e);
+      myProgressListener.onFileUploadFailed(e);
       throw e;
     }
   }
@@ -127,9 +141,9 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     try {
       myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile);
       myRemainingBytes.getAndAdd(-myFile.length());
-      myProgressListener.onFileUploadSuccess(this);
+      myProgressListener.onFileUploadSuccess();
     } catch (final Exception e) {
-      myProgressListener.onFileUploadFailed(this, e);
+      myProgressListener.onFileUploadFailed(e);
       throw e;
     }
   }

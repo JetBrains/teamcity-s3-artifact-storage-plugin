@@ -9,9 +9,7 @@ public class CloseableForkJoinPoolAdapter extends ForkJoinPool implements AutoCl
   private static final Logger LOGGER = Logger.getInstance(CloseableForkJoinPoolAdapter.class);
 
   public CloseableForkJoinPoolAdapter(final int parallelism) {
-    super(parallelism, defaultForkJoinWorkerThreadFactory, (t, e) -> {
-      LOGGER.error("Got error while executing upload " + e.getMessage(), e);
-    }, false);
+    super(parallelism, defaultForkJoinWorkerThreadFactory, (t, e) -> LOGGER.debug("Got error while executing upload " + e.getMessage(), e), false);
   }
 
   @Override

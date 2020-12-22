@@ -105,15 +105,13 @@ public final class HttpClientUtil {
     private final int myResponseCode;
     @Nullable
     private final String myResponse;
-
-    public HttpErrorCodeException(final int responseCode) {
-      this(responseCode, null);
-    }
+    private final boolean isBuildFinishedReason;
 
     public HttpErrorCodeException(final int responseCode, @Nullable final String responseString) {
       super("Got response code " + responseCode + "." + responseString == null ? "" : " Response: " + responseString);
       myResponseCode = responseCode;
       myResponse = responseString;
+      isBuildFinishedReason = responseString != null && responseString.toLowerCase().contains("build is already finished or does not exist");
     }
 
     public int getResponseCode() {
@@ -123,6 +121,10 @@ public final class HttpClientUtil {
     @Nullable
     public String getResponse() {
       return myResponse;
+    }
+
+    public boolean isBuildFinishedReason() {
+      return isBuildFinishedReason;
     }
   }
 }
