@@ -26,7 +26,7 @@ import org.jetbrains.annotations.NotNull;
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 21.07.17.
  */
-class OldS3PreSignUrlHelper {
+public class OldS3PreSignUrlHelper {
   @NotNull
   private static final String S3_OBJECT_KEY = "s3-object-key";
   @NotNull
