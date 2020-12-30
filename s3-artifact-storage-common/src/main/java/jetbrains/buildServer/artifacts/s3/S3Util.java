@@ -128,9 +128,18 @@ public class S3Util {
   public static int getNumberOfRetries(@NotNull final Map<String, String> configurationParameters) {
     try {
       final int nRetries = Integer.parseInt(configurationParameters.get(S3_NUMBER_OF_RETRIES_ON_ERROR));
-      return nRetries >= 0 ? nRetries : DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
+      return nRetries >= 0 ? nRetries : DEFAULT_NUMBER_OF_RETRIES_ON_ERROR;
     } catch (NumberFormatException e) {
-      return DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR;
+      return DEFAULT_NUMBER_OF_RETRIES_ON_ERROR;
+    }
+  }
+
+  public static int getPresignedUploadUrlChunkSize(@NotNull final Map<String, String> configurationParameters) {
+    try {
+      final int nRetries = Integer.parseInt(configurationParameters.get(S3_PRESIGNED_UPLOAD_URL_CHUNK_SIZE));
+      return nRetries >= 0 ? nRetries : DEFAULT_PRESIGNED_URL_MAX_CHUNK_SIZE;
+    } catch (NumberFormatException e) {
+      return DEFAULT_PRESIGNED_URL_MAX_CHUNK_SIZE;
     }
   }
 
@@ -174,9 +183,9 @@ public class S3Util {
   public static int getRetryDelayInMs(@NotNull final Map<String, String> configurationParameters) {
     try {
       final int delay = Integer.parseInt(configurationParameters.get(S3_RETRY_DELAY_MS_ON_ERROR));
-      return delay >= 0 ? delay : DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS;
+      return delay >= 0 ? delay : DEFAULT_RETRY_DELAY_ON_ERROR_MS;
     } catch (NumberFormatException e) {
-      return DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS;
+      return DEFAULT_RETRY_DELAY_ON_ERROR_MS;
     }
   }
 
@@ -189,11 +198,11 @@ public class S3Util {
   }
 
   public static int getNumberOfThreads(@NotNull final Map<String, String> configuration) {
-    return Integer.parseInt(configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(S3_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
+    return Integer.parseInt(configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
   }
 
   public static int getUrlTtlSeconds(@NotNull final Map<String, String> configuration) {
-    return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_S3_URL_LIFETIME_SEC))));
+    return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_URL_LIFETIME_SEC))));
   }
 
   private static boolean useSignatureVersion4(@NotNull final Map<String, String> properties) {

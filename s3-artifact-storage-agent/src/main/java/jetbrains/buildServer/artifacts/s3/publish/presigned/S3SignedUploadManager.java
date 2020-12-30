@@ -8,6 +8,8 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
@@ -17,6 +19,7 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerialize
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.commons.httpclient.*;
@@ -43,6 +46,9 @@ public class S3SignedUploadManager implements AutoCloseable {
   private final List<String> myS3ObjectKeys;
   @NotNull
   private final UptodateValue<Map<String, String>> myCache;
+  private final int myMaxUrlChunkSize;
+  @NotNull
+  private final Lock myFetchLock = new ReentrantLock();
   @NotNull
   private final Map<String, String> myMultipartUploadIds = new ConcurrentHashMap<>();
 
@@ -52,6 +58,7 @@ public class S3SignedUploadManager implements AutoCloseable {
     myPresignedUrlsPostUrl = tcConfig.getTeamCityUrl() + "/httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
     myTeamCityClient = createClient(tcConfig);
     myS3ObjectKeys = new ArrayList<>(s3ObjectKeys);
+    myMaxUrlChunkSize = s3Config.getPresignedUrlMaxChunkSize();
     myCache = new UptodateValue<>(this::fetchUploadUrlsFromServer, s3Config.getUrlTtlSeconds() * 1000L);
   }
 
@@ -64,9 +71,27 @@ public class S3SignedUploadManager implements AutoCloseable {
 
   @NotNull
   private Map<String, String> fetchUploadUrlsFromServer() {
+    LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " started");
+    myFetchLock.lock();
+    try {
+      return CollectionsUtil.split(myS3ObjectKeys, (myS3ObjectKeys.size() / myMaxUrlChunkSize) + 1)
+                            .stream()
+                            .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " started"))
+                            .map(this::fetchChunk)
+                            .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " finished"))
+                            .flatMap(map -> map.entrySet().stream())
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+    } finally {
+      myFetchLock.unlock();
+      LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " finished");
+    }
+  }
+
+  @NotNull
+  private Map<String, String> fetchChunk(@NotNull final List<String> objectKeys) {
     try {
       final PostMethod post = postTemplate();
-      post.setRequestEntity(requestEntity(myS3ObjectKeys));
+      post.setRequestEntity(requestEntity(objectKeys));
       final String responseBody = executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
       return deserializeResponseV1(responseBody).presignedUrls
         .stream()
@@ -81,7 +106,6 @@ public class S3SignedUploadManager implements AutoCloseable {
       throw new FetchFailedException(e);
     }
   }
-
 
   @NotNull
   private HttpClient createClient(@NotNull final TeamCityConnectionConfiguration config) {
