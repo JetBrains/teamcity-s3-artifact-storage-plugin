@@ -18,6 +18,7 @@ import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.UptodateValue;
+import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
@@ -35,8 +36,6 @@ public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   private static final String MAX_TOTAL_CONNECTIONS_PARAM = "teamcity.s3.artifactUploader.maxTotalConnections";
   @NotNull
-  private static final String SIGNED_URL_CACHE_TTL = "teamcity.s3.artifactUploader.signedUrlCacheTtl";
-  @NotNull
   private final HttpClient myTeamCityClient;
   @NotNull
   private final String myPresignedUrlsPostUrl;
@@ -47,11 +46,13 @@ public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   private final Map<String, String> myMultipartUploadIds = new ConcurrentHashMap<>();
 
-  public S3SignedUploadManager(@NotNull final TeamCityConnectionConfiguration tcConfig, @NotNull final Collection<String> s3ObjectKeys) {
+  public S3SignedUploadManager(@NotNull final TeamCityConnectionConfiguration tcConfig,
+                               @NotNull final S3Util.S3AdvancedConfiguration s3Config,
+                               @NotNull final Collection<String> s3ObjectKeys) {
     myPresignedUrlsPostUrl = tcConfig.getTeamCityUrl() + "/httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
     myTeamCityClient = createClient(tcConfig);
     myS3ObjectKeys = new ArrayList<>(s3ObjectKeys);
-    myCache = new UptodateValue<>(this::fetchUploadUrlsFromServer, TeamCityProperties.getInteger(SIGNED_URL_CACHE_TTL, 60000));
+    myCache = new UptodateValue<>(this::fetchUploadUrlsFromServer, s3Config.getUrlTtlSeconds() * 1000L);
   }
 
 

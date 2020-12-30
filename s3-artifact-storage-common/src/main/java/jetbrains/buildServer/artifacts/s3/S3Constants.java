@@ -45,9 +45,5 @@ public class S3Constants {
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
-  public static final int DEFAULT_S3_URL_LIFETIME_SEC = 600;
-  public static final int DEFAULT_S3_RETRY_DELAY_ON_ERROR_MS = 0;
-  public static final int DEFAULT_S3_NUMBER_OF_RETRIES_ON_ERROR = 5;
-
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 }

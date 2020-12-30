@@ -109,7 +109,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(s3Config.getNThreads());
          final LowLevelS3Client lowLevelS3Client = createAwsClient(s3Config);
-         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(teamcityConnectionConfiguration(build), fileToS3ObjectKeyMap.values())) {
+         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(teamcityConnectionConfiguration(build), s3Config, fileToS3ObjectKeyMap.values())) {
       try {
         return filesToPublish.keySet()
                              .stream()
