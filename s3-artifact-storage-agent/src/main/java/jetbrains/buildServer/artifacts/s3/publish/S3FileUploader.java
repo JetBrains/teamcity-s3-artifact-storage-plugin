@@ -35,7 +35,7 @@ public abstract class S3FileUploader {
     return new S3Util.S3AdvancedConfiguration()
       .withNumberOfRetries(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(configuration))
       .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(configuration))
-      .withPresignedUrlsChunkSize(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedUploadUrlChunkSize(configuration))
+      .withPresignedUrlsChunkSize(jetbrains.buildServer.artifacts.s3.S3Util.getMaxNumberOfPresignedUrlsToLoadInOneRequest(configuration))
       .withMinimumUploadPartSize(jetbrains.buildServer.artifacts.s3.S3Util.getMinimumUploadPartSize(configuration))
       .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(configuration))
       .withPresignedMultipartUploadEnabled(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedMultipartUploadEnabled(configuration))

@@ -134,9 +134,9 @@ public class S3Util {
     }
   }
 
-  public static int getPresignedUploadUrlChunkSize(@NotNull final Map<String, String> configurationParameters) {
+  public static int getMaxNumberOfPresignedUrlsToLoadInOneRequest(@NotNull final Map<String, String> configurationParameters) {
     try {
-      final int nRetries = Integer.parseInt(configurationParameters.get(S3_PRESIGNED_UPLOAD_URL_CHUNK_SIZE));
+      final int nRetries = Integer.parseInt(configurationParameters.get(S3_PRESIGNED_UPLOAD_MAX_NUMBER_OF_URLS_TO_LOAD_IN_ONE_REQUEST));
       return nRetries >= 0 ? nRetries : DEFAULT_PRESIGNED_URL_MAX_CHUNK_SIZE;
     } catch (NumberFormatException e) {
       return DEFAULT_PRESIGNED_URL_MAX_CHUNK_SIZE;
