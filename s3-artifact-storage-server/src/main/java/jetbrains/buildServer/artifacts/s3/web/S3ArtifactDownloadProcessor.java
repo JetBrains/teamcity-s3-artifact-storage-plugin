@@ -72,7 +72,6 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     fixContentSecurityPolicy(preSignedUrl);
 
-    httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + settings.getUrlTtlSeconds());
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;
   }
