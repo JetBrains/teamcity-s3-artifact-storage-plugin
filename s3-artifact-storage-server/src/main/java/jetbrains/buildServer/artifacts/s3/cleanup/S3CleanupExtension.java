@@ -39,7 +39,10 @@ import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
-import jetbrains.buildServer.serverSide.cleanup.*;
+import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
+import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
+import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
+import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
@@ -93,15 +96,15 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           continue;
         }
 
-        doClean(cleanupContext.getErrorReporter(), build, pathPrefix, pathsToDelete);
+        doClean(cleanupContext, build, pathPrefix, pathsToDelete);
       } catch (Throwable e) {
         Loggers.CLEANUP.debug(e);
-        cleanupContext.getErrorReporter().buildCleanupError(build.getBuildId(), "Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts: " + e.getMessage());
       }
     }
   }
 
-  private void doClean(@NotNull ErrorReporter errorReporter, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete) throws IOException {
+  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete) throws IOException {
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
     S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
@@ -138,7 +141,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
       if (errorNum.get() > 0) {
         String errorMessage = "Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix;
-        errorReporter.buildCleanupError(build.getBuildId(), errorMessage);
+        cleanupContext.onBuildCleanupError(this, build, errorMessage);
       }
 
       Loggers.CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
