@@ -85,7 +85,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
    * This toggle makes it possible to turn the redirect caching off. See ADM-49889
    */
   private boolean isRedirectCachingDisabled() {
-    return TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.download.cacheRedirect.enabled");
+    return !TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.download.cacheRedirect.enabled");
   }
 
   private void fixContentSecurityPolicy(final String preSignedUrl) {
