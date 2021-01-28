@@ -28,6 +28,7 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManager;
 import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManagerImpl;
 import jetbrains.buildServer.serverSide.BuildPromotion;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
@@ -72,8 +73,19 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     fixContentSecurityPolicy(preSignedUrl);
 
+    if(!isRedirectCachingDisabled()) {
+      httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + settings.getUrlTtlSeconds());
+    }
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;
+  }
+
+  /**
+   * The redirect logic is messing up with user's network settings when user turns on/off VPN for example.
+   * This toggle makes it possible to turn the redirect caching off. See ADM-49889
+   */
+  private boolean isRedirectCachingDisabled() {
+    return TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.download.cacheRedirect.enabled");
   }
 
   private void fixContentSecurityPolicy(final String preSignedUrl) {
