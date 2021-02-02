@@ -29,9 +29,12 @@ public class S3UtilTest {
       {"file.zip", "application/zip"},
       {"file.txt", "text/plain"},
       {"file.jpg", "image/jpeg"},
+      {"file.png", "image/png"},
       {"file.bin", "application/octet-stream"},
       {"file.htm", "text/html"},
       {"file.html", "text/html"},
+      {"file.css", "text/css"},
+      {"file.js", "application/javascript"},
     };
   }
 

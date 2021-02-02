@@ -21,8 +21,9 @@ import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.lang.reflect.Method;
+import java.io.IOException;
 import java.net.URLConnection;
+import java.nio.file.Files;
 import java.security.KeyStore;
 import java.util.Collection;
 import java.util.HashMap;
@@ -31,13 +32,13 @@ import java.util.regex.Pattern;
 import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
-import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
-import jetbrains.buildServer.util.amazon.S3Util.WithTransferManager;
+import jetbrains.buildServer.util.amazon.S3Util.*;
 import jetbrains.buildServer.util.ssl.SSLContextUtil;
 import jetbrains.buildServer.util.ssl.TrustStoreIO;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -64,11 +65,9 @@ public class S3Util {
   @NotNull
   private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
   @NotNull
-  private static final Method PROBE_CONTENT_TYPE_METHOD = getProbeContentTypeMethod();
-  @NotNull
-  private static final Method FILE_TO_PATH_METHOD = getFileToPathMethod();
-  @NotNull
   private static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
+  @NotNull
+  private static final Map<String, String> CUSTOM_CONTENT_TYPES = CollectionsUtil.asMap("css", "text/css", "js", "application/javascript");
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull final Map<String, String> params, final boolean acceptReferences) {
@@ -305,17 +304,16 @@ public class S3Util {
     String contentType = URLConnection.guessContentTypeFromName(file.getName());
     if (StringUtil.isNotEmpty(contentType)) {
       return contentType;
-    }
-    if (PROBE_CONTENT_TYPE_METHOD != null && FILE_TO_PATH_METHOD != null) {
+    } else {
       try {
-        final Object result = PROBE_CONTENT_TYPE_METHOD.invoke(null, FILE_TO_PATH_METHOD.invoke(file));
-        if (result instanceof String) {
-          contentType = (String)result;
+        contentType = Files.probeContentType(file.toPath());
+        if (StringUtil.isNotEmpty(contentType)) {
+          return contentType;
         }
-      } catch (Exception ignored) {
+      } catch (IOException ignore) {
       }
+      return CUSTOM_CONTENT_TYPES.getOrDefault(FileUtil.getExtension(file.getName()), DEFAULT_CONTENT_TYPE);
     }
-    return StringUtil.notEmpty(contentType, DEFAULT_CONTENT_TYPE);
   }
 
   public static String normalizeArtifactPath(final String path, final File file) {
@@ -324,26 +322,6 @@ public class S3Util {
     } else {
       return FileUtil.normalizeRelativePath(String.format("%s/%s", path, file.getName()));
     }
-  }
-
-  private static Method getProbeContentTypeMethod() {
-    try {
-      final Class<?> filesClass = Class.forName("java.nio.file.Files");
-      final Class<?> pathClass = Class.forName("java.nio.file.Path");
-      if (filesClass != null && pathClass != null) {
-        return filesClass.getMethod("probeContentType", pathClass);
-      }
-    } catch (Exception ignored) {
-    }
-    return null;
-  }
-
-  private static Method getFileToPathMethod() {
-    try {
-      return File.class.getMethod("toPath");
-    } catch (Exception ignored) {
-    }
-    return null;
   }
 
   public static <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
