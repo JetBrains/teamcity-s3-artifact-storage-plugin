@@ -301,6 +301,10 @@ public class S3Util {
   }
 
   public static String getContentType(final File file) {
+    final String customContentType = CUSTOM_CONTENT_TYPES.get(FileUtil.getExtension(file.getName()));
+    if (customContentType != null) {
+      return customContentType;
+    }
     String contentType = URLConnection.guessContentTypeFromName(file.getName());
     if (StringUtil.isNotEmpty(contentType)) {
       return contentType;
@@ -312,7 +316,7 @@ public class S3Util {
         }
       } catch (IOException ignore) {
       }
-      return CUSTOM_CONTENT_TYPES.getOrDefault(FileUtil.getExtension(file.getName()), DEFAULT_CONTENT_TYPE);
+      return DEFAULT_CONTENT_TYPE;
     }
   }
 
