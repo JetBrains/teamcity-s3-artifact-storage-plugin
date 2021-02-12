@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +29,7 @@ public abstract class S3FileUploader {
   @NotNull
   public abstract Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
                                                            @NotNull final String pathPrefix,
-                                                           @NotNull final Map<File, String> filesToPublish);
+                                                           @NotNull final Map<File, String> filesToPublish) throws InvalidSettingsException;
 
   @NotNull
   public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> configuration) {

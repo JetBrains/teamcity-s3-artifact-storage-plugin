@@ -17,7 +17,6 @@
 package jetbrains.buildServer.artifacts.s3.preSignedUrl;
 
 import com.amazonaws.SdkBaseException;
-import com.amazonaws.SdkClientException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
@@ -30,6 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
@@ -121,7 +121,7 @@ public class S3PreSignedUrlController extends BaseController {
       LOG.debug(
         "Failed to provide presigned urls for request " + request + ". Can't resolve storage settings for running build with id " + LogUtil.describe(runningBuild));
       throw ex;
-    } catch (S3Util.InvalidSettingsException ex) {
+    } catch (InvalidSettingsException ex) {
       LOG.infoAndDebugDetails(() -> "Failed to provide presigned urls, artifact storage settings are invalid " + ex.getMessage() + ". " + LogUtil.describe(runningBuild), ex);
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, ex.getMessage());
     }

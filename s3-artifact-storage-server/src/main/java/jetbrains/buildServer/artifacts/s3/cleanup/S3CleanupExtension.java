@@ -31,10 +31,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SFinishedBuild;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -51,6 +51,7 @@ import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
+import static jetbrains.buildServer.log.Loggers.CLEANUP;
 import static jetbrains.buildServer.util.NamedThreadFactory.executeWithNewThreadName;
 import static jetbrains.buildServer.util.Util.doUnderContextClassLoader;
 
@@ -97,14 +98,21 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
         }
 
         doClean(cleanupContext, build, pathPrefix, pathsToDelete);
-      } catch (Throwable e) {
-        Loggers.CLEANUP.debug(e);
-        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts: " + e.getMessage());
+      } catch (InvalidSettingsException e) {
+        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
+      } catch (IOException e) {
+        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
+      } catch (RuntimeException e) {
+        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
       }
     }
   }
 
-  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete) throws IOException {
+  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete)
+    throws IOException, InvalidSettingsException {
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
     S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
@@ -128,23 +136,23 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           errors.forEach(error -> {
             final String key = error.getKey();
             if (key.startsWith(pathPrefix)) {
-              Loggers.CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
+              CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
               pathsToDelete.remove(key.substring(pathPrefix.length()));
             }
           });
           errorNum.addAndGet(errors.size());
         } catch (ExecutionException | InterruptedException e) {
-          Loggers.CLEANUP.error("Got an exception while processing chunk " + part, e);
+          CLEANUP.error("Got an exception while processing chunk " + part, e);
           errorNum.addAndGet(part.size());
         }
       });
 
       if (errorNum.get() > 0) {
-        String errorMessage = "Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix;
-        cleanupContext.onBuildCleanupError(this, build, errorMessage);
+        CLEANUP.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
       }
 
-      Loggers.CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
+      CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
 
       myHelper.removeFromArtifactList(build, pathsToDelete);
 

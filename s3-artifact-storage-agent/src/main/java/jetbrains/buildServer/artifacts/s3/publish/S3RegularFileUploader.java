@@ -38,6 +38,7 @@ import jetbrains.buildServer.agent.BuildAgentConfiguration;
 import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
 import jetbrains.buildServer.messages.Status;
@@ -65,7 +66,7 @@ public class S3RegularFileUploader extends S3FileUploader {
   @Override
   public Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
                                                   @NotNull final String pathPrefix,
-                                                  @NotNull final Map<File, String> filesToPublish) {
+                                                  @NotNull final Map<File, String> filesToPublish) throws InvalidSettingsException {
     final BuildProgressLogger buildLog = build.getBuildLogger();
     final String homeDir = myBuildAgentConfiguration.getAgentHomeDirectory().getPath();
     final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectoryFromHome(homeDir);

@@ -22,8 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -75,7 +75,7 @@ public class S3SettingsController extends BaseFormXmlController {
       } else {
         try {
           xmlResponse.addContent(handler.getContent(parameters));
-        } catch (S3Util.InvalidSettingsException e) {
+        } catch (InvalidSettingsException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
           if (LOG.isDebugEnabled()) {
             LOG.debug(message, e);
