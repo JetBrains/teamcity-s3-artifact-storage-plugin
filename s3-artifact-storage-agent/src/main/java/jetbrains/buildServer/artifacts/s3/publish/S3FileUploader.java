@@ -32,17 +32,17 @@ public abstract class S3FileUploader {
                                                            @NotNull final Map<File, String> filesToPublish) throws InvalidSettingsException;
 
   @NotNull
-  public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> configuration) {
+  public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> sharedConfigurationParameters, @NotNull final Map<String, String> artifactStorageSettings) {
     return new S3Util.S3AdvancedConfiguration()
-      .withNumberOfRetries(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(configuration))
-      .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(configuration))
-      .withPresignedUrlsChunkSize(jetbrains.buildServer.artifacts.s3.S3Util.getMaxNumberOfPresignedUrlsToLoadInOneRequest(configuration))
-      .withMinimumUploadPartSize(jetbrains.buildServer.artifacts.s3.S3Util.getMinimumUploadPartSize(configuration))
-      .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(configuration))
-      .withPresignedMultipartUploadEnabled(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedMultipartUploadEnabled(configuration))
-      .withConnectionTimeout(jetbrains.buildServer.artifacts.s3.S3Util.getConnectionTimeout(configuration))
-      .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreads(configuration))
-      .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(configuration))
+      .withNumberOfRetries(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(sharedConfigurationParameters))
+      .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(sharedConfigurationParameters))
+      .withPresignedUrlsChunkSize(jetbrains.buildServer.artifacts.s3.S3Util.getMaxNumberOfPresignedUrlsToLoadInOneRequest(sharedConfigurationParameters))
+      .withMinimumUploadPartSize(jetbrains.buildServer.artifacts.s3.S3Util.getMinimumUploadPartSize(sharedConfigurationParameters, artifactStorageSettings))
+      .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(sharedConfigurationParameters, artifactStorageSettings))
+      .withPresignedMultipartUploadEnabled(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedMultipartUploadEnabled(sharedConfigurationParameters))
+      .withConnectionTimeout(jetbrains.buildServer.artifacts.s3.S3Util.getConnectionTimeout(sharedConfigurationParameters))
+      .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreads(sharedConfigurationParameters))
+      .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
       .withShutdownClient();
   }
 }

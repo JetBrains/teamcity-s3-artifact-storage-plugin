@@ -59,7 +59,7 @@
     </props:selectSectionPropertyContent>
     <props:selectSectionPropertyContent value="${true}" caption="Specify name">
       <tr class="non_serializable_form_elements_container noBorder">
-        <th class="noBorder"><label for="bucketNameStringInput">S3 bucket name: <l:star/></label></th>
+        <th class="noBorder"><label for="${bucketNameStringInput}">S3 bucket name: <l:star/></label></th>
         <td class="noBorder">
           <props:textProperty name="${bucketNameStringInput}" id="${bucketNameStringInput}" className="longField" value="${propertiesBean.properties[params.bucketName]}"/>
           <span class="smallNote">Specify the bucket name</span>
@@ -68,9 +68,9 @@
     </props:selectSectionPropertyContent>
   </props:selectSectionProperty>
   <c:if test="${pathPrefixesFeatureOn or propertiesBean.properties[params.pathPrefix]}">
-    <tr class="noBorder">
-      <th class="noBorder"><label for="${params.pathPrefix}">S3 path prefix: </label></th>
-      <td class="noBorder">
+    <tr>
+      <th><label for="${params.pathPrefix}">S3 path prefix: </label></th>
+      <td>
         <props:textProperty name="${params.pathPrefix}" id="${params.pathPrefix}" className="longField" value="${propertiesBean.properties[params.pathPrefix]}"/>
         <span class="smallNote">Specify the path prefix</span>
         <span class="error" id="error_${params.pathPrefix}"></span>
@@ -86,14 +86,33 @@
       <span class="error" id="error_buckets" style="margin-top: -1em; margin-bottom: 1em;"></span>
     </td>
   </tr>
-  <tr>
+</l:settingsGroup>
+<l:settingsGroup title="Connection Settings">
+  <tr class="advancedSetting">
     <th>Options:</th>
     <td>
-      <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/>Use Pre-Signed URLs for upload<br/>
-      <props:checkboxProperty name="${params.useSignatureVersion4}"/>Use Signature Version 4 in AWS KMS encryption<br/>
-      <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/>Force Virtual Host Addressing
+      <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/><label for="${params.usePresignUrlsForUpload}">Use Pre-Signed URLs for upload</label><br/>
+      <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/><label for="${params.forceVirtualHostAddressing}">Force Virtual Host Addressing</label>
     </td>
   </tr>
+  <c:if test="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.upload.presignedUrl.multipart.enabled')}">
+    <tr class="advancedSetting noBorder">
+      <th><label for="${params.multipartUploadThreshold}">Multipart upload threshold:</label></th>
+      <td>
+        <props:textProperty name="${params.multipartUploadThreshold}"/>
+        <span class="error" id="error_${params.multipartUploadThreshold}"></span>
+        <bs:smallNote>When the file size is larger than the specified value, initiate multipart upload. <it>KB, MB, GB or TB</it> suffixes are allowed. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+      </td>
+    </tr>
+    <tr class="advancedSetting noBorder">
+      <th><label for="${params.multipartUploadPartSize}">Multipart upload part size:</label></th>
+      <td>
+        <props:textProperty name="${params.multipartUploadPartSize}"/>
+        <span class="error" id="error_${params.multipartUploadPartSize}"></span>
+        <bs:smallNote>Part size in bytes used in multipart upload. <it>KB, MB, GB or TB</it> suffixes are allowed. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+      </td>
+    </tr>
+  </c:if>
 </l:settingsGroup>
 
 <script type="text/javascript">

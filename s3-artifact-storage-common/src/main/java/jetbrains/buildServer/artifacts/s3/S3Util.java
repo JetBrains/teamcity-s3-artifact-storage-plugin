@@ -20,6 +20,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.transfer.Transfer;
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
@@ -69,6 +70,9 @@ public final class S3Util {
   private static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
   @NotNull
   private static final Map<String, String> CUSTOM_CONTENT_TYPES = CollectionsUtil.asMap("css", "text/css", "js", "application/javascript");
+  @NotNull
+  private static final String MULTIPART_UPLOAD_MIN_VALUE = "5MB";
+  private static final long MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES = StringUtil.parseFileSize(MULTIPART_UPLOAD_MIN_VALUE);
 
   private S3Util() {
   }
@@ -91,6 +95,14 @@ public final class S3Util {
       if (!OUR_OBJECT_KEY_PATTERN.matcher(pathPrefix).matches()) {
         invalids.put(S3_PATH_PREFIX_SETTING, "Should match the regexp [" + OUR_OBJECT_KEY_PATTERN.pattern() + "]");
       }
+    }
+    final Pair<Long, String> partSizeValueWithError = parseMultipartUploadByteSetting(params.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
+    if (partSizeValueWithError.getSecond() != null) {
+      invalids.put(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE, "Invalid " + partSizeValueWithError.getSecond());
+    }
+    final Pair<Long, String> thresholdWithError = parseMultipartUploadByteSetting(params.get(S3_MULTIPART_UPLOAD_THRESHOLD));
+    if (thresholdWithError.getSecond() != null) {
+      invalids.put(S3_MULTIPART_UPLOAD_THRESHOLD, "Invalid " + thresholdWithError.getSecond());
     }
     return invalids;
   }
@@ -147,39 +159,44 @@ public final class S3Util {
   }
 
   @Nullable
-  public static Long getMultipartUploadThreshold(@NotNull final Map<String, String> configurationParameters) {
-    final String stringValue = configurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD);
-    if (stringValue == null) {
-      return null;
+  public static Long getMultipartUploadThreshold(Map<String, String> sharedConfigurationParameters,
+                                                 @NotNull final Map<String, String> artifactStorageSettings) {
+    final String stringValue = artifactStorageSettings.getOrDefault(S3_MULTIPART_UPLOAD_THRESHOLD, sharedConfigurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD));
+    final Pair<Long, String> valueOrError = parseMultipartUploadByteSetting(stringValue);
+    if (valueOrError.getSecond() == null) {
+      LOGGER.warn("Invalid " + S3_MULTIPART_UPLOAD_THRESHOLD + ": " + valueOrError.getSecond() + ". The default value will be used");
     }
-    try {
-      final long multipartThreshold = Long.parseLong(stringValue);
-      if (multipartThreshold < 1024 * 1024 * 5 + 1) {
-        LOGGER.warn(S3_MULTIPART_UPLOAD_THRESHOLD + " [" + multipartThreshold + "] should be larger than 5MB (" + (1024 * 1024 * 5 + 1) + "), the default value will be used");
-        return null;
-      }
-      return multipartThreshold;
-    } catch (NumberFormatException e) {
-      LOGGER.warn(S3_MULTIPART_UPLOAD_THRESHOLD + " [" + stringValue + "] should be integer");
-      return null;
-    }
+    return valueOrError.getFirst();
   }
 
   @Nullable
-  public static Long getMinimumUploadPartSize(@NotNull final Map<String, String> configurationParameters) {
-    final String stringValue = configurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE);
+  public static Long getMinimumUploadPartSize(Map<String, String> sharedConfigurationParameters,
+                                              @NotNull final Map<String, String> artifactStorageSettings) {
+    final String stringValue = artifactStorageSettings.getOrDefault(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE, sharedConfigurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
     if (stringValue == null) {
       return null;
     }
+    final Pair<Long, String> valueOrError = parseMultipartUploadByteSetting(stringValue);
+    if (valueOrError.getSecond() == null) {
+      LOGGER.warn("Invalid " + S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + ": " + valueOrError.getSecond() + ". The default value will be used");
+    }
+    return valueOrError.getFirst();
+  }
+
+  @NotNull
+  private static Pair<Long, String> parseMultipartUploadByteSetting(@Nullable String value) {
+    if (StringUtil.isEmpty(value)) {
+      return Pair.create(null, null);
+    }
     try {
-      final long multipartChunkSize = Long.parseLong(stringValue);
-      if (multipartChunkSize < 1024 * 1024 * 5 + 1) {
-        LOGGER.warn(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + " [" + multipartChunkSize + "] is unreasonably small and will slow down the upload");
+      final long byteSetting = StringUtil.parseFileSize(value);
+      if (byteSetting <= MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES) {
+        return Pair.create(null, "[" + value + "], should be larger than " + MULTIPART_UPLOAD_MIN_VALUE);
+      } else {
+        return Pair.create(byteSetting, null);
       }
-      return multipartChunkSize >= 0 ? multipartChunkSize : null;
     } catch (NumberFormatException e) {
-      LOGGER.warn(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + " [" + stringValue + "] should be integer");
-      return null;
+      return Pair.create(null, "[" + value + "], should be integer");
     }
   }
 
@@ -206,10 +223,6 @@ public final class S3Util {
 
   public static int getUrlTtlSeconds(@NotNull final Map<String, String> configuration) {
     return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_URL_LIFETIME_SEC))));
-  }
-
-  private static boolean useSignatureVersion4(@NotNull final Map<String, String> properties) {
-    return Boolean.parseBoolean(properties.get(S3_USE_SIGNATURE_V4));
   }
 
   private static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {
@@ -253,9 +266,7 @@ public final class S3Util {
                                                          @NotNull final WithS3<T, E> withClient,
                                                          boolean shutdownImmediately) throws E {
     return AWSCommonParams.withAWSClients(params, clients -> {
-      if (useSignatureVersion4(params)) {
-        clients.setS3SignerType(V4_SIGNER_TYPE);
-      }
+      clients.setS3SignerType(V4_SIGNER_TYPE);
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
       patchAWSClientsSsl(clients, params);
       final AmazonS3 s3Client = clients.createS3Client();

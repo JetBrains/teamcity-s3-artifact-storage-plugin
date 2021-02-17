@@ -77,7 +77,7 @@ public class S3RegularFileUploader extends S3FileUploader {
     try {
       prepareDestination(bucketName, params);
       final List<ArtifactDataInstance> artifacts = new ArrayList<>();
-      final S3AdvancedConfiguration configuration = configuration(build.getSharedConfigParameters());
+      final S3AdvancedConfiguration configuration = configuration(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
 
       S3Util.withTransferManagerCorrectingRegion(params, transferManager ->
         filesToPublish.entrySet()

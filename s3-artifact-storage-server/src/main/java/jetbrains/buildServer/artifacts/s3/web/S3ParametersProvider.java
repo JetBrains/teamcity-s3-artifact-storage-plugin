@@ -31,10 +31,6 @@ public class S3ParametersProvider {
     return S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
   }
 
-  public String getUseSignatureVersion4() {
-    return S3Constants.S3_USE_SIGNATURE_V4;
-  }
-
   public String getContainersPath() {
     return String.format("/plugins/s3-artifact-storage/%s.html", S3Constants.S3_SETTINGS_PATH);
   }
@@ -45,5 +41,13 @@ public class S3ParametersProvider {
 
   public String getPathPrefix() {
     return S3Constants.S3_PATH_PREFIX_SETTING;
+  }
+
+  public String getMultipartUploadThreshold() {
+    return S3Constants.S3_MULTIPART_UPLOAD_THRESHOLD;
+  }
+
+  public String getMultipartUploadPartSize() {
+    return S3Constants.S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE;
   }
 }

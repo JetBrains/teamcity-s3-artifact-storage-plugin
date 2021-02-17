@@ -74,7 +74,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<>();
 
-    final S3AdvancedConfiguration s3Config = configuration(build.getSharedConfigParameters());
+    final S3AdvancedConfiguration s3Config = configuration(build.getSharedConfigParameters(), settings);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       final String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
