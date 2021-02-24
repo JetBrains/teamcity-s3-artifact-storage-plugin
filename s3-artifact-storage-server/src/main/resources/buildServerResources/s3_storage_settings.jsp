@@ -101,7 +101,7 @@
       <td>
         <props:textProperty name="${params.multipartUploadThreshold}"/>
         <span class="error" id="error_${params.multipartUploadThreshold}"></span>
-        <bs:smallNote>When the file size is larger than the specified value, initiate multipart upload. <it>KB, MB, GB or TB</it> suffixes are allowed. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+        <bs:smallNote>Initiates multipart upload for files larger than the specified value. Minimum value is 5MB. Allowed suffixes: <it>KB, MB, GB, TB</it>. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
       </td>
     </tr>
     <tr class="advancedSetting noBorder">
@@ -109,7 +109,7 @@
       <td>
         <props:textProperty name="${params.multipartUploadPartSize}"/>
         <span class="error" id="error_${params.multipartUploadPartSize}"></span>
-        <bs:smallNote>Part size in bytes used in multipart upload. <it>KB, MB, GB or TB</it> suffixes are allowed. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+        <bs:smallNote>Specify the maximum allowed part size. Minimum value is 5MB. Allowed suffixes: <it>KB, MB, GB, TB</it>. Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
       </td>
     </tr>
   </c:if>
