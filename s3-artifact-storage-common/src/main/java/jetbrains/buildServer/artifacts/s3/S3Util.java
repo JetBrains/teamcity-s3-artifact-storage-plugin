@@ -163,7 +163,7 @@ public final class S3Util {
                                                  @NotNull final Map<String, String> artifactStorageSettings) {
     final String stringValue = artifactStorageSettings.getOrDefault(S3_MULTIPART_UPLOAD_THRESHOLD, sharedConfigurationParameters.get(S3_MULTIPART_UPLOAD_THRESHOLD));
     final Pair<Long, String> valueOrError = parseMultipartUploadByteSetting(stringValue);
-    if (valueOrError.getSecond() == null) {
+    if (valueOrError.getSecond() != null) {
       LOGGER.warn("Invalid " + S3_MULTIPART_UPLOAD_THRESHOLD + ": " + valueOrError.getSecond() + ". The default value will be used");
     }
     return valueOrError.getFirst();
@@ -177,7 +177,7 @@ public final class S3Util {
       return null;
     }
     final Pair<Long, String> valueOrError = parseMultipartUploadByteSetting(stringValue);
-    if (valueOrError.getSecond() == null) {
+    if (valueOrError.getSecond() != null) {
       LOGGER.warn("Invalid " + S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE + ": " + valueOrError.getSecond() + ". The default value will be used");
     }
     return valueOrError.getFirst();
