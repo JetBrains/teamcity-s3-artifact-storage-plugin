@@ -22,17 +22,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
 import jetbrains.buildServer.agent.BuildInterruptReason;
-import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.publish.S3FileUploader;
@@ -82,15 +78,13 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       fileToS3ObjectKeyMap.put(entry.getKey(), pathPrefix + normalizeArtifactPath);
     }
 
-    final BuildProgressLogger buildLog = build.getBuildLogger();
-
     final Retrier retrier = Retrier.withRetries(s3Config.getRetriesNum())
                                    .registerListener(new LoggingRetrierListener(LOGGER))
                                    .registerListener(new AbstractRetrierEventListener() {
                                      @Override
                                      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                                        final String retryLogPart = retry == 0 ? "" : " after " + retry + " retry";
-                                       buildLog.message(callable + " failed with exception " + e.getMessage() + retryLogPart);
+                                       build.getBuildLogger().message(callable + " failed with exception " + e.getMessage() + retryLogPart);
                                        super.onFailure(callable, retry, e);
                                      }
                                    })

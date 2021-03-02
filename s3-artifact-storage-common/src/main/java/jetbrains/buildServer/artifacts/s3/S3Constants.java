@@ -35,6 +35,7 @@ public class S3Constants {
   public static final String S3_NUMBER_OF_RETRIES_ON_ERROR = "teamcity.internal.storage.s3.upload.numberOfRetries";
   public static final String S3_RETRY_DELAY_MS_ON_ERROR = "teamcity.internal.storage.s3.upload.retryDelayMs";
   public static final String S3_PRESIGNED_UPLOAD_MAX_NUMBER_OF_URLS_TO_LOAD_IN_ONE_REQUEST = "teamcity.internal.storage.s3.upload.presignedUrl.maxNumberOfUrlsToLoadInOneRequest";
+  public static final String S3_PRESIGNED_UPLOAD_INTERNAL_CHUNK_SIZE = "teamcity.internal.storage.s3.upload.presignedUrl.internalChunkSize";
   public static final String S3_FORCE_VIRTUAL_HOST_ADDRESSING = "storage.s3.forceVirtualHostAddressing";
   public static final String S3_CLEANUP_BATCH_SIZE = "storage.s3.cleanup.batchSize";
   public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "storage.s3.upload.multipart_threshold";

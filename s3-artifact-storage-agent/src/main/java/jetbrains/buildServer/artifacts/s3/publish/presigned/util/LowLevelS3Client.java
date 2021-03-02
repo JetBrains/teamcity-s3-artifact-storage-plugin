@@ -4,8 +4,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.http.HttpUserAgent;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpClient;
@@ -18,7 +20,7 @@ import org.apache.http.client.HttpResponseException;
 import org.jetbrains.annotations.NotNull;
 
 public class LowLevelS3Client implements AutoCloseable {
-  private static final int OUR_CHUNK_SIZE = 4096;
+  private static final int OUR_CHUNK_SIZE = TeamCityProperties.getInteger(S3Constants.S3_PRESIGNED_UPLOAD_INTERNAL_CHUNK_SIZE, 1024 * 1024);
   @NotNull
   private final HttpClient myHttpClient;
 
