@@ -18,8 +18,10 @@ package jetbrains.buildServer.artifacts.s3.cleanup;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
+import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.collect.Lists;
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,7 @@ import static jetbrains.buildServer.util.Util.doUnderContextClassLoader;
 
 public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
+  private static final Logger LOGGER = CLEANUP;
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull
@@ -99,13 +102,13 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
         doClean(cleanupContext, build, pathPrefix, pathsToDelete);
       } catch (InvalidSettingsException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        LOGGER.warn("Failed to remove S3 artifacts: " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
       } catch (IOException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        LOGGER.warn("Failed to remove S3 artifacts: " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
       } catch (RuntimeException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        LOGGER.warn("Failed to remove S3 artifacts: " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
       }
     }
@@ -136,23 +139,23 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           errors.forEach(error -> {
             final String key = error.getKey();
             if (key.startsWith(pathPrefix)) {
-              CLEANUP.debug("Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
+              LOGGER.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
               pathsToDelete.remove(key.substring(pathPrefix.length()));
             }
           });
           errorNum.addAndGet(errors.size());
         } catch (ExecutionException | InterruptedException e) {
-          CLEANUP.error("Got an exception while processing chunk " + part, e);
+          LOGGER.error("Got an exception while processing chunk " + part, e);
           errorNum.addAndGet(part.size());
         }
       });
 
       if (errorNum.get() > 0) {
-        CLEANUP.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
+        LOGGER.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
       }
 
-      CLEANUP.info("Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
+      LOGGER.info(() -> "Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
 
       myHelper.removeFromArtifactList(build, pathsToDelete);
 
@@ -180,7 +183,12 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     final List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
     final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
     return executeWithNewThreadName(info.get(),
-                                    () -> doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> client.deleteObjects(deleteObjectsRequest).getDeletedObjects().size()));
+                                    () -> doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
+                                      LOGGER.debug(() -> "Starting to remove " + deleteObjectsRequest.getKeys() + " from S3 bucket " + deleteObjectsRequest.getBucketName());
+                                      final List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
+                                      LOGGER.debug(() -> "Finished to remove " + deleteObjectsRequest.getKeys() + " from S3 bucket " + deleteObjectsRequest.getBucketName());
+                                      return deletedObjects.size();
+                                    }));
   }
 
   @NotNull
