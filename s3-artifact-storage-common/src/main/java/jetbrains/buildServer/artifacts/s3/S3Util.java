@@ -210,7 +210,7 @@ public final class S3Util {
   }
 
   public static boolean getPresignedMultipartUploadEnabled(@NotNull final Map<String, String> configuration) {
-    return Boolean.parseBoolean(configuration.get(S3_ENABLE_PRESIGNED_MULTIPART_UPLOAD));
+    return Boolean.parseBoolean(configuration.getOrDefault(S3_ENABLE_PRESIGNED_MULTIPART_UPLOAD, "true"));
   }
 
   public static int getConnectionTimeout(@NotNull final Map<String, String> configuration) {
