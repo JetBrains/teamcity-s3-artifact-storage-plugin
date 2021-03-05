@@ -48,12 +48,14 @@ public class LowLevelS3Client implements AutoCloseable {
         return true;
       }
 
+      @SuppressWarnings("ResultOfMethodCallIgnored")
       @Override
       public void writeRequest(@NotNull final OutputStream out) throws IOException {
         long remaining = size;
         final byte[] buffer = new byte[(int)Math.min(OUR_CHUNK_SIZE, remaining)];
         try (final FileInputStream fis = new FileInputStream(file);
              final BufferedInputStream bis = new BufferedInputStream(fis)) {
+          bis.skip(start);
           do {
             final int currentChunkSize = (int)Math.min(buffer.length, remaining);
             final int read = bis.read(buffer, 0, currentChunkSize);
