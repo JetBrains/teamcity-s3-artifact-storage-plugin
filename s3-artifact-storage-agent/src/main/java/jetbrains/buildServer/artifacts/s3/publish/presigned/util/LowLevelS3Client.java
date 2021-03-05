@@ -1,9 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.http.HttpUserAgent;
@@ -20,7 +17,7 @@ import org.apache.http.client.HttpResponseException;
 import org.jetbrains.annotations.NotNull;
 
 public class LowLevelS3Client implements AutoCloseable {
-  private static final int OUR_CHUNK_SIZE = TeamCityProperties.getInteger(S3Constants.S3_PRESIGNED_UPLOAD_INTERNAL_CHUNK_SIZE, 1024 * 1024);
+  private static final int OUR_CHUNK_SIZE = TeamCityProperties.getInteger(S3Constants.S3_PRESIGNED_UPLOAD_INTERNAL_CHUNK_SIZE, 64 * 1024);
   @NotNull
   private final HttpClient myHttpClient;
 
@@ -41,29 +38,32 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  public String uploadFilePart(@NotNull final String url, @NotNull final InputStream content, final long size, @NotNull final String contentType) throws IOException {
+  public String uploadFilePart(@NotNull final String url, @NotNull final File file, final long start, final long size) throws IOException {
     final PutMethod request = new PutMethod(url);
     request.setRequestHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent());
 
     request.setRequestEntity(new RequestEntity() {
       @Override
       public boolean isRepeatable() {
-        return false;
+        return true;
       }
 
       @Override
       public void writeRequest(@NotNull final OutputStream out) throws IOException {
         long remaining = size;
         final byte[] buffer = new byte[(int)Math.min(OUR_CHUNK_SIZE, remaining)];
-        do {
-          final int currentChunkSize = (int)Math.min(buffer.length, remaining);
-          final int read = content.read(buffer, 0, currentChunkSize);
-          if (read != currentChunkSize) {
-            throw new IOException("Reader has read " + read + " bytes when supposed to read " + buffer.length);
-          }
-          remaining -= currentChunkSize;
-          out.write(buffer, 0, currentChunkSize);
-        } while (remaining > 0);
+        try (final FileInputStream fis = new FileInputStream(file);
+             final BufferedInputStream bis = new BufferedInputStream(fis)) {
+          do {
+            final int currentChunkSize = (int)Math.min(buffer.length, remaining);
+            final int read = bis.read(buffer, 0, currentChunkSize);
+            if (read != currentChunkSize) {
+              throw new IOException("Reader has read " + read + " bytes when supposed to read " + buffer.length);
+            }
+              remaining -= currentChunkSize;
+            out.write(buffer, 0, currentChunkSize);
+          } while (remaining > 0);
+        }
       }
 
       @Override
@@ -73,7 +73,7 @@ public class LowLevelS3Client implements AutoCloseable {
 
       @Override
       public String getContentType() {
-        return contentType;
+        return S3Util.getContentType(file);
       }
     });
     HttpClientUtil.executeAndReleaseConnection(myHttpClient, request);

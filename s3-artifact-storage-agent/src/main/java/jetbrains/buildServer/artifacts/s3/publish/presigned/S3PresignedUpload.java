@@ -1,7 +1,9 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.io.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -16,8 +18,6 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
-
-import static jetbrains.buildServer.artifacts.s3.S3Util.getContentType;
 
 public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   @NotNull
@@ -109,8 +109,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
     final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, nParts);
     myProgressListener.beforeUploadStarted();
-    try (final FileInputStream fis = new FileInputStream(myFile);
-         final BufferedInputStream bis = new BufferedInputStream(fis)) {
+    try {
       multipartUploadUrls.presignedUrlParts
         .stream()
         .sorted(Comparator.comparing(presignedUrlPartDto -> presignedUrlPartDto.partNumber))
@@ -120,7 +119,8 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
           final int chunkSize = (int)Math.min(remainingBytes, myChunkSizeInBytes);
           myRemainingBytes.getAndAdd(-chunkSize);
           try {
-            final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, bis, chunkSize, getContentType(myFile));
+            final long start = (long)(presignedUrlPartDto.partNumber - 1) * chunkSize;
+            final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, chunkSize);
             myProgressListener.onPartUploadSuccess();
             etags.add(etag);
           } catch (Exception e) {
