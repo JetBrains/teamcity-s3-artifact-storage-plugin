@@ -95,7 +95,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private void fixContentSecurityPolicy(final String preSignedUrl) {
     try {
       final URL url = new URL(preSignedUrl);
-      myContentSecurityPolicyConfig.addDirectiveItems("img-src", url.getProtocol() + "://" + url.getHost());
+      myContentSecurityPolicyConfig.addDirectiveItems("img-src", url.getProtocol() + "://" + url.getHost() + (url.getPort() > 0 ? ":" + url.getPort() : ""));
     } catch (MalformedURLException e) {
       LOG.warn(e);
     }
