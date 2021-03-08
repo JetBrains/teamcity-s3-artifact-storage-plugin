@@ -58,11 +58,8 @@ public class LowLevelS3Client implements AutoCloseable {
           bis.skip(start);
           do {
             final int currentChunkSize = (int)Math.min(buffer.length, remaining);
-            final int read = bis.read(buffer, 0, currentChunkSize);
-            if (read != currentChunkSize) {
-              throw new IOException("Reader has read " + read + " bytes when supposed to read " + buffer.length);
-            }
-              remaining -= currentChunkSize;
+            bis.read(buffer, 0, currentChunkSize);
+            remaining -= currentChunkSize;
             out.write(buffer, 0, currentChunkSize);
           } while (remaining > 0);
         }
