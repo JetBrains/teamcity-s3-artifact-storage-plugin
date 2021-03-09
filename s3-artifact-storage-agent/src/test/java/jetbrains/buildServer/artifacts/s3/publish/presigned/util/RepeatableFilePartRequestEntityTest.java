@@ -23,10 +23,6 @@ public class RepeatableFilePartRequestEntityTest extends BaseTestCase {
       }
     }
 
-    final RepeatableFilePartRequestEntity part2 = new RepeatableFilePartRequestEntity(file, 6, 10);
-    final RepeatableFilePartRequestEntity part3 = new RepeatableFilePartRequestEntity(file, 10, file.length());
-
-
     assertEquals(IOUtil.readLines(file), IOUtil.readLines(out));
   }
 }
