@@ -32,6 +32,9 @@ public class RepeatableFilePartRequestEntity implements RequestEntity {
     try (final FileInputStream fis = new FileInputStream(myFile);
          final BufferedInputStream bis = new BufferedInputStream(fis)) {
       final long skip = bis.skip(myStart);
+      if (skip != myStart) {
+        throw new IOException("Reader has skipped " + skip + " bytes when supposed to skip " + myStart);
+      }
       do {
         final int currentChunkSize = (int)Math.min(buffer.length, remaining);
         final int readContentLength = bis.read(buffer, 0, currentChunkSize);

@@ -27,6 +27,8 @@ teamcity {
 
 dependencies {
     compile project(':s3-artifact-storage-common')
+    testCompile "org.testng:testng:6.8.21"
+    testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
 }
 
 agentPlugin.version = null
