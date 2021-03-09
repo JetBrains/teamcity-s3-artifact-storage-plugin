@@ -4,9 +4,8 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,11 +36,10 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   private final PresignedUploadProgressListener myProgressListener;
   @NotNull
   private final AtomicLong myRemainingBytes = new AtomicLong();
-  @NotNull
-  private final List<String> etags = new ArrayList<>();
-  private final int myChunkSizeInBytes;
+  private final long myChunkSizeInBytes;
   private final int myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
+  private String[] etags;
 
   private S3PresignedUpload(@NotNull final String artifactPath,
                             @NotNull final String objectKey,
@@ -76,7 +74,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
 
   @Override
   public ArtifactDataInstance call() {
-    etags.clear();
+    etags = null;
     try {
       if (!myFile.exists()) {
         throw new FileNotFoundException(myFile.getAbsolutePath());
@@ -107,27 +105,25 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     LOGGER.debug(() -> "Multipart upload " + this + " started");
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
+    etags = new String[nParts];
     final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, nParts);
     myProgressListener.beforeUploadStarted();
     try {
-      multipartUploadUrls.presignedUrlParts
-        .stream()
-        .sorted(Comparator.comparing(presignedUrlPartDto -> presignedUrlPartDto.partNumber))
-        .forEachOrdered(presignedUrlPartDto -> {
-          myProgressListener.beforePartUploadStarted();
-          final long remainingBytes = myRemainingBytes.get();
-          final int chunkSize = (int)Math.min(remainingBytes, myChunkSizeInBytes);
-          myRemainingBytes.getAndAdd(-chunkSize);
-          try {
-            final long start = (long)(presignedUrlPartDto.partNumber - 1) * chunkSize;
-            final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, chunkSize);
-            myProgressListener.onPartUploadSuccess();
-            etags.add(etag);
-          } catch (Exception e) {
-            myProgressListener.onPartUploadFailed(e);
-            ExceptionUtil.rethrowAsRuntimeException(e);
-          }
-        });
+      multipartUploadUrls.presignedUrlParts.forEach(presignedUrlPartDto -> {
+        myProgressListener.beforePartUploadStarted();
+        try {
+          final int partIndex = presignedUrlPartDto.partNumber - 1;
+          final long contentLength = Math.min(myChunkSizeInBytes, myFile.length() - myChunkSizeInBytes * partIndex);
+          myRemainingBytes.getAndAdd(-contentLength);
+          final long start = partIndex * myChunkSizeInBytes;
+          final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, contentLength);
+          myProgressListener.onPartUploadSuccess();
+          etags[partIndex] = etag;
+        } catch (Exception e) {
+          myProgressListener.onPartUploadFailed(e);
+          ExceptionUtil.rethrowAsRuntimeException(e);
+        }
+      });
       myProgressListener.onFileUploadSuccess();
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
@@ -154,7 +150,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
 
   @NotNull
   public List<String> getEtags() {
-    return etags != null ? etags : Collections.emptyList();
+    return etags != null ? Arrays.asList(etags) : Collections.emptyList();
   }
 
   @NotNull
