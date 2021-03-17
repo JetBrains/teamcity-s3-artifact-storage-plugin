@@ -19,6 +19,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import jetbrains.buildServer.http.HttpUtil;
+import jetbrains.buildServer.transport.AgentServerSharedErrorMessages;
 import jetbrains.buildServer.util.Converter;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
@@ -111,7 +112,7 @@ public final class HttpClientUtil {
       super("Got response code " + responseCode + "." + responseString == null ? "" : " Response: " + responseString);
       myResponseCode = responseCode;
       myResponse = responseString;
-      isBuildFinishedReason = responseString != null && responseString.toLowerCase().contains("build is already finished or does not exist");
+      isBuildFinishedReason = responseString != null && responseString.contains(AgentServerSharedErrorMessages.buildIsAlreadyFinishedOrDoesNotExist());
     }
 
     public int getResponseCode() {
