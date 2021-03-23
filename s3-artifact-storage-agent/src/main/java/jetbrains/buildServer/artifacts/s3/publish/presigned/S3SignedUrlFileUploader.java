@@ -22,7 +22,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -71,6 +74,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<>();
 
     final S3AdvancedConfiguration s3Config = configuration(build.getSharedConfigParameters(), settings);
+    LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + s3Config);
 
     for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
       final String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());

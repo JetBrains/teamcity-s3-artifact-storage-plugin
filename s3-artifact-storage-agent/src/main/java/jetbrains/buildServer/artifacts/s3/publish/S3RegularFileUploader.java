@@ -77,7 +77,8 @@ public class S3RegularFileUploader extends S3FileUploader {
     try {
       prepareDestination(bucketName, params);
       final List<ArtifactDataInstance> artifacts = new ArrayList<>();
-      final S3AdvancedConfiguration configuration = configuration(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
+      final S3AdvancedConfiguration s3Config = configuration(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
+      LOG.debug(() -> "Publishing artifacts using S3 configuration " + s3Config);
 
       S3Util.withTransferManagerCorrectingRegion(params, transferManager ->
         filesToPublish.entrySet()
@@ -85,7 +86,7 @@ public class S3RegularFileUploader extends S3FileUploader {
                       .map(entry -> createRequest(buildLog, pathPrefix, bucketName, artifacts, new Pair<>(entry.getValue(), entry.getKey())))
                       .filter(Objects::nonNull)
                       .map(request -> doUpload(buildLog, transferManager, request))
-                      .collect(Collectors.toList()), configuration).forEach(upload -> {
+                      .collect(Collectors.toList()), s3Config).forEach(upload -> {
         try {
           upload.waitForCompletion();
         } catch (Exception e) {

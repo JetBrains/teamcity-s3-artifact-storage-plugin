@@ -21,7 +21,6 @@ import org.jetbrains.annotations.NotNull;
 public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3PresignedUpload.class);
-  private static final int FIVE_MB = 5 * 1024 * 1024;
   @NotNull
   private final String myArtifactPath;
   @NotNull
@@ -37,7 +36,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   @NotNull
   private final AtomicLong myRemainingBytes = new AtomicLong();
   private final long myChunkSizeInBytes;
-  private final int myMultipartThresholdInBytes;
+  private final long myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
   private String[] etags;
 
@@ -53,8 +52,8 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     myFile = file;
     myS3SignedUploadManager = s3SignedUploadManager;
     myLowLevelS3Client = lowLevelS3Client;
-    myChunkSizeInBytes = configuration.getMinimumUploadPartSize() != null ? configuration.getMinimumUploadPartSize().intValue() : FIVE_MB;
-    myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold() != null ? configuration.getMinimumUploadPartSize().intValue() : FIVE_MB;
+    myChunkSizeInBytes = configuration.getMinimumUploadPartSize();
+    myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold();
     myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
   }
