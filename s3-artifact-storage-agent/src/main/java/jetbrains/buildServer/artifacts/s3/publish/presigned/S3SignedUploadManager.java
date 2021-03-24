@@ -206,7 +206,9 @@ public class S3SignedUploadManager implements AutoCloseable {
       post.setParameter(OBJECT_KEY, upload.getObjectKey());
       post.setParameter(FINISH_UPLOAD, uploadId);
       post.setParameter(UPLOAD_SUCCESSFUL, String.valueOf(isSuccessful));
-      upload.getEtags().forEach(etag -> post.addParameter(ETAGS, etag));
+      if (isSuccessful) {
+        upload.getEtags().forEach(etag -> post.addParameter(ETAGS, etag));
+      }
       try {
         executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
         LOGGER.debug(() -> "Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
