@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3;
+package jetbrains.buildServer.artifacts.s3.exceptions;
 
 import java.util.HashMap;
 import java.util.Map;

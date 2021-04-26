@@ -18,13 +18,13 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlListResponseDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
-import org.apache.commons.httpclient.*;
+import org.apache.commons.httpclient.HttpClient;
+import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.http.HttpHeaders;
@@ -32,14 +32,11 @@ import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
-import static jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil.executeReleasingConnectionAndReadResponseBody;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUploadManager.class);
-  @NotNull
-  private static final String MAX_TOTAL_CONNECTIONS_PARAM = "teamcity.s3.artifactUploader.maxTotalConnections";
   @NotNull
   private final HttpClient myTeamCityClient;
   @NotNull
@@ -104,7 +101,7 @@ public class S3SignedUploadManager implements AutoCloseable {
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(requestEntity(objectKeys));
-      final String responseBody = executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+      final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
       return deserializeResponseV1(responseBody).presignedUrls
         .stream()
         .collect(Collectors.toMap(presignedUrlDto -> presignedUrlDto.objectKey,
@@ -174,7 +171,7 @@ public class S3SignedUploadManager implements AutoCloseable {
   public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, final int nParts) throws IOException {
     final PostMethod post = postTemplate();
     post.setRequestEntity(multipartRequestEntity(objectKey, nParts));
-    final String responseBody = executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+    final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
     final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
     final PresignedUrlDto presignedUrl = presignedUrlListResponseDto.presignedUrls
       .stream()
@@ -210,7 +207,7 @@ public class S3SignedUploadManager implements AutoCloseable {
         upload.getEtags().forEach(etag -> post.addParameter(ETAGS, etag));
       }
       try {
-        executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+        HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
         LOGGER.debug(() -> "Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
       } catch (Exception e) {
         LOGGER.warnAndDebugDetails("Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);
@@ -222,41 +219,6 @@ public class S3SignedUploadManager implements AutoCloseable {
   @Override
   public String toString() {
     return "PresignedUpload{correlationId: " + myCorrelationId + ", objectKeysSize: " + myS3ObjectKeys.size() + "}";
-  }
-
-  static class TeamCityConnectionConfiguration {
-    @NotNull
-    private final String myTeamCityUrl;
-    @NotNull
-    private final String myAccessUser;
-    @NotNull
-    private final String myAccessCode;
-    private final int myConnectionTimeout;
-    private final int myNThreads = TeamCityProperties.getInteger(MAX_TOTAL_CONNECTIONS_PARAM, MultiThreadedHttpConnectionManager.DEFAULT_MAX_TOTAL_CONNECTIONS);
-
-    public TeamCityConnectionConfiguration(@NotNull final String teamCityUrl, @NotNull final String accessUser, @NotNull final String accessCode, final int connectionTimeout) {
-      myTeamCityUrl = teamCityUrl;
-      myAccessUser = accessUser;
-      myAccessCode = accessCode;
-      myConnectionTimeout = connectionTimeout;
-    }
-
-    public int getConnectionTimeout() {
-      return myConnectionTimeout;
-    }
-
-    public int getNThreads() {
-      return myNThreads;
-    }
-
-    @NotNull
-    public String getTeamCityUrl() {
-      return myTeamCityUrl;
-    }
-
-    public Credentials getCredentials() {
-      return new UsernamePasswordCredentials(myAccessUser, myAccessCode);
-    }
   }
 
   static class MisconfigurationException extends RuntimeException {

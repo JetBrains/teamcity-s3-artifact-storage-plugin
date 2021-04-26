@@ -16,9 +16,7 @@
 
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
-  compile("jetbrains.buildServer.util:amazon-util:${awsCoreVersion}") {
-    changing = true
-  }
+  compile project(':teamcity-s3-sdk')
   testCompile "org.testng:testng:6.8.21"
   testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
 }

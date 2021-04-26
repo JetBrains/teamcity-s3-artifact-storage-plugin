@@ -6,13 +6,13 @@
     </facet>
   </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
-    <output url="file://$MODULE_DIR$/../s3-artifact-storage-common/target/classes" />
-    <output-test url="file://$MODULE_DIR$/../s3-artifact-storage-common/target/test-classes" />
-    <content url="file://$MODULE_DIR$/../s3-artifact-storage-common">
-      <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/src/main/java" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/src/test/java" isTestSource="true" />
-      <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/build" />
-      <excludeFolder url="file://$MODULE_DIR$/../s3-artifact-storage-common/target" />
+    <output url="file://$MODULE_DIR$/../teamcity-s3-sdk/target/classes" />
+    <output-test url="file://$MODULE_DIR$/../teamcity-s3-sdk/target/test-classes" />
+    <content url="file://$MODULE_DIR$/../teamcity-s3-sdk">
+      <sourceFolder url="file://$MODULE_DIR$/../teamcity-s3-sdk/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../teamcity-s3-sdk/src/test/java" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/../teamcity-s3-sdk/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../teamcity-s3-sdk/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
@@ -23,9 +23,8 @@
     <orderEntry type="library" scope="TEST" name="hamcrest-1.3" level="project" />
     <orderEntry type="library" scope="TEST" name="testng" level="project" />
     <orderEntry type="module" module-name="test-api" scope="TEST" />
-    <orderEntry type="library" name="commons-httpclient-4.3" level="project" />
     <orderEntry type="module" module-name="aws-core-common" />
     <orderEntry type="library" name="aws-sdk-services" level="project" />
-    <orderEntry type="module" module-name="teamcity-s3-sdk" />
+    <orderEntry type="library" name="commons-httpclient" level="project" />
   </component>
 </module>

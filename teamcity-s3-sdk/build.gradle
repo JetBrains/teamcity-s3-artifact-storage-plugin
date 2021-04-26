@@ -1,0 +1,38 @@
+apply plugin: 'maven-publish'
+
+dependencies {
+  compile "org.jetbrains.teamcity:common-api:${teamcityVersion}"
+  compile 'commons-httpclient:commons-httpclient:3.1'
+  compile("org.jetbrains.teamcity:aws-core-common:${teamcityVersion}") {
+    changing = true
+  }
+  testCompile "org.testng:testng:6.8.21"
+  testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+}
+
+tasks.withType(JavaCompile) {
+  sourceCompatibility = "1.8"
+  targetCompatibility = "1.8"
+
+
+  if (project.hasProperty('JDK_18')) {
+    options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
+  }
+}
+
+
+publishing {
+  publications {
+    maven(MavenPublication) {
+      groupId = 'org.jetbrains.teamcity.internal'
+      artifactId = 'teamcity-s3-sdk'
+      version = "2021.1-SNAPSHOT"
+      from components.java
+      pom {
+        name = 'TeamCity S3 SDK'
+        description = 'Shared S3 SDK Library'
+        url = 'https://packages.jetbrains.team/maven/p/tc/maven'
+      }
+    }
+  }
+}

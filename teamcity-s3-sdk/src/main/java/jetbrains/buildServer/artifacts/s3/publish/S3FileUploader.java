@@ -19,20 +19,30 @@ package jetbrains.buildServer.artifacts.s3.publish;
 import java.io.File;
 import java.util.Collection;
 import java.util.Map;
-import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.artifacts.ArtifactDataInstance;
-import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
+import java.util.function.Supplier;
+import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
+import jetbrains.buildServer.artifacts.s3.S3Configuration;
+import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.S3SignedUrlFileUploader;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class S3FileUploader {
   @NotNull
-  public abstract Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
-                                                           @NotNull final String pathPrefix,
-                                                           @NotNull final Map<File, String> filesToPublish) throws InvalidSettingsException;
+  protected final S3UploadLogger myLogger;
+  @NotNull
+  protected final S3Configuration myS3Configuration;
+
+  public S3FileUploader(@NotNull final S3Configuration s3Configuration, @NotNull S3UploadLogger logger) {
+    this.myS3Configuration = s3Configuration;
+    this.myLogger = logger;
+  }
 
   @NotNull
-  public S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> sharedConfigurationParameters, @NotNull final Map<String, String> artifactStorageSettings) {
+  public static S3Util.S3AdvancedConfiguration configuration(@NotNull final Map<String, String> sharedConfigurationParameters,
+                                                             @NotNull final Map<String, String> artifactStorageSettings) {
     return new S3Util.S3AdvancedConfiguration()
       .withNumberOfRetries(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfRetries(sharedConfigurationParameters))
       .withRetryDelayMs(jetbrains.buildServer.artifacts.s3.S3Util.getRetryDelayInMs(sharedConfigurationParameters))
@@ -45,4 +55,16 @@ public abstract class S3FileUploader {
       .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
       .withShutdownClient();
   }
+
+  public static S3FileUploader create(@NotNull final S3Configuration s3Configuration,
+                                      @NotNull final S3UploadLogger s3UploadLogger,
+                                      @NotNull final TeamCityConnectionConfiguration tcConnectionConfiguration) {
+    return s3Configuration.isUsePresignedUrls()
+           ? new S3SignedUrlFileUploader(s3Configuration, s3UploadLogger, tcConnectionConfiguration)
+           : new S3RegularFileUploader(s3Configuration, s3UploadLogger);
+  }
+
+  @NotNull
+  public abstract Collection<FileUploadInfo> upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter)
+    throws InvalidSettingsException;
 }

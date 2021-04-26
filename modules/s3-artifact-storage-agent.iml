@@ -27,8 +27,9 @@
     <orderEntry type="module" module-name="runtime-util" />
     <orderEntry type="module" module-name="utils" />
     <orderEntry type="library" name="commons-httpclient" level="project" />
-    <orderEntry type="module" module-name="aws-core-common" />
     <orderEntry type="module" module-name="test-api" />
     <orderEntry type="library" name="testng" level="project" />
+    <orderEntry type="module" module-name="teamcity-s3-sdk" />
+    <orderEntry type="module" module-name="aws-core-common" />
   </component>
 </module>

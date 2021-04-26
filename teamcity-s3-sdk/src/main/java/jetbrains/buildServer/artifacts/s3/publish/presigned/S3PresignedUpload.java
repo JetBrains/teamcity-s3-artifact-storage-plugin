@@ -9,8 +9,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
-import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
-import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
+import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
@@ -20,11 +20,10 @@ import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
-import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
+public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3PresignedUpload.class);
   @NotNull
@@ -44,7 +43,6 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   private final long myChunkSizeInBytes;
   private final long myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
-  @NotNull
   private final Retrier myRetrier;
   @Nullable
   private String[] etags;
@@ -67,7 +65,6 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     myProgressListener = progressListener;
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
            .registerListener(new AbortingListener(HttpClientUtil.HttpErrorCodeException.class))
-           .registerListener(new LoggingRetrierListener(LOGGER))
            .registerListener(new AbstractRetrierEventListener() {
              @Override
              public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
@@ -95,7 +92,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   }
 
   @Override
-  public ArtifactDataInstance call() {
+  public FileUploadInfo call() {
     etags = null;
     try {
       if (!myFile.exists()) {
@@ -103,14 +100,14 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
       }
       myRemainingBytes.set(myFile.length());
       upload();
-      return ArtifactDataInstance.create(myArtifactPath, myFile.length());
+      return new FileUploadInfo(myArtifactPath, myFile.length());
     } catch (HttpClientUtil.HttpErrorCodeException e) {
       final String msg = "Failed to upload artifact " + myArtifactPath + ": " + e.getMessage();
       LOGGER.infoAndDebugDetails(msg, e);
-      throw new ArtifactPublishingFailedException(msg, false, e);
+      throw new FileUploadFailedException(msg, false, e);
     } catch (IOException e) {
       LOGGER.infoAndDebugDetails("Got exception while trying to upload file: " + e.getMessage(), e);
-      throw new ArtifactPublishingFailedException(e.getMessage(), false, e);
+      throw new FileUploadFailedException(e.getMessage(), false, e);
     }
   }
 

@@ -10,8 +10,8 @@
           <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/resources" relative="/plugins/s3-storage" />
         </webroots>
         <sourceRoots>
-          <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/java" />
           <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/resources" />
+          <root url="file://$MODULE_DIR$/../s3-artifact-storage-server/src/main/java" />
         </sourceRoots>
       </configuration>
     </facet>
@@ -48,6 +48,7 @@
     <orderEntry type="library" scope="TEST" name="testng" level="project" />
     <orderEntry type="module" module-name="test-api" scope="TEST" />
     <orderEntry type="module" module-name="common-vcs" />
+    <orderEntry type="module" module-name="teamcity-s3-sdk" />
     <orderEntry type="module" module-name="aws-core-common" />
   </component>
 </module>

@@ -26,21 +26,20 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
-import jetbrains.buildServer.agent.BuildInterruptReason;
-import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
+import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.S3FileUploader;
+import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableForkJoinPoolAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
-import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
@@ -56,98 +55,94 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUrlFileUploader.class.getName());
   @NotNull
-  private final AtomicReference<AgentRunningBuild> myBuild = new AtomicReference<>();
+  private final TeamCityConnectionConfiguration myTeamCityConnectionConfiguration;
+
+  public S3SignedUrlFileUploader(@NotNull final S3Configuration s3Configuration,
+                                 @NotNull final S3UploadLogger s3UploadLogger,
+                                 @NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
+    super(s3Configuration, s3UploadLogger);
+    this.myTeamCityConnectionConfiguration = teamCityConnectionConfiguration;
+  }
 
   @NotNull
   @Override
-  public Collection<ArtifactDataInstance> publish(@NotNull final AgentRunningBuild build,
-                                                  @NotNull final String pathPrefix,
-                                                  @NotNull final Map<File, String> filesToPublish) {
-    myBuild.set(build);
-    final Map<String, String> settings = build.getArtifactStorageSettings();
-    final String bucketName = S3Util.getBucketName(settings);
-    if (StringUtil.isEmpty(bucketName)) {
-      throw new IllegalArgumentException("S3 bucket name must not be empty");
-    }
-
+  public Collection<FileUploadInfo> upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) {
     final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<>();
     final Map<File, String> fileToS3ObjectKeyMap = new HashMap<>();
+    LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
-    final S3AdvancedConfiguration s3Config = configuration(build.getSharedConfigParameters(), settings);
-    LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + s3Config);
-
-    for (Map.Entry<File, String> entry : filesToPublish.entrySet()) {
+    for (Map.Entry<File, String> entry : filesToUpload.entrySet()) {
       final String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
       fileToNormalizedArtifactPathMap.put(entry.getKey(), normalizeArtifactPath);
-      fileToS3ObjectKeyMap.put(entry.getKey(), pathPrefix + normalizeArtifactPath);
+      fileToS3ObjectKeyMap.put(entry.getKey(), myS3Configuration.getPathPrefix() + normalizeArtifactPath);
     }
 
-    final Retrier retrier = Retrier.withRetries(s3Config.getRetriesNum())
+    final Retrier retrier = Retrier.withRetries(myS3Configuration.getAdvancedConfiguration().getRetriesNum())
                                    .registerListener(new LoggingRetrierListener(LOGGER))
                                    .registerListener(new AbstractRetrierEventListener() {
                                      @Override
                                      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                                        final String retryLogPart = retry == 0 ? "" : " after " + retry + " retry";
-                                       build.getBuildLogger().message(callable + " failed with exception " + e.getMessage() + retryLogPart);
+                                       myLogger.info(callable + " failed with exception " + e.getMessage() + retryLogPart);
                                        super.onFailure(callable, retry, e);
                                      }
                                    })
-                                   .registerListener(new AbortingListener(ArtifactPublishingFailedException.class))
+                                   .registerListener(new AbortingListener(FileUploadFailedException.class))
                                    .registerListener(new AbortingListener() {
                                      @Override
                                      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-                                       if (e instanceof ArtifactPublishingFailedException) {
-                                         if (!((ArtifactPublishingFailedException)e).isMustRepeat()) {
+                                       if (e instanceof FileUploadFailedException) {
+                                         if (!((FileUploadFailedException)e).isRetryable()) {
                                            ExceptionUtil.rethrowAsRuntimeException(e);
                                          }
                                        }
                                      }
                                    })
-                                   .registerListener(new ExponentialDelayListener(s3Config.getRetryDelay()));
+                                   .registerListener(new ExponentialDelayListener(myS3Configuration.getAdvancedConfiguration().getRetryDelay()));
 
-    try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(s3Config.getNThreads());
-         final LowLevelS3Client lowLevelS3Client = createAwsClient(s3Config);
-         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(teamcityConnectionConfiguration(build), s3Config, fileToS3ObjectKeyMap.values())) {
+    try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
+         final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration.getAdvancedConfiguration());
+         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myTeamCityConnectionConfiguration,
+                                                                               myS3Configuration.getAdvancedConfiguration(),
+                                                                               fileToS3ObjectKeyMap.values())) {
       try {
-        return filesToPublish.keySet()
-                             .stream()
-                             .map(file -> {
-                               try {
-                                 return forkJoinPool.submit(() -> retrier
-                                   .execute(S3PresignedUpload.create(fileToNormalizedArtifactPathMap.get(file),
-                                                                     fileToS3ObjectKeyMap.get(file),
-                                                                     file,
-                                                                     s3Config,
-                                                                     uploadManager,
-                                                                     lowLevelS3Client,
-                                                                     new PresignedUploadProgressListenerImpl(build, uploadManager))));
-                               } catch (RejectedExecutionException e) {
-                                 if (isPoolTerminating(forkJoinPool)) {
-                                   LOGGER.debug("Artifact publishing rejected by pool shutdown");
-                                 } else {
-                                   LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
-                                 }
-                                 return null;
-                               }
-                             })
-                             .filter(Objects::nonNull)
-                             .map((ForkJoinTask<ArtifactDataInstance> future) -> waitForCompletion(future, e -> {
-                               if (e instanceof PublishingInterruptedException || e instanceof InterruptedException) {
-                                 //is there really a reason to continue at this point?
-                                 shutdownPool(forkJoinPool);
-                               }
-                               logPublishingError(e);
-                               if (Boolean.parseBoolean(myBuild.get().getSharedConfigParameters().getOrDefault("teamcity.internal.artifacts.failBuildOnPublishingFailure", "true"))) {
-                                 ExceptionUtil.rethrowAsRuntimeException(e);
-                               }
-                             }))
-                             .filter(Objects::nonNull)
-                             .collect(Collectors.toList());
+        return filesToUpload.keySet()
+                            .stream()
+                            .map(file -> {
+                              try {
+                                return forkJoinPool.submit(() -> retrier
+                                  .execute(S3PresignedUpload.create(fileToNormalizedArtifactPathMap.get(file),
+                                                                    fileToS3ObjectKeyMap.get(file),
+                                                                    file,
+                                                                    myS3Configuration.getAdvancedConfiguration(),
+                                                                    uploadManager,
+                                                                    lowLevelS3Client,
+                                                                    new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
+                              } catch (RejectedExecutionException e) {
+                                if (isPoolTerminating(forkJoinPool)) {
+                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
+                                } else {
+                                  LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
+                                }
+                                return null;
+                              }
+                            })
+                            .filter(Objects::nonNull)
+                            .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
+                              if (e instanceof PublishingInterruptedException || e instanceof InterruptedException) {
+                                //is there really a reason to continue at this point?
+                                shutdownPool(forkJoinPool);
+                              }
+                              logPublishingError(e);
+                              ExceptionUtil.rethrowAsRuntimeException(e);
+                            }))
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
       } catch (Throwable th) {
         if (!(th instanceof InterruptedException)) {
           LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
         }
-        throw new ArtifactPublishingFailedException(th.getMessage(), false, th);
+        throw new FileUploadFailedException(th.getMessage(), false, th);
       }
     }
   }
@@ -158,10 +153,10 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
   private void logPublishingError(@NotNull final Throwable e) {
     if ((e instanceof HttpClientUtil.HttpErrorCodeException && ((HttpClientUtil.HttpErrorCodeException)e).isBuildFinishedReason()) || e instanceof InterruptedException) {
-      myBuild.get().getBuildLogger().debug("Artifact publishing has been interrupted");
+      myLogger.debug("Artifact publishing has been interrupted");
       LOGGER.debug("Artifact upload has been interrupted, will not continue with current upload");
     } else {
-      myBuild.get().getBuildLogger().debug("Artifact publishing failed with error " + ExceptionUtil.getDisplayMessage(e));
+      myLogger.debug("Artifact publishing failed with error " + ExceptionUtil.getDisplayMessage(e));
       LOGGER.infoAndDebugDetails("Got exception while waiting for upload to finish, the upload will not continue and the artifact will be ignored", e);
     }
   }
@@ -174,7 +169,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @Nullable
-  private ArtifactDataInstance waitForCompletion(@NotNull final ForkJoinTask<ArtifactDataInstance> future, @NotNull final Consumer<Throwable> onError) {
+  private FileUploadInfo waitForCompletion(@NotNull final ForkJoinTask<FileUploadInfo> future, @NotNull final Consumer<Throwable> onError) {
     try {
       return future.get();
     } catch (final ExecutionException e) {
@@ -187,14 +182,6 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @NotNull
-  private S3SignedUploadManager.TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
-    return new S3SignedUploadManager.TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
-                                                                     build.getAccessUser(),
-                                                                     build.getAccessCode(),
-                                                                     build.getAgentConfiguration().getServerConnectionTimeout());
-  }
-
-  @NotNull
   private LowLevelS3Client createAwsClient(@NotNull final S3AdvancedConfiguration advancedConfiguration) {
     final HttpClient httpClient = HttpUtil.createHttpClient(advancedConfiguration.getConnectionTimeout());
     final HttpConnectionManager httpConnectionManager = HttpClientUtil.createConnectionManager(advancedConfiguration.getConnectionTimeout(), advancedConfiguration.getNThreads());
@@ -204,14 +191,19 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
   private static class PresignedUploadProgressListenerImpl implements PresignedUploadProgressListener {
     @NotNull
-    private final AgentRunningBuild myBuild;
+    private final S3UploadLogger myS3UploadLogger;
     @NotNull
     private final S3SignedUploadManager myUploadManager;
+    @NotNull
+    private final Supplier<String> myInterrupter;
     private S3PresignedUpload myUpload;
 
-    private PresignedUploadProgressListenerImpl(@NotNull final AgentRunningBuild build, @NotNull final S3SignedUploadManager uploadManager) {
-      myBuild = build;
+    private PresignedUploadProgressListenerImpl(@NotNull final S3UploadLogger uploadLogger,
+                                                @NotNull final S3SignedUploadManager uploadManager,
+                                                @NotNull final Supplier<String> interrupter) {
+      myS3UploadLogger = uploadLogger;
       myUploadManager = uploadManager;
+      myInterrupter = interrupter;
     }
 
     @Override
@@ -221,23 +213,23 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onPartUploadFailed(@NotNull Exception e) {
-      myBuild.getBuildLogger().warning("Upload chunk " + myUpload.description() + " failed with error " + e.getMessage());
+      myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error " + e.getMessage());
     }
 
     @Override
     public void onPartUploadSuccess() {
-      myBuild.getBuildLogger().debug("Artifact upload " + myUpload.description() + " " + myUpload.getFinishedPercentage() + "%");
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " " + myUpload.getFinishedPercentage() + "%");
     }
 
     @Override
     public void onFileUploadFailed(@NotNull Exception e) {
-      myBuild.getBuildLogger().warning("Upload " + myUpload.description() + " failed with error " + e.getMessage());
+      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error " + e.getMessage());
       myUploadManager.onUploadFailed(myUpload);
     }
 
     @Override
     public void onFileUploadSuccess() {
-      myBuild.getBuildLogger().debug("Artifact upload " + myUpload.description() + " finished");
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " finished");
       myUploadManager.onUploadSuccess(myUpload);
     }
 
@@ -252,9 +244,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     private void checkInterrupted() {
-      final BuildInterruptReason reason = myBuild.getInterruptReason();
-      if (reason != null) {
-        throw new PublishingInterruptedException(reason.getUserDescription());
+      final String interruptedReason = myInterrupter.get();
+      if (interruptedReason != null) {
+        throw new PublishingInterruptedException(interruptedReason);
       }
     }
   }

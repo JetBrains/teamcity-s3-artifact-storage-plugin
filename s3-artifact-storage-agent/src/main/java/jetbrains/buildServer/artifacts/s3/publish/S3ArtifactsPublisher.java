@@ -20,14 +20,17 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
+import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.S3SignedUrlFileUploader;
+import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -71,9 +74,16 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
-      final String pathPrefix = getPathPrefix(build);
       final S3FileUploader fileUploader = getFileUploader(build);
-      myArtifacts.addAll(fileUploader.publish(build, pathPrefix, filteredMap));
+      final Collection<FileUploadInfo> upload = fileUploader.upload(filteredMap, () -> {
+        final BuildInterruptReason interruptReason = build.getInterruptReason();
+        if (interruptReason == null) {
+          return null;
+        } else {
+          return interruptReason.getUserDescription();
+        }
+      });
+      upload.stream().map(fileInfo -> ArtifactDataInstance.create(fileInfo.getArtifactPath(), fileInfo.getSize())).forEach(myArtifacts::add);
       publishArtifactsList(build);
     }
 
@@ -119,12 +129,19 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   @NotNull
   private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build) {
     if (myFileUploader == null) {
-      if (S3Util.usePreSignedUrls(build.getArtifactStorageSettings())) {
-        myFileUploader = new S3SignedUrlFileUploader();
-      } else {
-        myFileUploader = new S3RegularFileUploader(myBuildAgentConfiguration);
-      }
+      final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
+      final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
+      s3Configuration.setPathPrefix(getPathPrefix(build));
+      myFileUploader = S3FileUploader.create(s3Configuration, new BuildLoggerS3Logger(build.getBuildLogger()), teamcityConnectionConfiguration(build));
     }
     return myFileUploader;
+  }
+
+  @NotNull
+  private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
+    return new TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
+                                               build.getAccessUser(),
+                                               build.getAccessCode(),
+                                               build.getAgentConfiguration().getServerConnectionTimeout());
   }
 }
