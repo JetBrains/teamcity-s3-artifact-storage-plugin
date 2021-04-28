@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
-import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
@@ -184,9 +184,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
     return executeWithNewThreadName(info.get(),
                                     () -> doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
-                                      LOGGER.debug(() -> "Starting to remove " + deleteObjectsRequest.getKeys() + " from S3 bucket " + deleteObjectsRequest.getBucketName());
+                                      final String keys = LOGGER.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
+                                      LOGGER.debug(() -> "Starting to remove " + keys + " from S3 bucket " + deleteObjectsRequest.getBucketName());
                                       final List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
-                                      LOGGER.debug(() -> "Finished to remove " + deleteObjectsRequest.getKeys() + " from S3 bucket " + deleteObjectsRequest.getBucketName());
+                                      LOGGER.debug(() -> "Finished to remove " + keys + " from S3 bucket " + deleteObjectsRequest.getBucketName());
                                       return deletedObjects.size();
                                     }));
   }
