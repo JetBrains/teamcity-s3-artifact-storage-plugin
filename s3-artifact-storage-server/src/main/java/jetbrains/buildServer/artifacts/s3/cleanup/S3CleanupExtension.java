@@ -33,7 +33,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
-import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
