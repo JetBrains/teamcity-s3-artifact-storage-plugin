@@ -133,9 +133,13 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                              .filter(Objects::nonNull)
                              .map((ForkJoinTask<ArtifactDataInstance> future) -> waitForCompletion(future, e -> {
                                if (e instanceof PublishingInterruptedException || e instanceof InterruptedException) {
+                                 //is there really a reason to continue at this point?
                                  shutdownPool(forkJoinPool);
                                }
                                logPublishingError(e);
+                               if (Boolean.parseBoolean(myBuild.get().getSharedConfigParameters().getOrDefault("teamcity.internal.artifacts.failBuildOnPublishingFailure", "true"))) {
+                                 ExceptionUtil.rethrowAsRuntimeException(e);
+                               }
                              }))
                              .filter(Objects::nonNull)
                              .collect(Collectors.toList());
