@@ -16,7 +16,13 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
+import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
+import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
+import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
+import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   @NotNull
@@ -38,6 +44,9 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   private final long myChunkSizeInBytes;
   private final long myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
+  @NotNull
+  private final Retrier myRetrier;
+  @Nullable
   private String[] etags;
 
   private S3PresignedUpload(@NotNull final String artifactPath,
@@ -56,6 +65,20 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
     myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold();
     myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
+    myRetrier = Retrier.withRetries(configuration.getRetriesNum())
+           .registerListener(new AbortingListener(HttpClientUtil.HttpErrorCodeException.class))
+           .registerListener(new LoggingRetrierListener(LOGGER))
+           .registerListener(new AbstractRetrierEventListener() {
+             @Override
+             public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+               if (e instanceof HttpClientUtil.HttpErrorCodeException) {
+                 if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
+                   ExceptionUtil.rethrowAsRuntimeException(e);
+                 }
+               }
+             }
+           })
+           .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
   }
 
   @NotNull
@@ -115,7 +138,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
           final long contentLength = Math.min(myChunkSizeInBytes, myFile.length() - myChunkSizeInBytes * partIndex);
           myRemainingBytes.getAndAdd(-contentLength);
           final long start = partIndex * myChunkSizeInBytes;
-          final String etag = myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, contentLength);
+          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, contentLength));
           myProgressListener.onPartUploadSuccess();
           etags[partIndex] = etag;
         } catch (Exception e) {
@@ -134,7 +157,7 @@ public class S3PresignedUpload implements Callable<ArtifactDataInstance> {
   private void regularUpload() throws IOException {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile);
+      myRetrier.execute(() -> myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile));
       myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess();
     } catch (final Exception e) {

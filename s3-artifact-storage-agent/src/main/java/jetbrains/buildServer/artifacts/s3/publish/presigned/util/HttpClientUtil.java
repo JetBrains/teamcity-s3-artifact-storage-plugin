@@ -21,10 +21,8 @@ import java.io.IOException;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.transport.AgentServerSharedErrorMessages;
 import jetbrains.buildServer.util.Converter;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
+import jetbrains.buildServer.util.StringUtil;
+import org.apache.commons.httpclient.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -126,6 +124,13 @@ public final class HttpClientUtil {
 
     public boolean isBuildFinishedReason() {
       return isBuildFinishedReason;
+    }
+
+    public boolean isRecoverable() {
+      return myResponseCode == HttpStatus.SC_INTERNAL_SERVER_ERROR ||
+             myResponseCode == HttpStatus.SC_BAD_GATEWAY ||
+             myResponseCode == HttpStatus.SC_GATEWAY_TIMEOUT ||
+             (myResponse != null && (StringUtil.containsIgnoreCase(myResponse, "timeout") || StringUtil.containsIgnoreCase(myResponse, "retry")));
     }
   }
 }
