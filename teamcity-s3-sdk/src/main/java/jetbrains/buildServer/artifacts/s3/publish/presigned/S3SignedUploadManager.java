@@ -185,8 +185,8 @@ public class S3SignedUploadManager implements AutoCloseable {
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {
     if (myMultipartUploadIds.containsKey(upload.getObjectKey()) && upload.isMultipartUpload()) {
       sendUploadFinished(upload, true);
+      myS3ObjectKeys.remove(upload.getObjectKey());
     }
-    myS3ObjectKeys.remove(upload.getObjectKey());
   }
 
   public void onUploadFailed(@NotNull final S3PresignedUpload upload) {
