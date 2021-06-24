@@ -3,7 +3,7 @@ apply plugin: 'maven-publish'
 dependencies {
   compile "org.jetbrains.teamcity:common-api:${teamcityVersion}"
   compile 'commons-httpclient:commons-httpclient:3.1'
-  compile("org.jetbrains.teamcity:aws-core-common:${teamcityVersion}") {
+  compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
     changing = true
   }
   testCompile "org.testng:testng:6.8.21"
