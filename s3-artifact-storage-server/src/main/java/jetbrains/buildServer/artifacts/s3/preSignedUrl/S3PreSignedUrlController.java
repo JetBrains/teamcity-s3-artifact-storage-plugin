@@ -41,6 +41,7 @@ import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
+import jetbrains.buildServer.web.util.WebUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
@@ -88,11 +89,14 @@ public class S3PreSignedUrlController extends BaseController {
       }
       httpServletResponse.setStatus(HttpServletResponse.SC_OK);
     } catch (HttpServerErrorException e) {
+      logError(httpServletRequest, e);
       httpServletResponse.sendError(e.getStatusCode().value(), e.getMessage());
     } catch (SdkBaseException | IOException | IllegalArgumentException e) {
+      logError(httpServletRequest, e);
       httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
     } catch (Exception e) {
       final SdkBaseException sdkException = ExceptionUtil.getCause(e, SdkBaseException.class);
+      logError(httpServletRequest, e);
       if (sdkException != null) {
         httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, sdkException.getMessage());
       } else {
@@ -100,6 +104,15 @@ public class S3PreSignedUrlController extends BaseController {
       }
     }
     return null;
+  }
+
+  private void logError(@NotNull final HttpServletRequest request,
+                        @NotNull final Exception e) {
+    if (LOG.isDebugEnabled()) {
+      LOG.debug("Request '" + WebUtil.getRequestDump(request) + "' failed with error '" + e.getMessage() + "'", e);
+    } else {
+      LOG.warnAndDebugDetails("Request '" + WebUtil.getShortRequestDescription(request) + "' failed with error '" + e.getMessage() + "'", e);
+    }
   }
 
   @NotNull
