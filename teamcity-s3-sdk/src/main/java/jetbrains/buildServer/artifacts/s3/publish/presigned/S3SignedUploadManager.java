@@ -211,6 +211,7 @@ public class S3SignedUploadManager implements AutoCloseable {
         LOGGER.debug(() -> "Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
       } catch (Exception e) {
         LOGGER.warnAndDebugDetails("Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);
+        ExceptionUtil.rethrowAsRuntimeException(e);
       }
       myMultipartUploadIds.remove(upload.getObjectKey());
     }

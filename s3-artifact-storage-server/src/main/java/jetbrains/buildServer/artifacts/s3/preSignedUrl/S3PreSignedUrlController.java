@@ -96,7 +96,7 @@ public class S3PreSignedUrlController extends BaseController {
       if (sdkException != null) {
         httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, sdkException.getMessage());
       } else {
-        httpServletResponse.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
+        httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
       }
     }
     return null;
