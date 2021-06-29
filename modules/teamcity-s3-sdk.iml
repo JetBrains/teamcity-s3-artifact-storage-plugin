@@ -6,13 +6,13 @@
     </facet>
   </component>
   <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
-    <output url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/target/classes" />
-    <output-test url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/target/test-classes" />
-    <content url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk">
-      <sourceFolder url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/src/main/java" isTestSource="false" />
-      <sourceFolder url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/src/test/java" isTestSource="true" />
-      <excludeFolder url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/build" />
-      <excludeFolder url="file://$BUILDSERVER_PROJECT_HOME$/external-repos/teamcity-s3-storage/teamcity-s3-sdk/target" />
+    <output url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/target/classes" />
+    <output-test url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/target/test-classes" />
+    <content url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk">
+      <sourceFolder url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/src/test/java" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../teamcity-s3-storage/teamcity-s3-sdk/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
