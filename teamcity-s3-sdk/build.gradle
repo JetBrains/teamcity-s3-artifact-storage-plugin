@@ -3,6 +3,7 @@ apply plugin: 'maven-publish'
 dependencies {
   compile "org.jetbrains.teamcity:common-api:${teamcityVersion}"
   compile 'commons-httpclient:commons-httpclient:3.1'
+  compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
   compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
     changing = true
   }

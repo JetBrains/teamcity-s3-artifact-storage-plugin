@@ -26,5 +26,6 @@
     <orderEntry type="module" module-name="aws-core-common" />
     <orderEntry type="library" name="aws-sdk-services" level="project" />
     <orderEntry type="library" name="commons-httpclient" level="project" />
+    <orderEntry type="library" name="jackson" level="project" />
   </component>
 </module>
