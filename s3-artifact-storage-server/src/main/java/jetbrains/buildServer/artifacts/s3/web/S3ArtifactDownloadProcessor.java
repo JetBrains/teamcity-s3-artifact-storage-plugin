@@ -25,8 +25,8 @@ import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManager;
-import jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManagerImpl;
+import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
+import jetbrains.buildServer.filestorage.S3PresignedUrlProviderImpl;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
@@ -44,10 +44,10 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactDownloadProcessor.class.getName());
 
-  private final S3PreSignedManager myPreSignedUrlProvider;
+  private final S3PresignedUrlProvider myPreSignedUrlProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
 
-  public S3ArtifactDownloadProcessor(@NotNull S3PreSignedManager preSignedUrlProvider,
+  public S3ArtifactDownloadProcessor(@NotNull S3PresignedUrlProvider preSignedUrlProvider,
                                      @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
@@ -66,7 +66,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
                                  @NotNull HttpServletResponse httpServletResponse) throws IOException {
     final ArtifactData artifactData = storedBuildArtifactInfo.getArtifactData();
     if (artifactData == null) throw new IOException("Can not process artifact download request for a folder");
-    final S3PreSignedManagerImpl.S3Settings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings());
+    final S3PresignedUrlProviderImpl.S3Settings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings());
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
     final String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), pathPrefix + artifactData.getPath(), settings);

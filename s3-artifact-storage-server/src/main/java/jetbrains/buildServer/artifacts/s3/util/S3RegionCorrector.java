@@ -7,9 +7,9 @@ import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 
+import static jetbrains.buildServer.artifacts.s3.BucketLocationFetcher.getRegionName;
 import static jetbrains.buildServer.artifacts.s3.S3Util.withClientCorrectingRegion;
 import static jetbrains.buildServer.artifacts.s3.S3Util.withS3ClientShuttingDownImmediately;
-import static jetbrains.buildServer.artifacts.s3.web.BucketLocationHandler.getRegionName;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 
 public final class S3RegionCorrector {

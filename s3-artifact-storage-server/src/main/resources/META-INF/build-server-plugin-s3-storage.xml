@@ -24,6 +24,9 @@
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3SettingsController"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedManagerImpl"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.preSignedUrl.S3PreSignedUrlController"/>
+  <bean id="internalPresignedUrlProvider" class="jetbrains.buildServer.filestorage.S3PresignedUrlProviderImpl" autowire-candidate="false"/>
+  <bean class="jetbrains.buildServer.filestorage.GuardedS3PresignedUrlProvider">
+    <constructor-arg index="0" ref="internalPresignedUrlProvider"/>
+  </bean>
+  <bean class="jetbrains.buildServer.artifacts.s3.web.S3PreSignedUrlController"/>
 </beans>

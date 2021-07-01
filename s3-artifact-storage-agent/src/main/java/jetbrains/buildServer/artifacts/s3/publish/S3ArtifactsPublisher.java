@@ -30,7 +30,9 @@ import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.TeamCityConnectionConfiguration;
+import jetbrains.buildServer.artifacts.s3.publish.logger.CompositeS3UploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -132,7 +134,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
-      myFileUploader = S3FileUploader.create(s3Configuration, new BuildLoggerS3Logger(build.getBuildLogger()), teamcityConnectionConfiguration(build));
+      myFileUploader = S3FileUploader.create(s3Configuration, CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()), teamcityConnectionConfiguration(build));
     }
     return myFileUploader;
   }

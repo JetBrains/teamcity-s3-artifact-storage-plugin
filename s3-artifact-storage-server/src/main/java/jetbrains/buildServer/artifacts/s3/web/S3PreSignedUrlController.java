@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.artifacts.s3.preSignedUrl;
+package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.SdkBaseException;
 import com.intellij.openapi.diagnostic.Logger;
@@ -31,6 +31,7 @@ import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
@@ -60,13 +61,13 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private final RunningBuildsManagerEx myRunningBuildsManager;
   @NotNull
-  private final S3PreSignedManager myPreSignedManager;
+  private final S3PresignedUrlProvider myPreSignedManager;
   @NotNull
   private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsManagerEx runningBuildsManager,
-                                  @NotNull S3PreSignedManager preSignedManager,
+                                  @NotNull S3PresignedUrlProvider preSignedManager,
                                   @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider) {
     myRunningBuildsManager = runningBuildsManager;
     myPreSignedManager = preSignedManager;
@@ -79,7 +80,7 @@ public class S3PreSignedUrlController extends BaseController {
   @Override
   protected ModelAndView doHandle(@NotNull HttpServletRequest httpServletRequest, @NotNull HttpServletResponse httpServletResponse) throws Exception {
     try {
-      final Pair<RequestType, S3PreSignedManager.S3Settings> request = parseRequest(httpServletRequest);
+      final Pair<RequestType, S3PresignedUrlProvider.S3Settings> request = parseRequest(httpServletRequest);
 
       if (request.getFirst() == RequestType.FINISH_MULTIPART_UPLOAD) {
         finishMultipartUpload(httpServletRequest, request.getSecond());
@@ -116,7 +117,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @NotNull
-  private Pair<RequestType, S3PreSignedManager.S3Settings> parseRequest(@NotNull final HttpServletRequest request) {
+  private Pair<RequestType, S3PresignedUrlProvider.S3Settings> parseRequest(@NotNull final HttpServletRequest request) {
     if (!isPost(request)) {
       throw new HttpServerErrorException(HttpStatus.METHOD_NOT_ALLOWED, request.getMethod() + " not allowed");
     }
@@ -143,7 +144,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   @Nullable
   private String providePresignedUrls(@NotNull final HttpServletRequest httpServletRequest,
-                                      @NotNull final S3PreSignedManager.S3Settings settings) throws Exception {
+                                      @NotNull final S3PresignedUrlProvider.S3Settings settings) throws Exception {
     final PresignedUrlListRequestDto request = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
     return request.isVersion2
            ? presignedUrlsV2(request, settings)
@@ -152,7 +153,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
-                                 @NotNull final S3PreSignedManager.S3Settings settings) {
+                                 @NotNull final S3PresignedUrlProvider.S3Settings settings) {
     final List<PresignedUrlDto> responses = requestList.presignedUrlRequests.stream().map(request -> {
       try {
         if (request.numberOfParts > 1) {
@@ -179,7 +180,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private String presignedUrlsV1(@NotNull final PresignedUrlListRequestDto requests,
-                                 @NotNull final S3PreSignedManager.S3Settings settings) {
+                                 @NotNull final S3PresignedUrlProvider.S3Settings settings) {
     return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.presignedUrlRequests.stream().map(request -> {
       try {
         return PresignedUrlDto.singlePart(request.objectKey, myPreSignedManager.generateUploadUrl(request.objectKey, settings));
@@ -191,7 +192,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   private void finishMultipartUpload(@NotNull final HttpServletRequest httpServletRequest,
-                                     @NotNull final S3PreSignedManager.S3Settings settings) throws Exception {
+                                     @NotNull final S3PresignedUrlProvider.S3Settings settings) throws Exception {
     final String objectKey = httpServletRequest.getParameter(OBJECT_KEY);
     if (StringUtil.isEmpty(objectKey)) {
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, OBJECT_KEY + " should be present");

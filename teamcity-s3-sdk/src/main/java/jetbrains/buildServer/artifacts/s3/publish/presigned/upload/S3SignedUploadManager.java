@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.publish.presigned;
+package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;

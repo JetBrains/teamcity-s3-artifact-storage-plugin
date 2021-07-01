@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.publish.presigned;
+package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.apache.commons.httpclient.Credentials;

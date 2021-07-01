@@ -22,8 +22,11 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
+import jetbrains.buildServer.artifacts.s3.ListBucketsResourceFetcher;
+import jetbrains.buildServer.artifacts.s3.S3ClientResourceFetcher;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -39,7 +42,7 @@ public class S3SettingsController extends BaseFormXmlController {
 
   private final static Logger LOG = Logger.getInstance(S3SettingsController.class.getName());
   private static final String FAILED_TO_PROCESS_REQUEST_FORMAT = "Failed to process '%s' request: ";
-  private final Map<String, ResourceHandler> myHandlers = new HashMap<>();
+  private final Map<String, S3ClientResourceFetcher> myHandlers = new HashMap<>();
   private final ServerPaths myServerPaths;
 
   public S3SettingsController(@NotNull final WebControllerManager manager,
@@ -48,8 +51,8 @@ public class S3SettingsController extends BaseFormXmlController {
     myServerPaths = serverPaths;
     final String path = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".html");
     manager.registerController(path, this);
-    myHandlers.put("buckets", new BucketsResourceHandler());
-    myHandlers.put("bucketLocation", new BucketLocationHandler());
+    myHandlers.put("buckets", new ListBucketsResourceFetcher());
+    myHandlers.put("bucketLocation", new BucketLocationFetcher());
   }
 
   @Override
@@ -69,12 +72,12 @@ public class S3SettingsController extends BaseFormXmlController {
     if (resource == null) {
       errors.addError("resource", "Invalid request: resource parameter was not set");
     } else {
-      final ResourceHandler handler = myHandlers.get(resource);
+      final S3ClientResourceFetcher<?> handler = myHandlers.get(resource);
       if (handler == null) {
         errors.addError("resource", "Invalid request: unsupported resource " + resource);
       } else {
         try {
-          xmlResponse.addContent(handler.getContent(parameters));
+          xmlResponse.addContent(handler.fetchAsElement(parameters));
         } catch (InvalidSettingsException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
           if (LOG.isDebugEnabled()) {

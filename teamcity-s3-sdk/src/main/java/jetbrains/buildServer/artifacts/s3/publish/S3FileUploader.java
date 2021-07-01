@@ -24,8 +24,8 @@ import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.S3SignedUrlFileUploader;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.TeamCityConnectionConfiguration;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3SignedUrlFileUploader;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
 

@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.artifacts.s3.web;
+package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.regions.Regions;
 import com.amazonaws.services.s3.AmazonS3;
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.S3Util;
-import org.jdom.Content;
-import org.jdom.Element;
+import javax.xml.bind.annotation.XmlAttribute;
+import javax.xml.bind.annotation.XmlRootElement;
+import jetbrains.buildServer.Used;
 import org.jetbrains.annotations.Nullable;
 
-public class BucketLocationHandler extends S3ClientResourceHandler {
+public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocationFetcher.BucketLocationDto> {
 
   public static String getRegionName(@Nullable String location) {
     if (location == null) {
@@ -45,16 +45,39 @@ public class BucketLocationHandler extends S3ClientResourceHandler {
   }
 
   @Override
-  protected Content getContent(final AmazonS3 s3Client, final Map<String, String> parameters) {
+  protected BucketLocationDto fetchDto(final AmazonS3 s3Client, final Map<String, String> parameters) {
     final String bucketName = S3Util.getBucketName(parameters);
     if (bucketName == null) {
       final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
       throw new IllegalArgumentException(message);
     }
-    final Element bucketElement = new Element("bucket");
-    bucketElement.setAttribute("name", bucketName);
-    bucketElement
-      .setAttribute("location", S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
-    return bucketElement;
+    return new BucketLocationDto(bucketName, S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
+  }
+
+  @XmlRootElement(name = "bucket")
+  public static class BucketLocationDto implements S3Dto {
+    private final String name;
+    private final String location;
+
+    @Used("xml-serialization")
+    public BucketLocationDto() {
+      this.name = null;
+      this.location = null;
+    }
+
+    public BucketLocationDto(String name, String location) {
+      this.name = name;
+      this.location = location;
+    }
+
+    @XmlAttribute(name = "name")
+    public String getName() {
+      return name;
+    }
+
+    @XmlAttribute(name = "location")
+    public String getLocation() {
+      return location;
+    }
   }
 }

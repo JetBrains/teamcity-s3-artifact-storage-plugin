@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.artifacts.s3.preSignedUrl;
+package jetbrains.buildServer.filestorage;
 
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3;
@@ -28,10 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.artifacts.s3.util.S3RegionCorrector;
-import jetbrains.buildServer.serverSide.IOGuard;
-import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -41,19 +37,15 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
-public class S3PreSignedManagerImpl implements S3PreSignedManager {
+public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   @NotNull
-  private static final Logger LOG = Logger.getInstance(S3PreSignedManagerImpl.class.getName());
+  private static final Logger LOG = Logger.getInstance(S3PresignedUrlProviderImpl.class.getName());
   @NotNull
   private static final String TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION = "teamcity.s3.override.content.disposition.enabled";
   @NotNull
-  private final ServerPaths myServerPaths;
-  @NotNull
   private final TimeService myTimeService;
 
-  public S3PreSignedManagerImpl(@NotNull final ServerPaths serverPaths,
-                                @NotNull final TimeService timeService) {
-    myServerPaths = serverPaths;
+  public S3PresignedUrlProviderImpl(@NotNull final TimeService timeService) {
     myTimeService = timeService;
   }
 
@@ -101,7 +93,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
                                         .withContentDisposition("inline; filename=\"" + split.get(split.size() - 1) + "\""));
         }
       }
-      return callS3WithIOGuard(client -> client.generatePresignedUrl(request).toString(), settings);
+      return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
     } catch (Exception e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
@@ -118,7 +110,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
   @NotNull
   @Override
   public String startMultipartUpload(@NotNull final String objectKey, @NotNull final S3Settings settings) throws Exception {
-    return callS3WithIOGuard(client -> {
+    return callS3(client -> {
       final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(settings.getBucketName(), objectKey);
       final InitiateMultipartUploadResult initiateMultipartUploadResult =
         client.initiateMultipartUpload(initiateMultipartUploadRequest);
@@ -132,7 +124,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
                                     @NotNull final S3Settings settings,
                                     @Nullable final String[] etags,
                                     final boolean isSuccessful) throws IOException {
-    callS3WithIOGuard(client -> {
+    callS3(client -> {
       if (isSuccessful) {
         if (etags == null || etags.length == 0) {
           throw new IllegalArgumentException("Cannot complete multipart request without etags");
@@ -149,8 +141,8 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
     }, settings);
   }
 
-  private <T> T callS3WithIOGuard(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
-    return S3Util.withS3ClientShuttingDownImmediately(((S3SettingsImpl)settings).getSettings(), client -> IOGuard.allowNetworkCall(() -> {
+  private <T> T callS3(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
+    return S3Util.withS3ClientShuttingDownImmediately(((S3SettingsImpl)settings).getSettings(), client -> {
       try {
         return callable.apply(client);
       } catch (final Throwable t) {
@@ -160,7 +152,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
           throw new IOException(t);
         }
       }
-    }));
+    });
   }
 
   @NotNull
@@ -168,8 +160,7 @@ public class S3PreSignedManagerImpl implements S3PreSignedManager {
     if (S3Util.getBucketName(rawSettings) == null) {
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
-    final Map<String, String> sslSettings = ParamUtil.putSslValues(myServerPaths, rawSettings);
-    return new S3SettingsImpl(S3RegionCorrector.correctRegion(S3Util.getBucketName(sslSettings), sslSettings));
+    return new S3SettingsImpl(rawSettings);
   }
 
   private static class S3SettingsImpl implements S3Settings {

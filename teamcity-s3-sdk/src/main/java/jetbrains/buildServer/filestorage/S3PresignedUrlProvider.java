@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.artifacts.s3.preSignedUrl;
+package jetbrains.buildServer.filestorage;
 
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
@@ -25,7 +25,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
-public interface S3PreSignedManager {
+public interface S3PresignedUrlProvider {
 
   @NotNull
   String generateDownloadUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
