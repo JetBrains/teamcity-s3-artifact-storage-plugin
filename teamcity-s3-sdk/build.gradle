@@ -1,5 +1,10 @@
 apply plugin: 'maven-publish'
 
+ext {
+  spaceRepositoryUser = findProperty('space.repository.user')
+  spaceRepositoryPassword = findProperty('space.repository.password')
+}
+
 dependencies {
   compile "org.jetbrains.teamcity:common-api:${teamcityVersion}"
   compile 'commons-httpclient:commons-httpclient:3.1'
@@ -23,11 +28,22 @@ tasks.withType(JavaCompile) {
 
 
 publishing {
+  repositories {
+    maven {
+      name = "spacePackages"
+      credentials {
+        username = spaceRepositoryUser
+        password = spaceRepositoryPassword
+      }
+      url = 'https://packages.jetbrains.team/maven/p/tc/maven'
+    }
+  }
+
   publications {
-    maven(MavenPublication) {
+    mavenPrivate(MavenPublication) {
       groupId = 'org.jetbrains.teamcity.internal'
       artifactId = 'teamcity-s3-sdk'
-      version = "2021.1-SNAPSHOT"
+      version = "${teamcityVersion}"
       from components.java
       pom {
         name = 'TeamCity S3 SDK'
