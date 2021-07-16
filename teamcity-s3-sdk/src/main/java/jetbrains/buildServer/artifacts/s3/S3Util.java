@@ -25,12 +25,10 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.nio.file.Files;
-import java.security.KeyStore;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
-import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -40,10 +38,7 @@ import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
-import jetbrains.buildServer.util.ssl.SSLContextUtil;
-import jetbrains.buildServer.util.ssl.TrustStoreIO;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,7 +53,6 @@ import static jetbrains.buildServer.util.amazon.S3Util.*;
  * date: 02.08.2016.
  */
 public final class S3Util {
-
   @NotNull
   private static final Pattern OUR_OBJECT_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9!/\\-_.*'()]+$");
   private static final int OUT_MAX_PREFIX_LENGTH = 127;
@@ -73,6 +67,8 @@ public final class S3Util {
   @NotNull
   private static final String MULTIPART_UPLOAD_MIN_VALUE = "5MB";
   private static final long MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES = StringUtil.parseFileSize(MULTIPART_UPLOAD_MIN_VALUE);
+  @NotNull
+  private static final CachingSocketFactory OUR_SOCKET_FACTORY = new CachingSocketFactory();
 
   private S3Util() {
   }
@@ -229,31 +225,6 @@ public final class S3Util {
     return Boolean.parseBoolean(properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING));
   }
 
-  @Nullable
-  private static KeyStore trustStore(@Nullable final String directory) {
-    if (directory == null) {
-      return null;
-    }
-    return TrustStoreIO.readTrustStoreFromDirectory(directory);
-  }
-
-  @Nullable
-  private static ConnectionSocketFactory socketFactory(@NotNull final Map<String, String> params) {
-    final String certDirectory = params.get(SSL_CERT_DIRECTORY_PARAM);
-    if (certDirectory == null) {
-      return null;
-    }
-    final KeyStore trustStore = trustStore(certDirectory);
-    if (trustStore == null) {
-      return null;
-    }
-    final SSLContext sslContext = SSLContextUtil.createUserSSLContext(trustStore);
-    if (sslContext == null) {
-      return null;
-    }
-    return new SSLConnectionSocketFactory(sslContext);
-  }
-
   public static <T, E extends Throwable> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
     return withS3Client(params, withClient, true);
   }
@@ -309,7 +280,7 @@ public final class S3Util {
   }
 
   private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
-    final ConnectionSocketFactory socketFactory = socketFactory(params);
+    final ConnectionSocketFactory socketFactory = OUR_SOCKET_FACTORY.socketFactory(params.get(SSL_CERT_DIRECTORY_PARAM));
     if (socketFactory != null) {
       clients.getClientConfiguration().getApacheHttpClientConfig().withSslSocketFactory(socketFactory);
     }
