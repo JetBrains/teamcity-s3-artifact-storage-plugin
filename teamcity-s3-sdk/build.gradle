@@ -43,7 +43,7 @@ publishing {
     mavenPrivate(MavenPublication) {
       groupId = 'org.jetbrains.teamcity.internal'
       artifactId = 'teamcity-s3-sdk'
-      version = "${teamcityVersion}"
+      version = "${teamcityS3SDKVersion}"
       from components.java
       pom {
         name = 'TeamCity S3 SDK'
