@@ -21,7 +21,7 @@ public class CachingSocketFactory {
   private final UptodateValue<Boolean> myEnableCache;
 
   public CachingSocketFactory(@NotNull final TimeService timeService) {
-    myEnableCache = new UptodateValue<>(() -> TeamCityProperties.getBoolean("teamcity.artifacts.socketFactory.cache.enable"), 1000L, timeService, v -> myCache.clear());
+    myEnableCache = new UptodateValue<>(() -> TeamCityProperties.getBooleanOrTrue("teamcity.artifacts.socketFactory.cache.enable"), 1000L, timeService, v -> myCache.clear());
   }
 
   @Nullable
