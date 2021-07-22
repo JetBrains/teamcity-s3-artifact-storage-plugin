@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.net.ssl.SSLContext;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.ssl.SSLContextUtil;
 import jetbrains.buildServer.util.ssl.TrustStoreIO;
@@ -15,13 +16,13 @@ import org.jetbrains.annotations.Nullable;
 
 public class CachingSocketFactory {
   @NotNull
-  private static final Map<String, UptodateValue<ConnectionSocketFactory>> OUR_CACHE = new ConcurrentHashMap<>();
+  private final Map<String, UptodateValue<ConnectionSocketFactory>> myCache = new ConcurrentHashMap<>();
   @NotNull
-  private static final UptodateValue<Long> OUR_CACHE_TTL =
-    new UptodateValue<>(() -> TeamCityProperties.getIntervalMilliseconds("teamcity.artifacts.socketFactory.cache.ttl", 60000L), 1000L, v -> OUR_CACHE.clear());
-  @NotNull
-  private static final UptodateValue<Boolean> OUR_ENABLE_CACHE =
-    new UptodateValue<>(() -> TeamCityProperties.getBoolean("teamcity.artifacts.socketFactory.cache.enable"), 1000L, v -> OUR_CACHE.clear());
+  private final UptodateValue<Boolean> myEnableCache;
+
+  public CachingSocketFactory(@NotNull final TimeService timeService) {
+    myEnableCache = new UptodateValue<>(() -> TeamCityProperties.getBoolean("teamcity.artifacts.socketFactory.cache.enable"), 1000L, timeService, v -> myCache.clear());
+  }
 
   @Nullable
   public ConnectionSocketFactory socketFactory(@Nullable final String certDirectory) {
@@ -29,7 +30,7 @@ public class CachingSocketFactory {
       return null;
     }
     if (isCacheEnabled()) {
-      return OUR_CACHE.computeIfAbsent(certDirectory, this::createUptodateConnectionFactory).getValue();
+      return myCache.computeIfAbsent(certDirectory, this::createUptodateConnectionFactory).getValue();
     } else {
       return createFactory(certDirectory);
     }
@@ -37,7 +38,7 @@ public class CachingSocketFactory {
 
   @NotNull
   private UptodateValue<ConnectionSocketFactory> createUptodateConnectionFactory(@NotNull final String certDirectory) {
-    return new UptodateValue<>(() -> createFactory(certDirectory), OUR_CACHE_TTL.getValue());
+    return new UptodateValue<>(() -> createFactory(certDirectory), TeamCityProperties.getIntervalMilliseconds("teamcity.artifacts.socketFactory.cache.ttl", 60000L));
   }
 
   @Nullable
@@ -62,6 +63,6 @@ public class CachingSocketFactory {
   }
 
   private boolean isCacheEnabled() {
-    return OUR_ENABLE_CACHE.getValue();
+    return myEnableCache.getValue();
   }
 }

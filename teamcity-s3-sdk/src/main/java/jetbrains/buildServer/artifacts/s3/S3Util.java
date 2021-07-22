@@ -32,10 +32,7 @@ import java.util.regex.Pattern;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
-import jetbrains.buildServer.util.CollectionsUtil;
-import jetbrains.buildServer.util.ExceptionUtil;
-import jetbrains.buildServer.util.FileUtil;
-import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.*;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -68,7 +65,7 @@ public final class S3Util {
   private static final String MULTIPART_UPLOAD_MIN_VALUE = "5MB";
   private static final long MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES = StringUtil.parseFileSize(MULTIPART_UPLOAD_MIN_VALUE);
   @NotNull
-  private static final CachingSocketFactory OUR_SOCKET_FACTORY = new CachingSocketFactory();
+  private static final CachingSocketFactory OUR_SOCKET_FACTORY = new CachingSocketFactory(SystemTimeService.getInstance());
 
   private S3Util() {
   }
