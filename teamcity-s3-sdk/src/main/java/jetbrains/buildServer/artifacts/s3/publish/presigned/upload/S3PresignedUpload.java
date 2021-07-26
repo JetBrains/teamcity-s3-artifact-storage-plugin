@@ -4,6 +4,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -16,10 +17,10 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
-import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
+import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,18 +65,19 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
-           .registerListener(new AbortingListener(HttpClientUtil.HttpErrorCodeException.class))
-           .registerListener(new AbstractRetrierEventListener() {
-             @Override
-             public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-               if (e instanceof HttpClientUtil.HttpErrorCodeException) {
-                 if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
-                   ExceptionUtil.rethrowAsRuntimeException(e);
-                 }
-               }
-             }
-           })
-           .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
+                       .registerListener(new LoggingRetrierListener(LOGGER))
+                       .registerListener(new AbortingListener(UnknownHostException.class) {
+                         @Override
+                         public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+                           if (e instanceof HttpClientUtil.HttpErrorCodeException) {
+                             if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
+                               return;
+                             }
+                           }
+                           super.onFailure(callable, retry, e);
+                         }
+                       })
+                       .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
   }
 
   @NotNull
@@ -151,7 +153,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     }
   }
 
-  private void regularUpload() throws IOException {
+  private void regularUpload() {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
       myRetrier.execute(() -> myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile));
