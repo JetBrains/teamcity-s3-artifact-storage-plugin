@@ -18,6 +18,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
+import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -87,7 +88,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                        super.onFailure(callable, retry, e);
                                      }
                                    })
-                                   .registerListener(new AbortingListener(FileUploadFailedException.class))
+                                   .registerListener(new AbortingListener(FileUploadFailedException.class, UnknownHostException.class))
                                    .registerListener(new AbortingListener() {
                                      @Override
                                      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
