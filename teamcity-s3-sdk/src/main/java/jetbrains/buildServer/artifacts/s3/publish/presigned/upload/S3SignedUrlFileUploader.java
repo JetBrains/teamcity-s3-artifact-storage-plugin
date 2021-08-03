@@ -18,12 +18,10 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
@@ -42,15 +40,13 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
-import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
-import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
-import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
-import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 
 public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
@@ -78,28 +74,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       fileToS3ObjectKeyMap.put(entry.getKey(), myS3Configuration.getPathPrefix() + normalizeArtifactPath);
     }
 
-    final Retrier retrier = Retrier.withRetries(myS3Configuration.getAdvancedConfiguration().getRetriesNum())
-                                   .registerListener(new LoggingRetrierListener(LOGGER))
-                                   .registerListener(new AbstractRetrierEventListener() {
-                                     @Override
-                                     public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-                                       final String retryLogPart = retry == 0 ? "" : " after " + retry + " retry";
-                                       myLogger.info(callable + " failed with exception " + e.getMessage() + retryLogPart);
-                                       super.onFailure(callable, retry, e);
-                                     }
-                                   })
-                                   .registerListener(new AbortingListener(FileUploadFailedException.class, UnknownHostException.class))
-                                   .registerListener(new AbortingListener() {
-                                     @Override
-                                     public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-                                       if (e instanceof FileUploadFailedException) {
-                                         if (!((FileUploadFailedException)e).isRetryable()) {
-                                           ExceptionUtil.rethrowAsRuntimeException(e);
-                                         }
-                                       }
-                                     }
-                                   })
-                                   .registerListener(new ExponentialDelayListener(myS3Configuration.getAdvancedConfiguration().getRetryDelay()));
+    final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration.getAdvancedConfiguration());
