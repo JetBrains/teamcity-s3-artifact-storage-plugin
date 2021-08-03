@@ -134,12 +134,29 @@ public final class S3Util {
   }
 
   public static int getNumberOfRetries(@NotNull final Map<String, String> configurationParameters) {
+    return getIntegerConfigurationParameterOrDefault(configurationParameters, S3_NUMBER_OF_RETRIES_ON_ERROR, DEFAULT_NUMBER_OF_RETRIES_ON_ERROR);
+  }
+
+  public static int getRetryDelayInMs(@NotNull final Map<String, String> configurationParameters) {
+    return getIntegerConfigurationParameterOrDefault(configurationParameters, S3_RETRY_DELAY_ON_ERROR_MS, DEFAULT_RETRY_DELAY_ON_ERROR_MS);
+  }
+
+  private static int getIntegerConfigurationParameterOrDefault(@NotNull final Map<String, String> configurationParameters,
+                                                               @NotNull final String parameterName,
+                                                               final int defaultValue) {
+    final String strValue = configurationParameters.get(parameterName);
     try {
-      final int nRetries = Integer.parseInt(configurationParameters.get(S3_NUMBER_OF_RETRIES_ON_ERROR));
-      return nRetries >= 0 ? nRetries : DEFAULT_NUMBER_OF_RETRIES_ON_ERROR;
+      if (StringUtil.isNotEmpty(strValue)) {
+        final int intValue = Integer.parseInt(strValue);
+        if (intValue >= 0) {
+          return intValue;
+        }
+      }
     } catch (NumberFormatException e) {
-      return DEFAULT_NUMBER_OF_RETRIES_ON_ERROR;
+      LOGGER.debug(() -> "Cannot parse '" + parameterName + "=" + strValue + "'", e);
     }
+    LOGGER.debug(() -> "Using default value '" + defaultValue + "' for property '" + parameterName + "'");
+    return defaultValue;
   }
 
   public static int getMaxNumberOfPresignedUrlsToLoadInOneRequest(@NotNull final Map<String, String> configurationParameters) {
@@ -190,15 +207,6 @@ public final class S3Util {
       }
     } catch (NumberFormatException e) {
       return Pair.create(null, "[" + value + "], should be integer");
-    }
-  }
-
-  public static int getRetryDelayInMs(@NotNull final Map<String, String> configurationParameters) {
-    try {
-      final int delay = Integer.parseInt(configurationParameters.get(S3_RETRY_DELAY_MS_ON_ERROR));
-      return delay >= 0 ? delay : DEFAULT_RETRY_DELAY_ON_ERROR_MS;
-    } catch (NumberFormatException e) {
-      return DEFAULT_RETRY_DELAY_ON_ERROR_MS;
     }
   }
 
