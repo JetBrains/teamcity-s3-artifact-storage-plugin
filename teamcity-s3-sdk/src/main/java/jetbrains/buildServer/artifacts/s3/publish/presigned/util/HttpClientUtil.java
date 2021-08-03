@@ -22,6 +22,7 @@ import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.transport.AgentServerSharedErrorMessages;
 import jetbrains.buildServer.util.Converter;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.apache.commons.httpclient.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -100,7 +101,7 @@ public final class HttpClientUtil {
     return threadSafeConnectionManager;
   }
 
-  public static class HttpErrorCodeException extends RuntimeException {
+  public static class HttpErrorCodeException extends RecoverableException {
     private final int myResponseCode;
     @Nullable
     private final String myResponse;
@@ -126,7 +127,11 @@ public final class HttpClientUtil {
       return isBuildFinishedReason;
     }
 
+    @Override
     public boolean isRecoverable() {
+      if (isBuildFinishedReason()) {
+        return false;
+      }
       return myResponseCode == HttpStatus.SC_INTERNAL_SERVER_ERROR ||
              myResponseCode == HttpStatus.SC_BAD_GATEWAY ||
              myResponseCode == HttpStatus.SC_GATEWAY_TIMEOUT ||

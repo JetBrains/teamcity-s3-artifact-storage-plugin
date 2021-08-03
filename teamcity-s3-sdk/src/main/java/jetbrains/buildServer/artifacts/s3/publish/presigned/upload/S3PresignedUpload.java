@@ -106,7 +106,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     } catch (HttpClientUtil.HttpErrorCodeException e) {
       final String msg = "Failed to upload artifact " + myArtifactPath + ": " + e.getMessage();
       LOGGER.infoAndDebugDetails(msg, e);
-      throw new FileUploadFailedException(msg, false, e);
+      throw new FileUploadFailedException(msg, e);
     } catch (IOException e) {
       LOGGER.infoAndDebugDetails("Got exception while trying to upload file: " + e.getMessage(), e);
       throw new FileUploadFailedException(e.getMessage(), false, e);
