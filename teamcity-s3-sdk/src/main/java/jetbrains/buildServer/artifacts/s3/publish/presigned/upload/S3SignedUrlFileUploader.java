@@ -17,11 +17,9 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.text.StringUtil;
 import java.io.File;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
@@ -117,6 +115,12 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       } catch (Throwable th) {
         if (!(th instanceof InterruptedException)) {
           LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
+        }
+        if (th.getMessage() != null && StringUtil.containsIgnoreCase(th.getMessage(), "build execution timeout")) {
+          //temporary print error stacktraces to catch where the cause reason is thrown
+          LOGGER.warn("Got error while uploading artifacts " + th.getMessage(), th);
+          //and return empty list since the build is failing anyway
+          return Collections.emptyList();
         }
         throw new FileUploadFailedException(th.getMessage(), false, th);
       }
