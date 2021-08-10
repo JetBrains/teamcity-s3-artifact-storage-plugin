@@ -17,7 +17,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.text.StringUtil;
 import java.io.File;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -103,26 +102,23 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                             })
                             .filter(Objects::nonNull)
                             .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
-                              if (e instanceof PublishingInterruptedException || e instanceof InterruptedException) {
-                                //is there really a reason to continue at this point?
-                                shutdownPool(forkJoinPool);
-                              }
                               logPublishingError(e);
-                              ExceptionUtil.rethrowAsRuntimeException(e);
+                              if (isPublishingInterruptedException(e)) {
+                                shutdownPool(forkJoinPool);
+                              } else {
+                                ExceptionUtil.rethrowAsRuntimeException(e);
+                              }
                             }))
                             .filter(Objects::nonNull)
                             .collect(Collectors.toList());
       } catch (Throwable th) {
-        if (!(th instanceof InterruptedException)) {
-          LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
-        }
-        if (th.getMessage() != null && StringUtil.containsIgnoreCase(th.getMessage(), "build execution timeout")) {
-          //temporary print error stacktraces to catch where the cause reason is thrown
-          LOGGER.warn("Got error while uploading artifacts " + th.getMessage(), th);
-          //and return empty list since the build is failing anyway
+        if (isPublishingInterruptedException(th)) {
+          LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
           return Collections.emptyList();
+        } else {
+          LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
+          throw new FileUploadFailedException(th.getMessage(), false, th);
         }
-        throw new FileUploadFailedException(th.getMessage(), false, th);
       }
     }
   }
@@ -132,13 +128,21 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   private void logPublishingError(@NotNull final Throwable e) {
-    if ((e instanceof HttpClientUtil.HttpErrorCodeException && ((HttpClientUtil.HttpErrorCodeException)e).isBuildFinishedReason()) || e instanceof InterruptedException) {
+    if (isPublishingInterruptedException(e)) {
       myLogger.debug("Artifact publishing has been interrupted");
       LOGGER.debug("Artifact upload has been interrupted, will not continue with current upload");
     } else {
       myLogger.debug("Artifact publishing failed with error " + ExceptionUtil.getDisplayMessage(e));
       LOGGER.infoAndDebugDetails("Got exception while waiting for upload to finish, the upload will not continue and the artifact will be ignored", e);
     }
+  }
+
+  public static boolean isPublishingInterruptedException(@NotNull Throwable e) {
+    final HttpClientUtil.HttpErrorCodeException errorCodeException = ExceptionUtil.getCause(e, HttpClientUtil.HttpErrorCodeException.class);
+    if (errorCodeException != null && errorCodeException.isBuildFinishedReason()) {
+      return true;
+    }
+    return ExceptionUtil.getCause(e, InterruptedException.class) != null || ExceptionUtil.getCause(e, PublishingInterruptedException.class) != null;
   }
 
   private void shutdownPool(@NotNull final CloseableForkJoinPoolAdapter pool) {

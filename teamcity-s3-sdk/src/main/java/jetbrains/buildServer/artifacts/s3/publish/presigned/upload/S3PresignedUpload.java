@@ -17,6 +17,7 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
+import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
@@ -69,6 +70,9 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                        .registerListener(new AbortingListener(UnknownHostException.class) {
                          @Override
                          public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+                           if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
+                             throw new AbortRetriesException(e);
+                           }
                            if (e instanceof HttpClientUtil.HttpErrorCodeException) {
                              if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
                                return;
