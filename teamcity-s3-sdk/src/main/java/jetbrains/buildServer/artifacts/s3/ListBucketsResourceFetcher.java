@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
+
+import com.amazonaws.services.s3.model.Bucket;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
@@ -33,12 +35,16 @@ import static jetbrains.buildServer.artifacts.s3.S3Util.withClientCorrectingRegi
  */
 public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBucketsResourceFetcher.ListBucketsDto> {
   @Override
-  public ListBucketsDto fetchDto(final AmazonS3 s3Client, final Map<String, String> parameters) {
-    AWSCommonParams.validate(parameters, true);
-    return new ListBucketsDto(withClientCorrectingRegion(s3Client, copyMap(parameters), AmazonS3::listBuckets).stream()
-                                                                                                              .map(com.amazonaws.services.s3.model.Bucket::getName)
-                                                                                                              .map(BucketDto::new)
-                                                                                                              .collect(Collectors.toList()));
+  public ListBucketsDto fetchDto(final Map<String, String> parameters) {
+    return S3Util.withS3Client(parameters, s3Client -> {
+      AWSCommonParams.validate(parameters, true);
+      List<BucketDto> bucketList = withClientCorrectingRegion(s3Client, copyMap(parameters), AmazonS3::listBuckets)
+        .stream()
+        .map(Bucket::getName)
+        .map(BucketDto::new)
+        .collect(Collectors.toList());
+      return new ListBucketsDto(bucketList);
+    });
   }
 
   @NotNull

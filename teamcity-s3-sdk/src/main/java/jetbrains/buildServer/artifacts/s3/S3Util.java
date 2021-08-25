@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
+import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.amazonaws.services.s3.transfer.Transfer;
@@ -30,6 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 import jetbrains.buildServer.artifacts.ArtifactListData;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.*;
@@ -41,6 +43,9 @@ import org.jetbrains.annotations.Nullable;
 
 import static com.amazonaws.ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
+import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
+import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION;
+import static jetbrains.buildServer.ssh.VcsRootSshKeyManager.VCS_ROOT_TEAMCITY_SSH_KEY_NAME;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 import static jetbrains.buildServer.util.amazon.S3Util.*;
@@ -97,6 +102,14 @@ public final class S3Util {
     if (thresholdWithError.getSecond() != null) {
       invalids.put(S3_MULTIPART_UPLOAD_THRESHOLD, "Invalid " + thresholdWithError.getSecond());
     }
+    if (TeamCityProperties.getBoolean(S3_ENABLE_CLOUDFRONT_INTEGRATION) && getCloudFrontEnabled(params)) {
+      if (getCloudFrontPublicKeyId(params) == null) {
+        invalids.put(S3_CLOUDFRONT_PUBLIC_KEY_ID, "CloudFront public key should not be empty");
+      }
+      if (getCloudFrontPrivateKey(params) == null) {
+        invalids.put(VCS_ROOT_TEAMCITY_SSH_KEY_NAME, "CloudFront private key should not be empty");
+      }
+    }
     return invalids;
   }
 
@@ -117,6 +130,35 @@ public final class S3Util {
   @Nullable
   public static String getBucketName(@NotNull final Map<String, String> params) {
     return params.get(beanPropertyNameForBucketName());
+  }
+
+  @NotNull
+  public static String getBucketRegion(@NotNull final Map<String, String> params){
+    return params.get(REGION_NAME_PARAM);
+  }
+
+  public static boolean getCloudFrontEnabled(@NotNull final Map<String, String> params){
+    return Boolean.parseBoolean(params.get(CloudFrontConstants.S3_CLOUDFRONT_ENABLED));
+  }
+
+  @Nullable
+  public static String getCloudFrontDomain(@NotNull final Map<String, String> params){
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_DOMAIN);
+  }
+
+  @Nullable
+  public static String getCloudFrontDistribution(@NotNull final Map<String, String> params){
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION);
+  }
+
+  @Nullable
+  public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params){
+    return params.get(VCS_ROOT_TEAMCITY_SSH_KEY_NAME);
+  }
+
+  @Nullable
+  public static String getCloudFrontPublicKeyId(@NotNull final Map<String, String> params){
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID);
   }
 
   @Nullable
@@ -238,6 +280,28 @@ public final class S3Util {
     return withS3Client(params, withClient, false);
   }
 
+  public static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final WithCloudFront<T, E> withClient) throws E {
+    return withCloudFrontClient(params, withClient, false);
+  }
+
+  private static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params,
+                                                         @NotNull final WithCloudFront<T, E> withClient,
+                                                         boolean shutdownImmediately) throws E {
+    return AWSCommonParams.withAWSClients(params, clients -> {
+      clients.setS3SignerType(V4_SIGNER_TYPE);
+      clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
+      patchAWSClientsSsl(clients, params);
+      final AmazonCloudFront client = clients.createCloudFrontClient();
+      try {
+        return withClient.run(client);
+      } finally {
+        if (shutdownImmediately) {
+          jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+        }
+      }
+    });
+  }
+
   private static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params,
                                                          @NotNull final WithS3<T, E> withClient,
                                                          boolean shutdownImmediately) throws E {
@@ -355,6 +419,11 @@ public final class S3Util {
   public interface WithS3<T, E extends Throwable> {
     @Nullable
     T run(@NotNull AmazonS3 client) throws E;
+  }
+
+  public interface WithCloudFront<T, E extends Throwable> {
+    @Nullable
+    T run(@NotNull AmazonCloudFront client) throws E;
   }
 
 }

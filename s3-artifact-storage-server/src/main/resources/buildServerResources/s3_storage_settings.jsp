@@ -3,6 +3,8 @@
 <%@ taglib prefix="l" tagdir="/WEB-INF/tags/layout" %>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
+<%@ taglib prefix="admin" tagdir="/WEB-INF/tags/admin" %>
+
 <%--
   ~ Copyright 2000-2021 JetBrains s.r.o.
   ~
@@ -24,6 +26,12 @@
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 <c:set var="pathPrefixesFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
+
+<c:set var="cloudfrontFeatureOn" value="${intprop:getBoolean('teamcity.s3.use.cloudfront.enabled')}"/>
+<c:set var="cloudfrontDistributionSelect" value="cloudfrontDistributionSelect"/>
+<c:set var="cloudFrontDistributionAutoOption" value="-- Create Automatically --"/>
+<c:set var="cloudfrontKeyPairSelect" value="cloudfrontKeyPairSelect"/>
+<c:set var="cloudFrontKeyPairEmptyOption" value="-- Select key pair --"/>
 
 <style type="text/css">
   .runnerFormTable {
@@ -87,6 +95,56 @@
     </td>
   </tr>
 </l:settingsGroup>
+<c:if test="${cloudfrontFeatureOn}">
+  <l:settingsGroup title="CloudFront Settings">
+    <tr class="noBorder">
+      <th><label for="${params.cloudFrontEnabled}">Use CloudFront to download artifacts: </label></th>
+      <td>
+        <props:checkboxProperty name="${params.cloudFrontEnabled}" id="${params.cloudFrontEnabled}" value="${propertiesBean.properties[params.cloudFrontEnabled]}"/>
+      </td>
+    </tr>
+    <tbody id="${params.cloudFrontSettingsGroup}">
+    <c:set var="distribution" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
+    <tr>
+      <th><label for="${cloudfrontDistributionSelect}">Select CloudFront distribution: </label></th>
+      <td>
+        <props:selectProperty name="${cloudfrontDistributionSelect}" id="${cloudfrontDistributionSelect}" className="longField">
+          <props:option value="">${cloudFrontDistributionAutoOption}</props:option>
+          <c:if test="${not empty distribution}">
+            <props:option value="${distribution}"><c:out value="${distribution}"/></props:option>
+          </c:if>
+        </props:selectProperty>
+        <i class="icon-refresh" title="Reload distributions" id="distributions-refresh"></i>
+        <props:hiddenProperty name="${params.cloudFrontDistribution}" id="${params.cloudFrontDistribution}" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
+        <span class="smallNote">Specify CloudFront distribution to use. Select "Create Automatically" and new distribution will be created for this project</span>
+        <span class="error" id="error_${params.cloudFrontDistribution}" style="margin-top: -1em; margin-bottom: 1em;"></span>
+        <span class="error" id="error_distributions" style="margin-top: -1em; margin-bottom: 1em;"></span>
+      </td>
+    </tr>
+    <c:set var="publicKeyId" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
+    <tr>
+      <th><label for="${cloudfrontKeyPairSelect}">Select CloudFront public key: <l:star/></label></th>
+      <td>
+        <props:selectProperty name="${cloudfrontKeyPairSelect}" id="${cloudfrontKeyPairSelect}" className="longField">
+          <props:option value="">${cloudFrontKeyPairEmptyOption}</props:option>
+        </props:selectProperty>
+        <i class="icon-refresh" title="Reload public keys" id="publicKeys-refresh"></i>
+        <props:hiddenProperty name="${params.cloudFrontPublicKeyId}" id="${params.cloudFrontPublicKeyId}" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
+        <span class="smallNote">Specify CloudFront public key to use.</span>
+        <span class="error" id="error_publicKeys" style="margin-top: -1em; margin-bottom: 1em;"></span>
+      </td>
+    </tr>
+    <tr class="auth uploadedKey">
+      <th>
+        <label for="teamcitySshKey">Select Private SSH key:</label>
+      </th>
+      <td>
+        <admin:sshKeys projectId="${propertiesBean.properties['projectId']}"/>
+      </td>
+    </tr>
+    </tbody>
+  </l:settingsGroup>
+</c:if>
 <l:settingsGroup title="Connection Settings">
   <tr class="advancedSetting">
     <th>Options:</th>
@@ -125,6 +183,12 @@
     var $bucketSelect = $j(BS.Util.escapeId('${bucketNameSelect}'));
     var $bucketString = $j(BS.Util.escapeId('${bucketNameStringInput}'));
     var $realBucketInput = $j(BS.Util.escapeId('${params.bucketName}'));
+    var $distributionSelect= $j(BS.Util.escapeId('${cloudfrontDistributionSelect}'));
+    var $distributionInput= $j(BS.Util.escapeId('${params.cloudFrontDistribution}'));
+    var $publicKeySelect= $j(BS.Util.escapeId('${cloudfrontKeyPairSelect}'));
+    var $publicKeyInput= $j(BS.Util.escapeId('${params.cloudFrontPublicKeyId}'));
+    var publicKeys = [];
+    var distributions = [];
 
     function parseErrors($response) {
       var $errors = $response.find("errors:eq(0) error");
@@ -159,24 +223,31 @@
     function getSpecifiedBucketName() {
       return $realBucketInput.val();
     }
-
     function updateSelectedBucket(value) {
       $realBucketInput.val(value).change();
     }
 
-    function addOptionToBucketSelector(name, value) {
-      $bucketSelect.append($j("<option></option>").attr("value", value).text(name));
+    function addOptionToSelector(selector, name, value) {
+      selector.append($j("<option></option>").attr("value", value).text(name));
+    }
+
+    function parseResourceListFromResponse($response, selector) {
+      var list = [];
+      $response.find(selector).each(function () {
+        list.push($j(this));
+      });
+      return list;
     }
 
     function redrawBucketSelector(bucketList, selectedBucket) {
       $bucketSelect.empty();
-      addOptionToBucketSelector("-- Select bucket --", "");
+      addOptionToSelector($bucketSelect, "-- Select bucket --", "");
       var selectedValueExistsInList = false;
       $j.each(bucketList, function (i, bucket) {
         if (selectedBucket && bucket === selectedBucket) {
           selectedValueExistsInList = true;
         }
-        addOptionToBucketSelector(bucket, bucket)
+        addOptionToSelector($bucketSelect, bucket, bucket)
       });
       if (selectedBucket) {
         if (selectedValueExistsInList) {
@@ -186,14 +257,6 @@
         $realBucketInput.val(selectedBucket);
       }
       BS.enableJQueryDropDownFilter('${bucketNameSelect}', {});
-    }
-
-    function parseBucketListFromResponse($response) {
-      var bucketList = [];
-      $response.find("buckets:eq(0) bucket").each(function () {
-        bucketList.push($j(this).text());
-      });
-      return bucketList;
     }
 
     function loadBucketList() {
@@ -212,7 +275,7 @@
           return;
         }
 
-        var bucketList = parseBucketListFromResponse($response);
+        var bucketList = parseResourceListFromResponse($response, "buckets:eq(0) bucket").map(b => b.text());
         var selectedBucket = saveSelectedBucket();
         redrawBucketSelector(bucketList, selectedBucket);
         $realBucketInput.change();
@@ -222,24 +285,179 @@
       });
     }
 
+    function getSelectedDistributionName() {
+      return $distributionInput.val();
+    }
+
+    function updateSelectedDistributionName(value) {
+      $distributionInput.val(value).change();
+    }
+
+    function getSelectedKeyGroup() {
+      return $publicKeyInput.val();
+    }
+
+    function updateSelectedKeyGroup(value) {
+      $publicKeyInput.val(value).change();
+    }
+
+    function redrawDistributionSelector(selectedDistribution) {
+      $distributionSelect.empty();
+      addOptionToSelector($distributionSelect, '${cloudFrontDistributionAutoOption}', "");
+      var selectedValueExistsInList = false;
+      $j.each(distributions, function (i, distribution) {
+        if (selectedDistribution && distribution.id === selectedDistribution) {
+          selectedValueExistsInList = true;
+        }
+        addOptionToSelector($distributionSelect, distribution.id, distribution.id)
+      });
+      if (selectedDistribution) {
+        if (selectedValueExistsInList) {
+          $distributionSelect.val(selectedDistribution);
+        }
+        $distributionInput.val(selectedDistribution)
+      }
+      BS.enableJQueryDropDownFilter('${cloudfrontDistributionSelect}', {});
+    }
+
+    function redrawKeyGroupSelector() {
+      const selectedKeyGroup = getSelectedKeyGroup();
+      const selectedDistributionName = getSelectedDistributionName();
+      const selectedDistribution = distributions.find(d => d.id === selectedDistributionName);
+
+      $publicKeySelect.empty();
+      addOptionToSelector($publicKeySelect, '${cloudFrontKeyPairEmptyOption}', "");
+      var keys = publicKeys;
+      if(selectedDistribution != null){
+        keys = keys.filter(k => selectedDistribution.publicKeys.includes(k.id))
+      }
+      var selectedValueExistsInList = false;
+      keys.forEach(publicKey => {
+        if (selectedKeyGroup && publicKey.id === selectedKeyGroup) {
+          selectedValueExistsInList = true;
+        }
+        addOptionToSelector($publicKeySelect, publicKey.name, publicKey.id)
+      });
+
+      if (selectedKeyGroup) {
+        if (selectedValueExistsInList) {
+          $publicKeySelect.val(selectedKeyGroup);
+        }
+        $publicKeyInput.val(selectedKeyGroup)
+      }
+      BS.enableJQueryDropDownFilter('${cloudfrontKeyPairSelect}', {});
+    }
+
+    function loadDistributionList() {
+      if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
+        return;
+      }
+      BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
+
+      var parameters = BS.EditStorageForm.serializeParameters() + '&resource=distributions';
+      var $refreshButton = $j('#distributions-refresh').addClass('icon-spin');
+      $j.post(window['base_uri'] + '${params.containersPath}', parameters).then(function (response) {
+        var $response = $j(response);
+        if (displayErrorsFromResponseIfAny($response)) {
+          distributions = [];
+          redrawDistributionSelector("");
+          return;
+        }
+
+        distributions = parseResourceListFromResponse($response, "distributions:eq(0) distribution").map(d => {
+          const id = d.find("id").text();
+          const publicKeys = d.find("publicKey").map((i, e) => $j(e).text()).get()
+          return {id, publicKeys};
+        });
+        var selectedDistribution = getSelectedDistributionName();
+        redrawDistributionSelector(selectedDistribution);
+        $distributionInput.change();
+      }).always(function () {
+        BS.ErrorsAwareListener.onCompleteSave(BS.EditStorageForm, "<errors/>", true);
+        $refreshButton.removeClass('icon-spin');
+      });
+    }
+
+    function loadPublicKeyList() {
+      if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
+        return;
+      }
+      BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
+
+      var parameters = BS.EditStorageForm.serializeParameters() + '&resource=publicKeys';
+      var $refreshButton = $j('#publicKeys-refresh').addClass('icon-spin');
+      $j.post(window['base_uri'] + '${params.containersPath}', parameters).then(function (response) {
+        var $response = $j(response);
+        if (displayErrorsFromResponseIfAny($response)) {
+          redrawKeyGroupSelector();
+          return;
+        }
+
+        publicKeys = parseResourceListFromResponse($response, "publicKeys:eq(0) publicKey").map(g => {
+          const id = g.find("id").text();
+          const name = g.find("name").text();
+          return {id, name};
+        });
+
+        redrawKeyGroupSelector()
+      }).always(function () {
+        BS.ErrorsAwareListener.onCompleteSave(BS.EditStorageForm, "<errors/>", true);
+        $refreshButton.removeClass('icon-spin');
+      });
+    }
+
+    function updateCloudFrontVisibility(){
+      if ($j(BS.Util.escapeId('${params.cloudFrontEnabled}')).is(':checked')) {
+        BS.Util.show('${params.cloudFrontSettingsGroup}');
+      } else {
+        BS.Util.hide('${params.cloudFrontSettingsGroup}');
+      }
+    }
+
     $j(document).on('change', keyId + ', ' + keySecret, function () {
       loadBucketList();
+      loadDistributionList();
+      loadPublicKeyList();
     });
     $j(document).on('ready', function () {
       redrawBucketSelector([], "");
       loadBucketList();
+      loadPublicKeyList();
+      loadDistributionList();
+      updateCloudFrontVisibility();
     });
     $j(document).on('click', '#buckets-refresh', function () {
       loadBucketList();
     });
+    $j(document).on('click', '#distributions-refresh', function () {
+      loadDistributionList();
+    });
+    $j(document).on('click', '#publicKeys-refresh', function () {
+      loadPublicKeyList();
+    });
     $j(document).on('change', useDefaultCredentialProviderChain, function () {
       loadBucketList();
+      loadPublicKeyList();
+      loadDistributionList();
     });
     $j(document).on('change', '#${bucketNameSelect}, #${bucketNameStringInput}', function () {
       var bucketName = $j(this).val();
       if (bucketName) {
         updateSelectedBucket(bucketName);
       }
+    });
+    $j(document).on('change', '#${cloudfrontDistributionSelect}', function () {
+      var distributionName = $j(this).val();
+      updateSelectedDistributionName(distributionName === ""? null : distributionName);
+      redrawKeyGroupSelector()
+    });
+
+    $j(document).on('change', '#${cloudfrontKeyPairSelect}', function () {
+      var publicKeyId = $j(this).val();
+      updateSelectedKeyGroup(publicKeyId === ""? null : publicKeyId);
+    });
+    $j(BS.Util.escapeId('${params.cloudFrontEnabled}')).change(function () {
+      updateCloudFrontVisibility()
     });
 
     $realBucketInput.change(function () {

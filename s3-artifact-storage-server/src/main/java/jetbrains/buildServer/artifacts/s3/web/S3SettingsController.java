@@ -22,10 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
-import jetbrains.buildServer.artifacts.s3.ListBucketsResourceFetcher;
-import jetbrains.buildServer.artifacts.s3.S3ClientResourceFetcher;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.*;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
@@ -53,6 +50,8 @@ public class S3SettingsController extends BaseFormXmlController {
     manager.registerController(path, this);
     myHandlers.put("buckets", new ListBucketsResourceFetcher());
     myHandlers.put("bucketLocation", new BucketLocationFetcher());
+    myHandlers.put("distributions", new ListCloudFrontDistributionsFetcher());
+    myHandlers.put("publicKeys", new ListCloudFrontPublicKeysFetcher());
   }
 
   @Override

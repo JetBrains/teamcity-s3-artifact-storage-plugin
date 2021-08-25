@@ -16,7 +16,6 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.AmazonS3;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.serialization.XmlSerializer;
 import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
@@ -29,15 +28,15 @@ public abstract class S3ClientResourceFetcher<T extends S3Dto> {
 
   @NotNull
   public String fetchAsXml(final Map<String, String> parameters) throws Exception {
-    final T dto = S3Util.withS3Client(parameters, s3Client -> fetchDto(s3Client, parameters));
+    final T dto = fetchDto(parameters);
     return OUR_XML_SERIALIZER.serialize(dto);
   }
 
   @NotNull
   public Element fetchAsElement(final Map<String, String> parameters) throws Exception {
-    final T dto = S3Util.withS3Client(parameters, s3Client -> fetchDto(s3Client, parameters));
+    final T dto = fetchDto(parameters);
     return OUR_XML_SERIALIZER.serializeAsElement(dto);
   }
 
-  protected abstract T fetchDto(final AmazonS3 s3Client, final Map<String, String> parameters) throws Exception;
+  protected abstract T fetchDto(final Map<String, String> parameters) throws Exception;
 }

@@ -17,6 +17,7 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 
 public class S3ParametersProvider {
   public String getBucketName() {
@@ -49,5 +50,21 @@ public class S3ParametersProvider {
 
   public String getMultipartUploadPartSize() {
     return S3Constants.S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE;
+  }
+
+  public String getCloudFrontEnabled(){
+    return CloudFrontConstants.S3_CLOUDFRONT_ENABLED;
+  }
+
+  public String getCloudFrontSettingsGroup(){
+    return CloudFrontConstants.S3_CLOUDFRONT_SETTINGS_GROUP;
+  }
+
+  public String getCloudFrontDistribution(){
+    return CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION;
+  }
+
+  public String getCloudFrontPublicKeyId(){
+    return CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
   }
 }

@@ -22,6 +22,8 @@ package jetbrains.buildServer.artifacts.s3;
  */
 public class S3Constants {
 
+  public static final String S3_ADDRESS = "s3.amazonaws.com";
+
   public static final String S3_BUCKET_NAME = "storage.s3.bucket.name";
   public static final String S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING = "storage.s3.bucket.name.wasProvidedAsString";
 
@@ -47,4 +49,6 @@ public class S3Constants {
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
+
+  public static final String S3_REGION_HEADER_NAME = "s3-region";
 }
