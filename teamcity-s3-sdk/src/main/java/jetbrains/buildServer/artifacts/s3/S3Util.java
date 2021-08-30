@@ -102,14 +102,6 @@ public final class S3Util {
     if (thresholdWithError.getSecond() != null) {
       invalids.put(S3_MULTIPART_UPLOAD_THRESHOLD, "Invalid " + thresholdWithError.getSecond());
     }
-    if (TeamCityProperties.getBoolean(S3_ENABLE_CLOUDFRONT_INTEGRATION) && getCloudFrontEnabled(params)) {
-      if (getCloudFrontPublicKeyId(params) == null) {
-        invalids.put(S3_CLOUDFRONT_PUBLIC_KEY_ID, "CloudFront public key should not be empty");
-      }
-      if (getCloudFrontPrivateKey(params) == null) {
-        invalids.put(VCS_ROOT_TEAMCITY_SSH_KEY_NAME, "CloudFront private key should not be empty");
-      }
-    }
     return invalids;
   }
 
@@ -153,7 +145,7 @@ public final class S3Util {
 
   @Nullable
   public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params){
-    return params.get(VCS_ROOT_TEAMCITY_SSH_KEY_NAME);
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_SSH_KEY);
   }
 
   @Nullable

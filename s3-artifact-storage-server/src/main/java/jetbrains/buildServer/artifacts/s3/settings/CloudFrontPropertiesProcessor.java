@@ -32,16 +32,25 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
     Distribution distribution;
     final ArrayList<InvalidProperty> invalids = new ArrayList<>();
 
-    if (S3Util.getCloudFrontDistribution(params) == null) {
-      distribution = createDistribution(params, invalids);
-      if (distribution != null) {
-        params.put(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION, distribution.getId());
-      }
-    } else {
-      distribution = getDistribution(params, invalids);
+    if (S3Util.getCloudFrontPublicKeyId(params) == null) {
+      invalids.add(new InvalidProperty(S3_CLOUDFRONT_PUBLIC_KEY_ID, "CloudFront public key should not be empty"));
     }
-    if (distribution != null) {
-      params.put(CloudFrontConstants.S3_CLOUDFRONT_DOMAIN, distribution.getDomainName());
+    if (S3Util.getCloudFrontPrivateKey(params) == null) {
+      invalids.add(new InvalidProperty(S3_CLOUDFRONT_PRIVATE_SSH_KEY, "Private SSH key should not be empty"));
+    }
+
+    if (invalids.isEmpty()) {
+      if (S3Util.getCloudFrontDistribution(params) == null) {
+        distribution = createDistribution(params, invalids);
+        if (distribution != null) {
+          params.put(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION, distribution.getId());
+        }
+      } else {
+        distribution = getDistribution(params, invalids);
+      }
+      if (distribution != null) {
+        params.put(CloudFrontConstants.S3_CLOUDFRONT_DOMAIN, distribution.getDomainName());
+      }
     }
 
     return invalids;

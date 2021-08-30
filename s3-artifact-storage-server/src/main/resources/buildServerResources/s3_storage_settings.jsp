@@ -23,6 +23,7 @@
 
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
+
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 <c:set var="pathPrefixesFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
@@ -131,15 +132,17 @@
         <i class="icon-refresh" title="Reload public keys" id="publicKeys-refresh"></i>
         <props:hiddenProperty name="${params.cloudFrontPublicKeyId}" id="${params.cloudFrontPublicKeyId}" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
         <span class="smallNote">Specify CloudFront public key to use.</span>
-        <span class="error" id="error_publicKeys" style="margin-top: -1em; margin-bottom: 1em;"></span>
+        <span class="error" id="error_${params.cloudFrontPublicKeyId}" style=></span>
+        <span class="error" id="error_publicKeys"></span>
       </td>
     </tr>
     <tr class="auth uploadedKey">
       <th>
-        <label for="teamcitySshKey">Select Private SSH key:</label>
+        <label for="teamcitySshKey">Select Private SSH key: <l:star/></label>
       </th>
       <td>
         <admin:sshKeys projectId="${propertiesBean.properties['projectId']}"/>
+        <span class="error" id="error_${params.cloudFrontPrivateSshKey}"></span>
       </td>
     </tr>
     </tbody>

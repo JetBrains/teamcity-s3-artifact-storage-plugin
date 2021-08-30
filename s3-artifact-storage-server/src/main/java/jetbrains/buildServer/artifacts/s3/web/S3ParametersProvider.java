@@ -67,4 +67,8 @@ public class S3ParametersProvider {
   public String getCloudFrontPublicKeyId(){
     return CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
   }
+
+  public String getCloudFrontPrivateSshKey(){
+    return CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_SSH_KEY;
+  }
 }
