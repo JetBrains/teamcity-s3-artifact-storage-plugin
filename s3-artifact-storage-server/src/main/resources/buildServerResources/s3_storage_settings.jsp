@@ -141,7 +141,7 @@
         <label for="teamcitySshKey">Select Private SSH key: <l:star/></label>
       </th>
       <td>
-        <admin:sshKeys projectId="${propertiesBean.properties['projectId']}"/>
+        <admin:sshKeys projectId="${param.projectId}"/>
         <span class="error" id="error_${params.cloudFrontPrivateSshKey}"></span>
       </td>
     </tr>
@@ -369,7 +369,7 @@
 
         distributions = parseResourceListFromResponse($response, "distributions:eq(0) distribution").map(d => {
           const id = d.find("id").text();
-          const publicKeys = d.find("publicKey").map((i, e) => $j(e).text()).get()
+          const publicKeys = d.find("publicKey").map((i, e) => $j(e).text()).get();
           return {id, publicKeys};
         });
         var selectedDistribution = getSelectedDistributionName();
