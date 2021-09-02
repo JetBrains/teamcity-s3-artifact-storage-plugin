@@ -21,7 +21,7 @@
         Storage name
       </description>
     </param>
-    <param name="storage.s3.bucket.name" dslName="buckerName" mandatory="true">
+    <param name="storage.s3.bucket.name" dslName="bucketName" mandatory="true">
       <description>
         Bucket name
       </description>
