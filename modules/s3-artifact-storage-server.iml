@@ -28,6 +28,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="TEST" name="httpcore-4.4.13" level="project" />
+    <orderEntry type="library" scope="TEST" name="httpclient-4.5.13" level="project" />
     <orderEntry type="module" module-name="s3-artifact-storage-common" />
     <orderEntry type="library" name="annotations.jar" level="project" />
     <orderEntry type="module" module-name="common" />
@@ -50,5 +52,6 @@
     <orderEntry type="module" module-name="common-vcs" />
     <orderEntry type="module" module-name="teamcity-s3-sdk" />
     <orderEntry type="module" module-name="aws-core-common" />
+    <orderEntry type="library" scope="TEST" name="org.testcontainers:localstack:1.15.2" level="project" />
   </component>
 </module>

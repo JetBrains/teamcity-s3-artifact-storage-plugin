@@ -1,0 +1,8 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
+<suite name="S3 Server Tests with TestContainers">
+  <test name="S3 cleanup tests">
+    <classes>
+      <class name="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtensionTest"/>
+    </classes>
+  </test>
+</suite>

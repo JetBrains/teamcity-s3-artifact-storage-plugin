@@ -40,6 +40,8 @@ dependencies {
       exclude group: 'commons-codec', module: 'commons-codec'
     }
 
+    testImplementation "org.testcontainers:localstack:1.15.2"
+
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
     server group: 'commons-codec', name: 'commons-codec', version: "1.11"
 }

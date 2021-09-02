@@ -50,6 +50,7 @@ import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
@@ -57,6 +58,7 @@ import org.jetbrains.annotations.NotNull;
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 import static jetbrains.buildServer.util.NamedThreadFactory.executeWithNewThreadName;
 import static jetbrains.buildServer.util.Util.doUnderContextClassLoader;
+import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 
 public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
@@ -119,6 +121,9 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     throws IOException, InvalidSettingsException {
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
+
+    final Retrier retrier = defaultRetrier(S3Util.getNumberOfRetries(params), S3Util.getRetryDelayInMs(params), LOGGER);
+
     S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
       final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
@@ -131,7 +136,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
       partitions.forEach(part -> {
         try {
           final Future<Integer> submit = myExecutorService.submit(
-            () -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size())));
+            () -> retrier.execute(() -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size()))));
           succeededNum.addAndGet(submit.get());
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
