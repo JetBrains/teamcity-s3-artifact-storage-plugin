@@ -19,6 +19,7 @@ package jetbrains.buildServer.filestorage;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
+import com.amazonaws.util.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
@@ -89,8 +90,10 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
         final List<String> split = StringUtil.split(objectKey, "/");
         if (!split.isEmpty()) {
+          //Unfortunately S3 expects everything to be ISO-8859-1 compliant. We have to encode filename to allow any non-ISO-8859-1 characters
+          String filename = SdkHttpUtils.urlEncode(split.get(split.size() - 1), false);
           request.withResponseHeaders(new ResponseHeaderOverrides()
-                                        .withContentDisposition("inline; filename=\"" + split.get(split.size() - 1) + "\""));
+                                        .withContentDisposition("inline; filename=\"" + filename + "\""));
         }
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);

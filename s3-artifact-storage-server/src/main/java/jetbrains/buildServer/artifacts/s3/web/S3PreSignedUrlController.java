@@ -21,6 +21,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -86,6 +87,7 @@ public class S3PreSignedUrlController extends BaseController {
         finishMultipartUpload(httpServletRequest, request.getSecond());
       } else {
         final String response = providePresignedUrls(httpServletRequest, request.getSecond());
+        httpServletResponse.setCharacterEncoding(StandardCharsets.UTF_8.displayName());
         httpServletResponse.getWriter().append(response);
       }
       httpServletResponse.setStatus(HttpServletResponse.SC_OK);

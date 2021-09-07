@@ -2,6 +2,7 @@ package jetbrains.buildServer.filestorage;
 
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner;
 import com.amazonaws.services.cloudfront.util.SignerUtils;
+import com.amazonaws.util.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.File;
@@ -38,7 +39,9 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     File keyFile = filePath.toFile();
     try {
       FileUtil.writeFileAndReportErrors(keyFile, new String(privateKey.getPrivateKey()));
-      return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(SignerUtils.Protocol.https, domain, keyFile, objectKey, publicKeyId,
+
+      String encodedObjecyKey = SdkHttpUtils.urlEncode(objectKey, true);
+      return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(SignerUtils.Protocol.https, domain, keyFile, encodedObjecyKey, publicKeyId,
                                                               new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
     } catch (InvalidKeySpecException e) {
       final Throwable cause = e.getCause();
