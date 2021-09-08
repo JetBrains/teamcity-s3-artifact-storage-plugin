@@ -6,7 +6,7 @@ public class CloudFrontConstants {
   public static final String S3_CLOUDFRONT_ENABLED = "storage.s3.cloudfront.enabled";
   public static final String S3_CLOUDFRONT_DISTRIBUTION = "storage.s3.cloudfront.distribution";
   public static final String S3_CLOUDFRONT_DOMAIN = "storage.s3.cloudfront.domain";
-  public static final String S3_CLOUDFRONT_PUBLIC_KEY_ID = "storage.s3.cloudfront.keypair.id";
+  public static final String S3_CLOUDFRONT_PUBLIC_KEY_ID = "storage.s3.cloudfront.publicKeyId";
   public static final String S3_CLOUDFRONT_SETTINGS_GROUP = "storage.s3.cloudfront.settings";
   public static final String S3_CLOUDFRONT_PRIVATE_SSH_KEY = "teamcitySshKey";
 

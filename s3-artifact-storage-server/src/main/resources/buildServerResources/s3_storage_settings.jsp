@@ -108,7 +108,7 @@
     <c:set var="distribution" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
     <tr>
       <th><label for="${cloudfrontDistributionSelect}">Select CloudFront distribution: </label></th>
-      <td>
+      <td class="non_serializable_form_elements_container">
         <props:selectProperty name="${cloudfrontDistributionSelect}" id="${cloudfrontDistributionSelect}" className="longField">
           <props:option value="">${cloudFrontDistributionAutoOption}</props:option>
           <c:if test="${not empty distribution}">
@@ -116,25 +116,25 @@
           </c:if>
         </props:selectProperty>
         <i class="icon-refresh" title="Reload distributions" id="distributions-refresh"></i>
-        <props:hiddenProperty name="${params.cloudFrontDistribution}" id="${params.cloudFrontDistribution}" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
         <span class="smallNote">Specify CloudFront distribution to use. Select "Create Automatically" and new distribution will be created for this project</span>
         <span class="error" id="error_${params.cloudFrontDistribution}" style="margin-top: -1em; margin-bottom: 1em;"></span>
         <span class="error" id="error_distributions" style="margin-top: -1em; margin-bottom: 1em;"></span>
       </td>
+      <props:hiddenProperty name="${params.cloudFrontDistribution}" id="${params.cloudFrontDistribution}" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
     </tr>
     <c:set var="publicKeyId" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
     <tr>
       <th><label for="${cloudfrontKeyPairSelect}">Select CloudFront public key: <l:star/></label></th>
-      <td>
+      <td class="non_serializable_form_elements_container">
         <props:selectProperty name="${cloudfrontKeyPairSelect}" id="${cloudfrontKeyPairSelect}" className="longField">
           <props:option value="">${cloudFrontKeyPairEmptyOption}</props:option>
         </props:selectProperty>
         <i class="icon-refresh" title="Reload public keys" id="publicKeys-refresh"></i>
-        <props:hiddenProperty name="${params.cloudFrontPublicKeyId}" id="${params.cloudFrontPublicKeyId}" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
         <span class="smallNote">Specify CloudFront public key to use.</span>
         <span class="error" id="error_${params.cloudFrontPublicKeyId}" style=></span>
         <span class="error" id="error_publicKeys"></span>
       </td>
+      <props:hiddenProperty name="${params.cloudFrontPublicKeyId}" id="${params.cloudFrontPublicKeyId}" value="${propertiesBean.properties[params.cloudFrontPublicKeyId]}"/>
     </tr>
     <tr class="auth uploadedKey">
       <th>

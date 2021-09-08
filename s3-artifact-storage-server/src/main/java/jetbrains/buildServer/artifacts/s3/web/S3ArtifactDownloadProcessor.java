@@ -32,16 +32,12 @@ import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.filestorage.CloudFrontPresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProviderImpl;
-import jetbrains.buildServer.serverSide.BuildPromotion;
-import jetbrains.buildServer.serverSide.ProjectManager;
-import jetbrains.buildServer.serverSide.SProject;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.ssh.ServerSshKeyManager;
 import jetbrains.buildServer.ssh.TeamCitySshKey;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
-import jetbrains.buildServer.web.util.UserAgentUtil;
 import jetbrains.buildServer.web.util.WebUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +56,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private final ExtensionsProvider myExtensionsProvider;
   private final CloudFrontPresignedUrlProvider myCloudFrontUrlProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
-  private ProjectManager myProjectManager;
+  private final ProjectManager myProjectManager;
 
   public S3ArtifactDownloadProcessor(@NotNull S3PresignedUrlProvider preSignedUrlProvider,
                                      @NotNull CloudFrontPresignedUrlProvider cloudFrontPresignedUrlProvider,
@@ -104,7 +100,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       boolean differentRegions = !Objects.equals(bucketRegion, requestRegion);
 
       if (notAnAgentRequest || differentRegions) {
-        String projectId = storedBuildArtifactInfo.getStorageSettings().get("projectId");
+        String projectId = buildPromotion.getProjectExternalId();
         final SProject project = myProjectManager.findProjectByExternalId(projectId);
         ServerSshKeyManager sshKeyManager = getSshKeyManager();
         if (sshKeyManager != null && project != null) {

@@ -8,7 +8,7 @@ import org.jetbrains.annotations.Nullable;
 
 public interface CloudFrontPresignedUrlProvider{
 
-  @NotNull
+  @Nullable
   String generateDownloadUrl(@NotNull String objectKey, @NotNull TeamCitySshKey privateKey,
                              @NotNull CloudFrontSettings settings) throws IOException;
 
@@ -19,7 +19,7 @@ public interface CloudFrontPresignedUrlProvider{
     boolean getCloudFrontEnabled();
 
     @Nullable
-    String getCloudFrontDomain();
+    String getCloudFrontDistribution();
 
     @Nullable
     String getCloudFrontPublicKeyId();

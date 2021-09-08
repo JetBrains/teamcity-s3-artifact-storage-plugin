@@ -45,11 +45,6 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
         if (distribution != null) {
           params.put(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION, distribution.getId());
         }
-      } else {
-        distribution = getDistribution(params, invalids);
-      }
-      if (distribution != null) {
-        params.put(CloudFrontConstants.S3_CLOUDFRONT_DOMAIN, distribution.getDomainName());
       }
     }
 
@@ -236,20 +231,5 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
     CreateKeyGroupResult keyGroup = cloudFrontClient.createKeyGroup(createKeyGroupRequest);
 
     return keyGroup.getKeyGroup().getId();
-  }
-
-  private Distribution getDistribution(Map<String, String> params, ArrayList<InvalidProperty> invalids) {
-    return AWSCommonParams.withAWSClients(params, clients -> {
-      AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
-      String selectedDistribution = S3Util.getCloudFrontDistribution(params);
-
-      try {
-        return cloudFrontClient.getDistribution(new GetDistributionRequest(selectedDistribution))
-                               .getDistribution();
-      } catch (NoSuchDistributionException e) {
-        invalids.add(new InvalidProperty(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION, e.getMessage()));
-        return null;
-      }
-    });
   }
 }
