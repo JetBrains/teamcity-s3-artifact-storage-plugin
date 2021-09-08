@@ -54,5 +54,25 @@
         Allowed suffixes: KB, MB, GB, TB. Leave empty to use the default value.
       </description>
     </param>
+    <param name="storage.s3.cloudfront.enabled" dslName="cloudFrontEnabled" type="boolean" trueValue="true" falseValue="">
+      <description>
+        Whether to use CloudFront for artifact downloads
+      </description>
+    </param>
+    <param name="storage.s3.cloudfront.distribution" dslName="cloudFrontDistribution" type="string">
+      <description>
+        Name of CloudFront distribution
+      </description>
+    </param>
+    <param name="storage.s3.cloudfront.publicKeyId" dslName="cloudFrontPublicKeyId" type="string">
+      <description>
+        Id of Public Key in CloudFront that has access to selected distribution
+      </description>
+    </param>
+    <param name="teamcitySshKey" dslName="cloudFrontSshKey" type="string">
+      <description>
+        Id of private SSH Key that corresponds to chosen public key
+      </description>
+    </param>
   </params>
 </dsl-extension>
