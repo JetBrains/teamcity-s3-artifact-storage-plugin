@@ -4,6 +4,8 @@ import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import java.util.concurrent.atomic.AtomicInteger;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
@@ -36,17 +38,21 @@ import static org.testcontainers.containers.localstack.LocalStackContainer.Servi
 public class S3CleanupExtensionTest extends BaseTestCase {
   public static final String BUCKET_NAME = "foo";
   public static final DockerImageName LOCALSTACK_IMAGE = DockerImageName.parse("localstack/localstack:0.11.3");
+
+  public static final ScheduledThreadPoolExecutor SCHEDULED_EXECUTOR = new ScheduledThreadPoolExecutor(4);
+  public static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newSingleThreadExecutor();
+
   public static final ExecutorServices EXECUTOR_SERVICES = new ExecutorServices() {
     @NotNull
     @Override
     public ScheduledExecutorService getNormalExecutorService() {
-      return new ScheduledThreadPoolExecutor(4);
+      return SCHEDULED_EXECUTOR;
     }
 
     @NotNull
     @Override
     public ExecutorService getLowPriorityExecutorService() {
-      return Executors.newSingleThreadExecutor();
+      return SINGLE_THREAD_EXECUTOR;
     }
   };
 
@@ -61,104 +67,94 @@ public class S3CleanupExtensionTest extends BaseTestCase {
 
     int maxWaitTime = 1000;
     int waitTime = 0;
-    while(!LOCALSTACK.isRunning() && waitTime < maxWaitTime){
+    while (!LOCALSTACK.isRunning() && waitTime < maxWaitTime) {
       Thread.sleep(200);
       waitTime += 200;
     }
   }
 
   @AfterClass
-  public static void cleanup(){
+  public static void cleanup() {
     LOCALSTACK.close();
+    SCHEDULED_EXECUTOR.shutdown();
+    SINGLE_THREAD_EXECUTOR.shutdown();
   }
 
   @Test
-  public void deletesArtifactsFromS3WithRetry() throws ExecutionException, InterruptedException {
+  public void deletesArtifactsFromS3WithRetry() {
     AWSCredentialsProvider credentialsProvider = LOCALSTACK.getDefaultCredentialsProvider();
     AwsClientBuilder.EndpointConfiguration endpointConfiguration = LOCALSTACK.getEndpointConfiguration(S3);
 
     Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "500");
-    storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "10");
+    storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "50");
 
     String artifactPath = "bar";
     String expectedContents = "baz";
 
     ArtifactDataInstance artifact = ArtifactDataInstance.create(artifactPath, expectedContents.length());
-    S3CleanupExtension cleanupExtension = getCleanupExtensionMock(storageSettings, artifact);
-
-    Mock contextMock = getContextMock();
-    contextMock.stubs().method("onBuildCleanupError").will(throwException(new RuntimeException("Build cleanup error")));
-    BuildCleanupContext context = (BuildCleanupContext) contextMock.proxy();
+    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, artifact);
 
     AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
 
-    ExecutorService executor = Executors.newFixedThreadPool(2);
-    Future<?> deletion = executor.submit(() -> cleanupExtension.cleanupBuildsData(context));
-    Future<?> creation = executor.submit(() -> {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        fail();
+    cleanupExtension.registerListener(new AbstractCleanupListener() {
+      @Override
+      public void onError(Exception exception, boolean isRecoverable) {
+        if (exception instanceof AmazonS3Exception && isRecoverable) {
+          s3.createBucket(BUCKET_NAME);
+          s3.putObject(BUCKET_NAME, artifactPath, expectedContents);
+        }
       }
-
-      s3.createBucket(BUCKET_NAME);
-      s3.putObject(BUCKET_NAME, artifactPath, expectedContents);
     });
 
-    creation.get();
-    deletion.get();
+    Mock contextMock = getContextMock();
+    contextMock.stubs().method("onBuildCleanupError").will(throwException(new RuntimeException("Build cleanup error")));
+    BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
+
+    cleanupExtension.cleanupBuildsData(context);
 
     assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactPath));
   }
 
 
-  @Test(expectedExceptions = {RuntimeException.class, ExecutionException.class})
-  public void failsBecauseRetryDoesntHaveEnoughTime() throws ExecutionException, InterruptedException {
+  @Test
+  public void failsBecauseRetryDoesntHaveEnoughTime() {
+    if (myTestLogger != null) {
+      myTestLogger.doNotFailOnErrorMessages();
+    }
     AWSCredentialsProvider credentialsProvider = LOCALSTACK.getDefaultCredentialsProvider();
     AwsClientBuilder.EndpointConfiguration endpointConfiguration = LOCALSTACK.getEndpointConfiguration(S3);
 
     Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "200");
-    storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "1");
+    storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "5");
 
     String artifactPath = "bar";
     String expectedContents = "baz";
 
     ArtifactDataInstance artifact = ArtifactDataInstance.create(artifactPath, expectedContents.length());
-    S3CleanupExtension cleanupExtension = getCleanupExtensionMock(storageSettings, artifact);
+    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, artifact);
+
+    AtomicInteger tryCount = new AtomicInteger(0);
+
+    cleanupExtension.registerListener(new AbstractCleanupListener() {
+      @Override
+      public void onError(Exception exception, boolean isRecoverable) {
+        if (exception instanceof AmazonS3Exception && isRecoverable) {
+          tryCount.incrementAndGet();
+        }
+      }
+    });
 
     Mock contextMock = getContextMock();
+    contextMock.stubs().method("onBuildCleanupError");
 
-    BuildCleanupContext context = (BuildCleanupContext) contextMock.proxy();
+    BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
 
     AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
 
-    ExecutorService executor = Executors.newFixedThreadPool(2);
-    Future<?> deletion = executor.submit(() -> {
-      try {
-        cleanupExtension.cleanupBuildsData(context);
-        fail();
-      }catch (RuntimeException ignored){
-
-      }
-    });
-    Future<?> creation = executor.submit(() -> {
-      try {
-        Thread.sleep(2000);
-      } catch (InterruptedException e) {
-        fail();
-      }
-
-      s3.createBucket(BUCKET_NAME);
-      s3.putObject(BUCKET_NAME, artifactPath, expectedContents);
-    });
-
-    creation.get();
-    deletion.get();
-
-    contextMock.expects(once()).method("onBuildCleanupError");
-    assertTrue(s3.doesObjectExist(BUCKET_NAME, artifactPath));
+    cleanupExtension.cleanupBuildsData(context);
+    assertEquals("Should try deleting object for 6 times", 6, tryCount.get());
   }
 
   @NotNull
@@ -167,9 +163,9 @@ public class S3CleanupExtensionTest extends BaseTestCase {
     storageSettings.put("aws.region.name", endpointConfiguration.getSigningRegion());
     storageSettings.put("secure:aws.secret.access.key", credentialsProvider.getCredentials().getAWSSecretKey());
     storageSettings.put("aws.access.key.id", credentialsProvider.getCredentials().getAWSAccessKeyId());
-    storageSettings.put("aws.credentials.type","aws.access.keys");
-    storageSettings.put("storage.s3.bucket.name",BUCKET_NAME);
-    storageSettings.put("aws.environment","custom");
+    storageSettings.put("aws.credentials.type", "aws.access.keys");
+    storageSettings.put("storage.s3.bucket.name", BUCKET_NAME);
+    storageSettings.put("aws.environment", "custom");
     storageSettings.put("aws.service.endpoint", endpointConfiguration.getServiceEndpoint());
     return storageSettings;
   }
@@ -202,7 +198,7 @@ public class S3CleanupExtensionTest extends BaseTestCase {
   }
 
   @NotNull
-  private S3CleanupExtension getCleanupExtensionMock(Map<String, String> storageSettings, ArtifactData... artifacts) {
+  private S3CleanupExtension getCleanupExtension(Map<String, String> storageSettings, ArtifactData... artifacts) {
     Mock artifactHelper = mock(ServerArtifactHelper.class);
 
     artifactHelper.stubs().method("getArtifactList").will(returnValue(getArtifactListData(artifacts)));
@@ -214,7 +210,7 @@ public class S3CleanupExtensionTest extends BaseTestCase {
 
     ServerPaths serverPaths = new ServerPaths("./target");
 
-    return new S3CleanupExtension((ServerArtifactHelper) artifactHelper.proxy(),(ServerArtifactStorageSettingsProvider) settingsProvider.proxy(),serverPaths, EXECUTOR_SERVICES);
+    return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths, EXECUTOR_SERVICES);
   }
 
   @NotNull

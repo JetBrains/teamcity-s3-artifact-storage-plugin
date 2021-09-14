@@ -20,15 +20,13 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -50,6 +48,7 @@ import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.positioning.PositionAware;
 import jetbrains.buildServer.util.positioning.PositionConstraint;
@@ -71,6 +70,8 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   private final ServerPaths myServerPaths;
   @NotNull
   private final ExecutorService myExecutorService;
+  @NotNull
+  private final List<CleanupListener> myCleanupListeners = new CopyOnWriteArrayList<>();
 
   public S3CleanupExtension(
     @NotNull final ServerArtifactHelper helper,
@@ -124,6 +125,13 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
     final Retrier retrier = defaultRetrier(S3Util.getNumberOfRetries(params), S3Util.getRetryDelayInMs(params), LOGGER);
 
+    retrier.registerListener(new AbstractRetrierEventListener() {
+      @Override
+      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+        myCleanupListeners.forEach(l -> l.onError(e, true));
+      }
+    });
+
     S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
       final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
@@ -138,8 +146,13 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           final Future<Integer> submit = myExecutorService.submit(
             () -> retrier.execute(() -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size()))));
           succeededNum.addAndGet(submit.get());
+          part.forEach(key -> myCleanupListeners.forEach(l -> l.onSuccess(key)));
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
+
+          if (!e.getDeletedObjects().isEmpty()) {
+            myCleanupListeners.forEach(l -> e.getDeletedObjects().forEach(obj -> l.onSuccess(obj.getKey())));
+          }
 
           final List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
           errors.forEach(error -> {
@@ -147,12 +160,14 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
             if (key.startsWith(pathPrefix)) {
               LOGGER.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
               pathsToDelete.remove(key.substring(pathPrefix.length()));
+              myCleanupListeners.forEach(l -> l.onError(e, false));
             }
           });
           errorNum.addAndGet(errors.size());
         } catch (ExecutionException | InterruptedException e) {
           LOGGER.error("Got an exception while processing chunk " + part, e);
           errorNum.addAndGet(part.size());
+          myCleanupListeners.forEach(l -> l.onError(e, false));
         }
       });
 
@@ -208,5 +223,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   @Override
   public String getOrderId() {
     return S3Constants.S3_STORAGE_TYPE;
+  }
+
+  @VisibleForTesting
+  void registerListener(@NotNull CleanupListener listener) {
+    myCleanupListeners.add(listener);
   }
 }
