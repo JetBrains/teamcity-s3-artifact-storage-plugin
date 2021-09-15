@@ -5,6 +5,11 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
@@ -28,9 +33,6 @@ import org.testcontainers.containers.localstack.LocalStackContainer;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
-
-import java.util.*;
-import java.util.concurrent.*;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
@@ -114,6 +116,8 @@ public class S3CleanupExtensionTest extends BaseTestCase {
     cleanupExtension.cleanupBuildsData(context);
 
     assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactPath));
+
+    s3.deleteBucket(BUCKET_NAME);
   }
 
 
@@ -150,8 +154,6 @@ public class S3CleanupExtensionTest extends BaseTestCase {
     contextMock.stubs().method("onBuildCleanupError");
 
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
-
-    AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
 
     cleanupExtension.cleanupBuildsData(context);
     assertEquals("Should try deleting object for 6 times", 6, tryCount.get());
