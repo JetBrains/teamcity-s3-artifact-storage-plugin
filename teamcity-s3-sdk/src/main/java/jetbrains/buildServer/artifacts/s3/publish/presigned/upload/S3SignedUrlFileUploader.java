@@ -61,14 +61,20 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
   @Override
   public Collection<FileUploadInfo> upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) {
-    final Map<File, String> fileToNormalizedArtifactPathMap = new HashMap<>();
-    final Map<File, String> fileToS3ObjectKeyMap = new HashMap<>();
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
+    final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
     for (Map.Entry<File, String> entry : filesToUpload.entrySet()) {
-      final String normalizeArtifactPath = S3Util.normalizeArtifactPath(entry.getValue(), entry.getKey());
-      fileToNormalizedArtifactPathMap.put(entry.getKey(), normalizeArtifactPath);
-      fileToS3ObjectKeyMap.put(entry.getKey(), myS3Configuration.getPathPrefix() + normalizeArtifactPath);
+      final File file = entry.getKey();
+      final String artifactPath = S3Util.normalizeArtifactPath(entry.getValue(), file);
+      final String objectKey = myS3Configuration.getPathPrefix() + artifactPath;
+
+      final FileWithArtifactPath existingMapping = normalizedObjectPaths.get(objectKey);
+      if (existingMapping != null && !existingMapping.getFile().equals(file)) {
+        myLogger.warn("Found clashing artifacts path: " + artifactPath + " leading to different files [" + existingMapping.getFile().getPath() + "," + file.getPath() + "].\n" +
+                      "Only the last file will be uploaded to the specified artifact path.");
+      }
+      normalizedObjectPaths.put(objectKey, FileWithArtifactPath.create(artifactPath, file));
     }
 
     final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
@@ -77,40 +83,40 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration.getAdvancedConfiguration());
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myTeamCityConnectionConfiguration,
                                                                                myS3Configuration.getAdvancedConfiguration(),
-                                                                               fileToS3ObjectKeyMap.values())) {
+                                                                               normalizedObjectPaths.keySet())) {
       try {
-        return filesToUpload.keySet()
-                            .stream()
-                            .map(file -> {
-                              try {
-                                return forkJoinPool.submit(() -> retrier
-                                  .execute(S3PresignedUpload.create(fileToNormalizedArtifactPathMap.get(file),
-                                                                    fileToS3ObjectKeyMap.get(file),
-                                                                    file,
-                                                                    myS3Configuration.getAdvancedConfiguration(),
-                                                                    uploadManager,
-                                                                    lowLevelS3Client,
-                                                                    new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
-                              } catch (RejectedExecutionException e) {
-                                if (isPoolTerminating(forkJoinPool)) {
-                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
-                                } else {
-                                  LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
-                                }
-                                return null;
-                              }
-                            })
-                            .filter(Objects::nonNull)
-                            .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
-                              logPublishingError(e);
-                              if (isPublishingInterruptedException(e)) {
-                                shutdownPool(forkJoinPool);
-                              } else {
-                                ExceptionUtil.rethrowAsRuntimeException(e);
-                              }
-                            }))
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
+        return normalizedObjectPaths.entrySet()
+                                    .stream()
+                                    .map(objectKeyToFileWithArtifactPath -> {
+                                      try {
+                                        return forkJoinPool.submit(() -> retrier
+                                          .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
+                                                                            objectKeyToFileWithArtifactPath.getKey(),
+                                                                            objectKeyToFileWithArtifactPath.getValue().getFile(),
+                                                                            myS3Configuration.getAdvancedConfiguration(),
+                                                                            uploadManager,
+                                                                            lowLevelS3Client,
+                                                                            new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
+                                      } catch (RejectedExecutionException e) {
+                                        if (isPoolTerminating(forkJoinPool)) {
+                                          LOGGER.debug("Artifact publishing rejected by pool shutdown");
+                                        } else {
+                                          LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
+                                        }
+                                        return null;
+                                      }
+                                    })
+                                    .filter(Objects::nonNull)
+                                    .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
+                                      logPublishingError(e);
+                                      if (isPublishingInterruptedException(e)) {
+                                        shutdownPool(forkJoinPool);
+                                      } else {
+                                        ExceptionUtil.rethrowAsRuntimeException(e);
+                                      }
+                                    }))
+                                    .filter(Objects::nonNull)
+                                    .collect(Collectors.toList());
       } catch (Throwable th) {
         if (isPublishingInterruptedException(th)) {
           LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
@@ -232,6 +238,28 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       if (interruptedReason != null) {
         throw new PublishingInterruptedException(interruptedReason);
       }
+    }
+  }
+
+  private static class FileWithArtifactPath {
+    private final String myArtifactPath;
+    private final File myFile;
+
+    private FileWithArtifactPath(@NotNull final String artifactPath, @NotNull final File file) {
+      myArtifactPath = artifactPath;
+      myFile = file;
+    }
+
+    public String getArtifactPath() {
+      return myArtifactPath;
+    }
+
+    public File getFile() {
+      return myFile;
+    }
+
+    public static FileWithArtifactPath create(@NotNull final String artifactPath, @NotNull final File file) {
+      return new FileWithArtifactPath(artifactPath, file);
     }
   }
 }
