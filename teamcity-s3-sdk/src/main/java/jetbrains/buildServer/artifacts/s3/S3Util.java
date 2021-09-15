@@ -43,9 +43,6 @@ import org.jetbrains.annotations.Nullable;
 
 import static com.amazonaws.ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
-import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
-import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION;
-import static jetbrains.buildServer.ssh.VcsRootSshKeyManager.VCS_ROOT_TEAMCITY_SSH_KEY_NAME;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 import static jetbrains.buildServer.util.amazon.S3Util.*;
@@ -146,6 +143,11 @@ public final class S3Util {
   @Nullable
   public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params){
     return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_SSH_KEY);
+  }
+
+  @Nullable
+  public static String getCloudFrontPrivateKeyPassphrase(@NotNull final Map<String, String> params){
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY_PASSPHRASE);
   }
 
   @Nullable

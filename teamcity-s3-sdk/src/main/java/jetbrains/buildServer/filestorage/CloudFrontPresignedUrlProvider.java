@@ -27,6 +27,9 @@ public interface CloudFrontPresignedUrlProvider{
     @NotNull
     String getCloudFrontPrivateKey();
 
+    @Nullable
+    String getCloudFrontPrivateKeyPassphrase();
+
     @NotNull
     String getBucketRegion();
   }

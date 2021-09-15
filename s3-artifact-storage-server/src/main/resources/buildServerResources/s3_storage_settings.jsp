@@ -142,8 +142,15 @@
       </th>
       <td>
         <admin:sshKeys projectId="${param.projectId}"/>
+        <span
+            class="smallNote">Specify a private key that corresponds to selected public key. Please be aware that CloudFront only supports 2048-bit SSH-2 RSA keys in PEM format</span>
         <span class="error" id="error_${params.cloudFrontPrivateSshKey}"></span>
       </td>
+    </tr>
+    <tr id="cloudFrontPassphraseRow" class="auth uploadedKey">
+      <th><label for="${params.cloudFrontPrivateKeyPassphrase}">Passphrase:</label></th>
+      <td><props:passwordProperty name="${params.cloudFrontPrivateKeyPassphrase}" className="longField"/></td>
+    </tr>
     </tr>
     </tbody>
   </l:settingsGroup>

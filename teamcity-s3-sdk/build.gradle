@@ -12,6 +12,8 @@ dependencies {
   compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
     changing = true
   }
+  compile "com.github.mwiede:jsch:0.1.67"
+
   testCompile "org.testng:testng:6.8.21"
   testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
 }

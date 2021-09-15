@@ -1,30 +1,31 @@
 package jetbrains.buildServer.filestorage;
 
+import com.amazonaws.auth.PEM;
 import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner;
 import com.amazonaws.services.cloudfront.model.AmazonCloudFrontException;
 import com.amazonaws.services.cloudfront.model.Distribution;
 import com.amazonaws.services.cloudfront.model.GetDistributionRequest;
-import com.amazonaws.services.cloudfront.model.NoSuchDistributionException;
 import com.amazonaws.services.cloudfront.util.SignerUtils;
 import com.amazonaws.util.SdkHttpUtils;
-import com.amazonaws.util.StringUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
-import java.io.File;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.KeyPair;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.security.PrivateKey;
 import java.security.spec.InvalidKeySpecException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.ssh.TeamCitySshKey;
-import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
+import jetbrains.buildServer.util.jsch.JSchConfigInitializer;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -35,30 +36,29 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
     myTimeService = timeService;
+    JSchConfigInitializer.initJSchConfig(JSch.class);
   }
 
   @Nullable
   @Override
   public String generateDownloadUrl(@NotNull String objectKey, @NotNull TeamCitySshKey privateKey,
                                     @NotNull CloudFrontSettings settings) throws IOException {
-    final Path filePath = FileUtil.createTempFile(new File(FileUtil.getTempDirectory()), "pk", ".pem", true).toPath();
-    File keyFile = filePath.toFile();
     try {
       Distribution distribution = getDistribution(settings);
       String domain = distribution.getDomainName();
-
       String publicKeyId = settings.getCloudFrontPublicKeyId();
 
-      FileUtil.writeFileAndReportErrors(keyFile, new String(privateKey.getPrivateKey()));
-
       String encodedObjectKey = SdkHttpUtils.urlEncode(objectKey, true);
-      if (!StringUtils.isNullOrEmpty(domain) && !StringUtils.isNullOrEmpty(publicKeyId)) {
-        return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(SignerUtils.Protocol.https, domain, keyFile, encodedObjectKey, publicKeyId,
-                                                                new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
-      } else {
-        return null;
+      if (jetbrains.buildServer.util.StringUtil.isNotEmpty(domain) && StringUtil.isNotEmpty(publicKeyId)) {
+        String resourcePath = SignerUtils.generateResourcePath(SignerUtils.Protocol.https, domain, encodedObjectKey);
+
+        PrivateKey decodedPrivateKey = decodePrivateKey(privateKey, settings);
+
+        return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(resourcePath, publicKeyId, decodedPrivateKey,
+          new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
       }
-    } catch (InvalidKeySpecException | AmazonCloudFrontException | IOException e) {
+      return null;
+    } catch (InvalidKeySpecException | AmazonCloudFrontException | IOException | JSchException e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
       final String details = awsException.getDetails();
@@ -67,10 +67,26 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
         LOG.warnAndDebugDetails(message, cause);
       }
       throw new IOException(String.format("Failed to create pre-signed URL to artifact '%s' in CloudFront distribution '%s': %s", objectKey, settings.getCloudFrontDistribution(), awsException.getMessage()),
-                            awsException);
-    } finally {
-      FileUtil.delete(keyFile);
+        awsException);
     }
+  }
+
+  @NotNull
+  private PrivateKey decodePrivateKey(@NotNull TeamCitySshKey privateKey, @NotNull CloudFrontSettings settings) throws JSchException, InvalidKeySpecException, IOException {
+    JSch jsch = new JSch();
+    KeyPair keyPair = KeyPair.load(jsch, privateKey.getPrivateKey(), null);
+
+    byte[] key;
+    if (keyPair.isEncrypted() && settings.getCloudFrontPrivateKeyPassphrase() != null) {
+      keyPair.decrypt(settings.getCloudFrontPrivateKeyPassphrase());
+      ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+      keyPair.writePrivateKey(outputStream, null);
+      key = outputStream.toByteArray();
+    } else {
+      key = privateKey.getPrivateKey();
+    }
+
+    return PEM.readPrivateKey(new ByteArrayInputStream(key));
   }
 
   @NotNull
@@ -83,13 +99,13 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   }
 
   private Distribution getDistribution(CloudFrontSettings settings) throws AmazonCloudFrontException {
-    Map<String, String> params = ((CloudFrontSettingsImpl)settings).getSettings();
+    Map<String, String> params = ((CloudFrontSettingsImpl) settings).getSettings();
     return AWSCommonParams.withAWSClients(params, clients -> {
       AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
       String selectedDistribution = S3Util.getCloudFrontDistribution(params);
 
       return cloudFrontClient.getDistribution(new GetDistributionRequest(selectedDistribution))
-                             .getDistribution();
+        .getDistribution();
     });
   }
 
@@ -128,6 +144,12 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     @Override
     public String getCloudFrontPrivateKey() {
       return S3Util.getCloudFrontPrivateKey(mySettings);
+    }
+
+    @Nullable
+    @Override
+    public String getCloudFrontPrivateKeyPassphrase() {
+      return S3Util.getCloudFrontPrivateKeyPassphrase(mySettings);
     }
 
     @NotNull
