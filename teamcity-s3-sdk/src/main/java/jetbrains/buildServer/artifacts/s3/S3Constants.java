@@ -51,4 +51,6 @@ public class S3Constants {
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 
   public static final String S3_REGION_HEADER_NAME = "s3-region";
+
+  public static final String S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS = "teamcity.internal.storage.s3.metadata.request.timeout.sec";
 }
