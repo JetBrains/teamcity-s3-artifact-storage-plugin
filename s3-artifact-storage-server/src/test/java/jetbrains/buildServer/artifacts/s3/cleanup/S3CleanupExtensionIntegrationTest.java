@@ -6,10 +6,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
@@ -17,6 +14,7 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.CleanupLevel;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
@@ -28,20 +26,28 @@ import jetbrains.buildServer.serverSide.impl.cleanup.CleanupProcessStateEx;
 import org.jetbrains.annotations.NotNull;
 import org.jmock.Mock;
 import org.jmock.core.stub.DefaultResultStub;
-import org.junit.AfterClass;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
+import org.testcontainers.shaded.org.apache.commons.lang.BooleanUtils;
 import org.testcontainers.utility.DockerImageName;
+import org.testng.SkipException;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
-
-public class S3CleanupExtensionTest extends BaseTestCase {
+@Test(groups = "testcontainers")
+public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
+  private static final int DOCKER_CONNECTION_TIMEOUT_SECONDS = 5;
+  @NotNull
   public static final String BUCKET_NAME = "foo";
+  @NotNull
   public static final DockerImageName LOCALSTACK_IMAGE = DockerImageName.parse("localstack/localstack:0.11.3");
-
+  @NotNull
   public static final ScheduledThreadPoolExecutor SCHEDULED_EXECUTOR = new ScheduledThreadPoolExecutor(4);
+  @NotNull
   public static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newSingleThreadExecutor();
 
   public static final ExecutorServices EXECUTOR_SERVICES = new ExecutorServices() {
@@ -57,35 +63,60 @@ public class S3CleanupExtensionTest extends BaseTestCase {
       return SINGLE_THREAD_EXECUTOR;
     }
   };
+  private LocalStackContainer myLocalStack;
 
-  public static final LocalStackContainer LOCALSTACK = new LocalStackContainer(LOCALSTACK_IMAGE).withServices(S3);
-
-  @BeforeClass
   @Override
+  @BeforeClass
   protected void setUpClass() throws Exception {
     super.setUpClass();
-
-    LOCALSTACK.start();
-
-    int maxWaitTime = 1000;
-    int waitTime = 0;
-    while (!LOCALSTACK.isRunning() && waitTime < maxWaitTime) {
-      Thread.sleep(200);
-      waitTime += 200;
+    // Testcontainers don't have setting for socket ping timeout.
+    // Thus, the only way to not wait for the default timeout on local socket connection is to forcibly cancel the whole client creation via the future
+    final Future<Boolean> future = SINGLE_THREAD_EXECUTOR.submit(S3CleanupExtensionIntegrationTest::isDockerAvailable);
+    try {
+      if (BooleanUtils.isTrue(future.get(DOCKER_CONNECTION_TIMEOUT_SECONDS, TimeUnit.SECONDS))) {
+        myLocalStack = new LocalStackContainer(LOCALSTACK_IMAGE).withServices(S3);
+        myLocalStack.start();
+      }
+    } catch (TimeoutException e) {
+      future.cancel(true);
+      Loggers.TEST.info("Testcontainers initialization timeout waiting on docker client");
+    } catch (ExecutionException e) {
+      Loggers.TEST.infoAndDebugDetails("Testcontainers initialization failed with exception", e.getCause());
     }
   }
 
+  @Override
+  @BeforeMethod
+  public void setUp() throws Exception {
+    super.setUp();
+    if (myLocalStack == null || !myLocalStack.isRunning()) {
+      Loggers.TEST.info("LocalStack container failed to initialize, skipping testcontainers tests");
+      throw new SkipException("LocalStack container failed to initialize, skipping testcontainers tests");
+    }
+  }
+
+  private static boolean isDockerAvailable() {
+    try {
+      return DockerClientFactory.instance().isDockerAvailable();
+    } catch (IllegalStateException e) {
+      return false;
+    }
+  }
+
+
   @AfterClass
-  public static void cleanup() {
-    LOCALSTACK.close();
+  public void afterClass() {
     SCHEDULED_EXECUTOR.shutdown();
     SINGLE_THREAD_EXECUTOR.shutdown();
+    if (myLocalStack != null) {
+      myLocalStack.close();
+    }
   }
 
   @Test
   public void deletesArtifactsFromS3WithRetry() {
-    AWSCredentialsProvider credentialsProvider = LOCALSTACK.getDefaultCredentialsProvider();
-    AwsClientBuilder.EndpointConfiguration endpointConfiguration = LOCALSTACK.getEndpointConfiguration(S3);
+    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
+    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
 
     Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "500");
@@ -126,8 +157,8 @@ public class S3CleanupExtensionTest extends BaseTestCase {
     if (myTestLogger != null) {
       myTestLogger.doNotFailOnErrorMessages();
     }
-    AWSCredentialsProvider credentialsProvider = LOCALSTACK.getDefaultCredentialsProvider();
-    AwsClientBuilder.EndpointConfiguration endpointConfiguration = LOCALSTACK.getEndpointConfiguration(S3);
+    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
+    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
 
     Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "200");
@@ -195,7 +226,7 @@ public class S3CleanupExtensionTest extends BaseTestCase {
     context.stubs().method("getCleanupLevel").will(returnValue(CleanupLevel.EVERYTHING));
 
     cleanupState.setDefaultStub(new DefaultResultStub());
-    context.stubs().method("getCleanupState").will(returnValue((CleanupProcessStateEx)cleanupState.proxy()));
+    context.stubs().method("getCleanupState").will(returnValue(cleanupState.proxy()));
     return context;
   }
 

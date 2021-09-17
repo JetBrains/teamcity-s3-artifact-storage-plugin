@@ -2,7 +2,7 @@
 <suite name="S3 Server Tests with TestContainers">
   <test name="S3 cleanup tests">
     <classes>
-      <class name="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtensionTest"/>
+      <class name="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtensionIntegrationTest"/>
     </classes>
   </test>
 </suite>
