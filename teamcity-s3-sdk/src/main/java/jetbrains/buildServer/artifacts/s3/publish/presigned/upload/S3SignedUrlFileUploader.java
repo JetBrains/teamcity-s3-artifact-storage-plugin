@@ -49,13 +49,13 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUrlFileUploader.class.getName());
   @NotNull
-  private final TeamCityConnectionConfiguration myTeamCityConnectionConfiguration;
+  private final PresignedUrlsProviderClient myPresignedUrlsProviderClient;
 
   public S3SignedUrlFileUploader(@NotNull final S3Configuration s3Configuration,
                                  @NotNull final S3UploadLogger s3UploadLogger,
-                                 @NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
+                                 @NotNull final PresignedUrlsProviderClient presignedUrlsProviderClient) {
     super(s3Configuration, s3UploadLogger);
-    this.myTeamCityConnectionConfiguration = teamCityConnectionConfiguration;
+    myPresignedUrlsProviderClient = presignedUrlsProviderClient;
   }
 
   @NotNull
@@ -81,7 +81,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration.getAdvancedConfiguration());
-         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myTeamCityConnectionConfiguration,
+         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient,
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
       try {

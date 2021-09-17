@@ -165,7 +165,9 @@ public class PresignedUrlRequestSerializer {
   public static PresignedUrlListRequestDto deserializeRequest(@NotNull final String data) {
     try {
       final Element document = XmlUtil.from_s(data);
-      if (!document.getName().equals(OBJECT_KEYS)) return null;
+      if (!document.getName().equals(OBJECT_KEYS)) {
+        throw new IllegalArgumentException("Expected document name to be '" + OBJECT_KEYS + "' but got '" + document.getName() + "'");
+      }
       final Collection<PresignedUrlRequestDto> result = new HashSet<>();
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;

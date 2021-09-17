@@ -32,12 +32,14 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.CompositeS3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClientFactory;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
@@ -53,14 +55,19 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   private final List<ArtifactDataInstance> myArtifacts = new ArrayList<>();
   private S3FileUploader myFileUploader;
+  @NotNull
+  private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
 
+  @Autowired
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final CurrentBuildTracker tracker,
-                              @NotNull final BuildAgentConfiguration buildAgentConfiguration) {
+                              @NotNull final BuildAgentConfiguration buildAgentConfiguration,
+                              @NotNull final PresignedUrlsProviderClientFactory presignedUrlsProviderClient) {
     myHelper = helper;
     myTracker = tracker;
     myBuildAgentConfiguration = buildAgentConfiguration;
+    myPresignedUrlsProviderClientFactory = presignedUrlsProviderClient;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
@@ -134,7 +141,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
-      myFileUploader = S3FileUploader.create(s3Configuration, CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()), teamcityConnectionConfiguration(build));
+      myFileUploader = S3FileUploader.create(s3Configuration, CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()), () -> {
+        return myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build));
+      });
     }
     return myFileUploader;
   }

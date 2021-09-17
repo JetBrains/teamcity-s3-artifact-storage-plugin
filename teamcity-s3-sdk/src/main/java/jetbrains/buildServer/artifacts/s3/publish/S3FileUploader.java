@@ -24,6 +24,8 @@ import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClient;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClientFactory;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3SignedUrlFileUploader;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.util.amazon.S3Util;
@@ -35,9 +37,10 @@ public abstract class S3FileUploader {
   @NotNull
   protected final S3Configuration myS3Configuration;
 
-  public S3FileUploader(@NotNull final S3Configuration s3Configuration, @NotNull S3UploadLogger logger) {
-    this.myS3Configuration = s3Configuration;
-    this.myLogger = logger;
+  public S3FileUploader(@NotNull final S3Configuration s3Configuration,
+                        @NotNull final S3UploadLogger logger) {
+    myS3Configuration = s3Configuration;
+    myLogger = logger;
   }
 
   @NotNull
@@ -58,9 +61,9 @@ public abstract class S3FileUploader {
 
   public static S3FileUploader create(@NotNull final S3Configuration s3Configuration,
                                       @NotNull final S3UploadLogger s3UploadLogger,
-                                      @NotNull final TeamCityConnectionConfiguration tcConnectionConfiguration) {
+                                      @NotNull final Supplier<PresignedUrlsProviderClient> presignedUrlsProviderClientSupplier) {
     return s3Configuration.isUsePresignedUrls()
-           ? new S3SignedUrlFileUploader(s3Configuration, s3UploadLogger, tcConnectionConfiguration)
+           ? new S3SignedUrlFileUploader(s3Configuration, s3UploadLogger, presignedUrlsProviderClientSupplier.get())
            : new S3RegularFileUploader(s3Configuration, s3UploadLogger);
   }
 
