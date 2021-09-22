@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.CollectionsUtil;
@@ -70,7 +71,7 @@ public class S3SignedUploadManager implements AutoCloseable {
           return CollectionsUtil.split(myS3ObjectKeys, (myS3ObjectKeys.size() / myMaxUrlChunkSize) + 1)
                                 .stream()
                                 .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " started"))
-                                .map(myPresignedUrlsProviderClient::getRegularPresignedUrls)
+                                .map(myRetrier.retryableMapper(myPresignedUrlsProviderClient::getRegularPresignedUrls))
                                 .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " finished"))
                                 .flatMap(presignedUrlDto -> presignedUrlDto.stream())
                                 .collect(Collectors.toMap(o -> o.objectKey, presignedUrlDto -> presignedUrlDto));
@@ -88,7 +89,7 @@ public class S3SignedUploadManager implements AutoCloseable {
 
   @NotNull
   public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, final int nParts) {
-    final PresignedUrlDto presignedUrl = myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, nParts);
+    final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, nParts));
     myMultipartUploadIds.put(presignedUrl.objectKey, presignedUrl.uploadId);
     return presignedUrl;
   }
