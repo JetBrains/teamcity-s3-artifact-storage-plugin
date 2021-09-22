@@ -12,6 +12,7 @@ import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
+import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
 
 public class S3SignedUploadManager implements AutoCloseable {
@@ -30,6 +31,8 @@ public class S3SignedUploadManager implements AutoCloseable {
   private final String myCorrelationId = UUID.randomUUID().toString();
   @NotNull
   private final PresignedUrlsProviderClient myPresignedUrlsProviderClient;
+  @NotNull
+  private final Retrier myRetrier;
 
   public S3SignedUploadManager(@NotNull final PresignedUrlsProviderClient presignedUrlsProviderClient,
                                @NotNull final S3Util.S3AdvancedConfiguration s3Config,
@@ -37,6 +40,7 @@ public class S3SignedUploadManager implements AutoCloseable {
     myPresignedUrlsProviderClient = presignedUrlsProviderClient;
     myS3ObjectKeys = new ArrayList<>(s3ObjectKeys);
     myMaxUrlChunkSize = s3Config.getPresignedUrlMaxChunkSize();
+    myRetrier = Retrier.defaultRetrier(s3Config.getRetriesNum(), s3Config.getRetryDelay(), LOGGER);
     myCache = new UptodateValue<>(this::fetchPresignedUrlsFromProvider, s3Config.getUrlTtlSeconds() * 1000L);
   }
 
@@ -60,7 +64,7 @@ public class S3SignedUploadManager implements AutoCloseable {
   private Map<String, PresignedUrlDto> fetchPresignedUrlsFromProvider() {
     try {
       return NamedThreadFactory.executeWithNewThreadName("Fetching presigned urls for " + this, () -> {
-        LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " started");
+        LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " started...");
         myFetchLock.lock();
         try {
           return CollectionsUtil.split(myS3ObjectKeys, (myS3ObjectKeys.size() / myMaxUrlChunkSize) + 1)
@@ -72,11 +76,11 @@ public class S3SignedUploadManager implements AutoCloseable {
                                 .collect(Collectors.toMap(o -> o.objectKey, presignedUrlDto -> presignedUrlDto));
         } finally {
           myFetchLock.unlock();
-          LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " finished");
+          LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " finished.");
         }
       });
     } catch (Exception e) {
-      LOGGER.info("Got exception while fetching presigned urls", e);
+      LOGGER.info("Fetching presigned urls for manager " + this + " failed.", e);
       ExceptionUtil.rethrowAsRuntimeException(e);
       return null;
     }
@@ -90,18 +94,31 @@ public class S3SignedUploadManager implements AutoCloseable {
   }
 
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {
-    final String uploadId = myMultipartUploadIds.get(upload.getObjectKey());
-    if (uploadId != null && upload.isMultipartUpload()) {
-      myPresignedUrlsProviderClient.completeMultipartUpload(upload, uploadId);
-      myS3ObjectKeys.remove(upload.getObjectKey());
-      myMultipartUploadIds.remove(upload.getObjectKey());
-    }
+    onUploadFinished(upload, true);
   }
 
   public void onUploadFailed(@NotNull final S3PresignedUpload upload) {
+    onUploadFinished(upload, false);
+  }
+
+  private void onUploadFinished(@NotNull final S3PresignedUpload upload, final boolean isSuccess) {
+    LOGGER.debug("Sending " + (isSuccess ? "success" : "abort") + " multipart upload for manager " + this + " started...");
     final String uploadId = myMultipartUploadIds.get(upload.getObjectKey());
     if (uploadId != null && upload.isMultipartUpload()) {
-      myPresignedUrlsProviderClient.abortMultipartUpload(upload, uploadId);
+      try {
+        myRetrier.execute(() -> {
+          if (isSuccess) {
+            myPresignedUrlsProviderClient.completeMultipartUpload(upload, uploadId);
+          } else {
+            myPresignedUrlsProviderClient.abortMultipartUpload(upload, uploadId);
+          }
+        });
+        LOGGER.debug("Sending " + (isSuccess ? "success" : "abort") + " multipart upload for manager " + this + " finished.");
+      } catch (Exception e) {
+        LOGGER.warnAndDebugDetails("Sending " + (isSuccess ? "success" : "abort") + " multipart upload for manager " + this + " failed.", e);
+      }
+      myS3ObjectKeys.remove(upload.getObjectKey());
+      myMultipartUploadIds.remove(upload.getObjectKey());
     }
   }
 
@@ -112,6 +129,6 @@ public class S3SignedUploadManager implements AutoCloseable {
 
   @Override
   public void close() {
-      myPresignedUrlsProviderClient.close();
+    myPresignedUrlsProviderClient.close();
   }
 }

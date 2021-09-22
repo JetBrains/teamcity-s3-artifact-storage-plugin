@@ -141,9 +141,9 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
-      myFileUploader = S3FileUploader.create(s3Configuration, CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()), () -> {
-        return myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build));
-      });
+      myFileUploader = S3FileUploader.create(s3Configuration,
+                                             CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()),
+                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build)));
     }
     return myFileUploader;
   }

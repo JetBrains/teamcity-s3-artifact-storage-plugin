@@ -126,7 +126,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     }
   }
 
-  private void multipartUpload() throws IOException {
+  private void multipartUpload() {
     LOGGER.debug(() -> "Multipart upload " + this + " started");
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);

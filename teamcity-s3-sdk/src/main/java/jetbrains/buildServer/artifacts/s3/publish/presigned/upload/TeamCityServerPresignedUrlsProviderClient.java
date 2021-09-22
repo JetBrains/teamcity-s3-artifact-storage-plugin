@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlListRequestDto;
@@ -35,6 +36,8 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private final String myPresignedUrlsPostUrl;
   @NotNull
   private final HttpClient myTeamCityClient;
+  @NotNull
+  private final AtomicBoolean myShutdown = new AtomicBoolean(false);
 
   public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
     myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
@@ -57,6 +60,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @Override
   @NotNull
   public Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull final List<String> objectKeys) {
+    validateClient();
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys));
@@ -71,6 +75,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @Override
   @NotNull
   public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, final int nParts) {
+    validateClient();
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(multipartRequestEntity(objectKey, nParts));
@@ -88,11 +93,13 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   public void completeMultipartUpload(@NotNull final S3PresignedUpload upload, @NotNull final String uploadId) {
+    validateClient();
     finishMultipartUpload(upload, uploadId, true);
   }
 
   @Override
   public void abortMultipartUpload(@NotNull final S3PresignedUpload upload, @NotNull final String uploadId) {
+    validateClient();
     finishMultipartUpload(upload, uploadId, false);
   }
 
@@ -155,6 +162,20 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   public void close() {
+    myShutdown.set(true);
     HttpClientUtil.shutdown(myTeamCityClient);
+  }
+
+  private void validateClient() {
+    if (myShutdown.get()) {
+      LOGGER.warn("TeamCity presigned urls provider client already shut down");
+      throw new ClientAlreadyShutdownException("TeamCity presigned urls provider client already shut down");
+    }
+  }
+
+  public static class ClientAlreadyShutdownException extends IllegalStateException {
+    public ClientAlreadyShutdownException(@NotNull final String message) {
+      super(message);
+    }
   }
 }
