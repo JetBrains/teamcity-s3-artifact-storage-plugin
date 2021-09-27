@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
+import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
@@ -24,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -62,6 +64,8 @@ import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   private static final Logger LOGGER = CLEANUP;
+  private static final String EXCEPTION_MESSAGE = "Got an exception while removing artifacts: ";
+
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
   @NotNull
@@ -164,8 +168,24 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
             }
           });
           errorNum.addAndGet(errors.size());
-        } catch (ExecutionException | InterruptedException e) {
-          LOGGER.error("Got an exception while processing chunk " + part, e);
+        } catch (ExecutionException e) {
+          Throwable cause = e.getCause();
+          if (cause instanceof SdkClientException) {
+            Throwable innerException = cause.getCause();
+            if (innerException instanceof UnknownHostException) {
+              LOGGER.error("Could not establish connection to AWS server: " + innerException.getMessage());
+            } else if (innerException != null) {
+              LOGGER.error(EXCEPTION_MESSAGE + part, innerException);
+            } else {
+              LOGGER.error(EXCEPTION_MESSAGE + part, cause);
+            }
+          } else {
+            LOGGER.error(EXCEPTION_MESSAGE + part, cause);
+          }
+          errorNum.addAndGet(part.size());
+          myCleanupListeners.forEach(l -> l.onError(e, false));
+        } catch (InterruptedException e) {
+          LOGGER.error(EXCEPTION_MESSAGE + part, e);
           errorNum.addAndGet(part.size());
           myCleanupListeners.forEach(l -> l.onError(e, false));
         }
