@@ -25,7 +25,6 @@ public class MultipartUploadCompleteRequestDto {
     this.uploadId = uploadId;
   }
 
-  @Nullable
   public String getObjectKey() {
     return objectKey;
   }
@@ -34,7 +33,6 @@ public class MultipartUploadCompleteRequestDto {
     this.objectKey = objectKey;
   }
 
-  @Nullable
   public String getUploadId() {
     return uploadId;
   }
