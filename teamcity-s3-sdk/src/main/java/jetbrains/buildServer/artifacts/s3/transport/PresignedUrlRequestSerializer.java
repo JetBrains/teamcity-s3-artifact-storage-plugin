@@ -107,11 +107,11 @@ public class PresignedUrlRequestSerializer {
   @NotNull
   public static String serializeResponseV1(@NotNull PresignedUrlListResponseDto response) {
     final Element document = new Element(PRESIGN_URL_MAPPING);
-    for (PresignedUrlDto presignedUrl : response.presignedUrls) {
+    for (PresignedUrlDto presignedUrl : response.getPresignedUrls()) {
       final Element presignedUrlEl = new Element(PRE_SIGN_URL_MAP_ENTRY);
-      presignedUrl.presignedUrlParts
-        .forEach(url -> XmlUtil.addTextChild(presignedUrlEl, PRE_SIGN_URL, url.url).setAttribute(PRE_SIGN_URL_PART_NUMBER, String.valueOf(url.partNumber)));
-      XmlUtil.addTextChild(presignedUrlEl, OBJECT_KEY, presignedUrl.objectKey);
+      presignedUrl.getPresignedUrlParts()
+                  .forEach(url -> XmlUtil.addTextChild(presignedUrlEl, PRE_SIGN_URL, url.getUrl()).setAttribute(PRE_SIGN_URL_PART_NUMBER, String.valueOf(url.getPartNumber())));
+      XmlUtil.addTextChild(presignedUrlEl, OBJECT_KEY, presignedUrl.getObjectKey());
       document.addContent(presignedUrlEl);
     }
     return XmlUtil.toString(document);
@@ -120,18 +120,18 @@ public class PresignedUrlRequestSerializer {
   @NotNull
   public static String serializeResponseV2(@NotNull final PresignedUrlListResponseDto responseList) {
     final Element document = new Element(PRESIGN_URL_MAPPING);
-    for (PresignedUrlDto presignedUrl : responseList.presignedUrls) {
+    for (PresignedUrlDto presignedUrl : responseList.getPresignedUrls()) {
       final Element mapEntry = new Element(PRE_SIGN_URL_MAP_ENTRY);
       final Element uploadIdElement = new Element(PRE_SIGN_URL_UPLOAD_ID);
-      uploadIdElement.addContent(presignedUrl.uploadId);
+      uploadIdElement.addContent(presignedUrl.getUploadId());
       mapEntry.addContent(uploadIdElement);
 
       final Element preSignUrlsElement = new Element(PRE_SIGN_URLS_FOR_FILE_PARTS);
-      presignedUrl.presignedUrlParts
-        .forEach(url -> XmlUtil.addTextChild(preSignUrlsElement, PRE_SIGN_URL, url.url).setAttribute(PRE_SIGN_URL_PART_NUMBER, String.valueOf(url.partNumber)));
+      presignedUrl.getPresignedUrlParts()
+                  .forEach(url -> XmlUtil.addTextChild(preSignUrlsElement, PRE_SIGN_URL, url.getUrl()).setAttribute(PRE_SIGN_URL_PART_NUMBER, String.valueOf(url.getPartNumber())));
       mapEntry.addContent(preSignUrlsElement);
       Element s3ObjectKeyElement = new Element(OBJECT_KEY);
-      s3ObjectKeyElement.addContent(presignedUrl.objectKey);
+      s3ObjectKeyElement.addContent(presignedUrl.getObjectKey());
       mapEntry.addContent(s3ObjectKeyElement);
       document.addContent(mapEntry);
     }
@@ -154,9 +154,9 @@ public class PresignedUrlRequestSerializer {
     if (isVersion2) {
       document.setAttribute(PRE_SIGN_V2, "true");
     }
-    request.presignedUrlRequests.stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
-      final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.objectKey);
-      element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.numberOfParts));
+    request.getPresignedUrlRequests().stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
+      final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.getObjectKey());
+      element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getNumberOfParts()));
     });
     return XmlUtil.toString(document);
   }

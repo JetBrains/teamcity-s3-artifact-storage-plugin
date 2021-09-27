@@ -2,13 +2,22 @@ package jetbrains.buildServer.artifacts.s3.transport;
 
 import com.intellij.openapi.util.Pair;
 import java.util.Map;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlRootElement;
+import jetbrains.buildServer.Used;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+@XmlRootElement(name = "presignedUrlRequest")
+@XmlAccessorType(XmlAccessType.PROPERTY)
 public class PresignedUrlRequestDto {
-  @NotNull
-  public final String objectKey;
-  public final int numberOfParts;
+  private String objectKey;
+  private int numberOfParts;
+
+  @Used("serialization")
+  public PresignedUrlRequestDto() {
+  }
 
   private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts) {
     this.objectKey = objectKey;
@@ -34,5 +43,21 @@ public class PresignedUrlRequestDto {
       throw new IllegalArgumentException("Number of parts cannot be < 1");
     }
     return new PresignedUrlRequestDto(objectKey, numberOfParts);
+  }
+
+  public String getObjectKey() {
+    return objectKey;
+  }
+
+  public void setObjectKey(String objectKey) {
+    this.objectKey = objectKey;
+  }
+
+  public int getNumberOfParts() {
+    return numberOfParts;
+  }
+
+  public void setNumberOfParts(int numberOfParts) {
+    this.numberOfParts = numberOfParts;
   }
 }

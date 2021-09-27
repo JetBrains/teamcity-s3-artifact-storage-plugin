@@ -11,10 +11,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
-import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
-import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlListRequestDto;
-import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlListResponseDto;
-import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer;
+import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
@@ -25,6 +22,7 @@ import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
@@ -65,7 +63,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       final PostMethod post = postTemplate();
       post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys));
       final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
-      return deserializeResponseV1(responseBody).presignedUrls;
+      return deserializeResponseV1(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
@@ -81,47 +79,50 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       post.setRequestEntity(multipartRequestEntity(objectKey, nParts));
       final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
       final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
-      return presignedUrlListResponseDto.presignedUrls
-        .stream()
-        .filter(presignedUrlDto -> Objects.equals(presignedUrlDto.objectKey, objectKey))
-        .findFirst()
-        .orElseThrow(() -> new IllegalArgumentException("Response from s3 urls provider does not contain required object " + objectKey));
+      return presignedUrlListResponseDto.getPresignedUrls()
+                                        .stream()
+                                        .filter(presignedUrlDto -> Objects.equals(presignedUrlDto.getObjectKey(), objectKey))
+                                        .findFirst()
+                                        .orElseThrow(() -> new IllegalArgumentException("Response from s3 urls provider does not contain required object " + objectKey));
     } catch (Exception e) {
       throw new FetchFailedException(e);
     }
   }
 
   @Override
-  public void completeMultipartUpload(@NotNull final S3PresignedUpload upload, @NotNull final String uploadId) {
+  public void completeMultipartUpload(@NotNull MultipartUploadCompleteRequestDto multipartUploadComplete) {
     validateClient();
-    finishMultipartUpload(upload, uploadId, true);
+    finishMultipartUpload(Objects.requireNonNull(multipartUploadComplete.getObjectKey()),
+                          multipartUploadComplete.getEtags(),
+                          Objects.requireNonNull(multipartUploadComplete.getUploadId()),
+                          true);
   }
 
   @Override
-  public void abortMultipartUpload(@NotNull final S3PresignedUpload upload, @NotNull final String uploadId) {
+  public void abortMultipartUpload(@NotNull final MultipartUploadAbortRequestDto multipartUploadAbort) {
     validateClient();
-    finishMultipartUpload(upload, uploadId, false);
+    finishMultipartUpload(multipartUploadAbort.getObjectKey(), null, multipartUploadAbort.getUploadId(), false);
   }
 
   @Override
-  public void startMultipartUpload(@NotNull String objectKey, @NotNull String uploadId) {
+  public void startMultipartUpload(@NotNull final MultipartUploadStartRequestDto multipartUploadStart) {
     // do nothing
   }
 
-  private void finishMultipartUpload(@NotNull final S3PresignedUpload upload, @NotNull final String uploadId, final boolean isSuccessful) {
-    LOGGER.debug(() -> "Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " started");
+  private void finishMultipartUpload(@NotNull final String objectKey, @Nullable final List<String> etags, @NotNull final String uploadId, final boolean isSuccessful) {
+    LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " started");
     final PostMethod post = postTemplate();
-    post.setParameter(OBJECT_KEY, upload.getObjectKey());
+    post.setParameter(OBJECT_KEY, objectKey);
     post.setParameter(FINISH_UPLOAD, uploadId);
     post.setParameter(UPLOAD_SUCCESSFUL, String.valueOf(isSuccessful));
-    if (isSuccessful) {
-      upload.getEtags().forEach(etag -> post.addParameter(ETAGS, etag));
+    if (isSuccessful && etags != null) {
+      etags.forEach(etag -> post.addParameter(ETAGS, etag));
     }
     try {
       HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
-      LOGGER.debug(() -> "Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
+      LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
     } catch (Exception e) {
-      LOGGER.warnAndDebugDetails("Multipart upload " + upload + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);
+      LOGGER.warnAndDebugDetails("Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);
       ExceptionUtil.rethrowAsRuntimeException(e);
     }
   }

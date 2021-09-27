@@ -22,7 +22,7 @@ import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
-public abstract class S3ClientResourceFetcher<T extends S3Dto> {
+public abstract class S3ClientResourceFetcher<T> {
   @NotNull
   private static final XmlSerializer OUR_XML_SERIALIZER = new XmlSerializerImpl();
 

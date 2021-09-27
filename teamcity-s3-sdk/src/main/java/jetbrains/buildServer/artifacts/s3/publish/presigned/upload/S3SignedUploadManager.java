@@ -5,8 +5,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadAbortRequestDto;
+import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadCompleteRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
@@ -49,14 +50,14 @@ public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   public String getUrl(@NotNull final String s3ObjectKey) {
     PresignedUrlDto presignedUrlDto = myCache.getValue().get(s3ObjectKey);
-    if (presignedUrlDto == null || presignedUrlDto.isMultipart) {
+    if (presignedUrlDto == null || presignedUrlDto.isMultipart()) {
       throw new IllegalArgumentException("Specified object key requested as a multipart upload, while regular upload expected");
     } else {
-      if (presignedUrlDto.presignedUrlParts.size() != 1) {
+      if (presignedUrlDto.getPresignedUrlParts().size() != 1) {
         throw new IllegalArgumentException("Specified object key requested exactly [1] presigned url while ["
-                                           + presignedUrlDto.presignedUrlParts.size() + "] urls returned from provider");
+                                           + presignedUrlDto.getPresignedUrlParts().size() + "] urls returned from provider");
       }
-      return Objects.requireNonNull(CollectionsUtil.findFirst(presignedUrlDto.presignedUrlParts, CollectionsUtil.acceptAllFilter())).url;
+      return Objects.requireNonNull(CollectionsUtil.findFirst(presignedUrlDto.getPresignedUrlParts(), CollectionsUtil.acceptAllFilter())).getUrl();
     }
   }
 
@@ -74,7 +75,7 @@ public class S3SignedUploadManager implements AutoCloseable {
                                 .map(myRetrier.retryableMapper(myPresignedUrlsProviderClient::getRegularPresignedUrls))
                                 .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " finished"))
                                 .flatMap(presignedUrlDto -> presignedUrlDto.stream())
-                                .collect(Collectors.toMap(o -> o.objectKey, presignedUrlDto -> presignedUrlDto));
+                                .collect(Collectors.toMap(o -> o.getObjectKey(), presignedUrlDto -> presignedUrlDto));
         } finally {
           myFetchLock.unlock();
           LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " finished.");
@@ -90,7 +91,7 @@ public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, final int nParts) {
     final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, nParts));
-    myMultipartUploadIds.put(presignedUrl.objectKey, presignedUrl.uploadId);
+    myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());
     return presignedUrl;
   }
 
@@ -109,9 +110,9 @@ public class S3SignedUploadManager implements AutoCloseable {
       try {
         myRetrier.execute(() -> {
           if (isSuccess) {
-            myPresignedUrlsProviderClient.completeMultipartUpload(upload, uploadId);
+            myPresignedUrlsProviderClient.completeMultipartUpload(new MultipartUploadCompleteRequestDto(upload.getObjectKey(), uploadId, upload.getEtags()));
           } else {
-            myPresignedUrlsProviderClient.abortMultipartUpload(upload, uploadId);
+            myPresignedUrlsProviderClient.abortMultipartUpload(new MultipartUploadAbortRequestDto(upload.getObjectKey(), uploadId));
           }
         });
         LOGGER.debug("Sending " + (isSuccess ? "success" : "abort") + " multipart upload for manager " + this + " finished.");

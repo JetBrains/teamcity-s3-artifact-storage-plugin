@@ -134,14 +134,14 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, nParts);
     myProgressListener.beforeUploadStarted();
     try {
-      multipartUploadUrls.presignedUrlParts.forEach(presignedUrlPartDto -> {
+      multipartUploadUrls.getPresignedUrlParts().forEach(presignedUrlPartDto -> {
         myProgressListener.beforePartUploadStarted();
         try {
-          final int partIndex = presignedUrlPartDto.partNumber - 1;
+          final int partIndex = presignedUrlPartDto.getPartNumber() - 1;
           final long contentLength = Math.min(myChunkSizeInBytes, myFile.length() - myChunkSizeInBytes * partIndex);
           myRemainingBytes.getAndAdd(-contentLength);
           final long start = partIndex * myChunkSizeInBytes;
-          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.url, myFile, start, contentLength));
+          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.getUrl(), myFile, start, contentLength));
           myProgressListener.onPartUploadSuccess();
           etags[partIndex] = etag;
         } catch (Exception e) {

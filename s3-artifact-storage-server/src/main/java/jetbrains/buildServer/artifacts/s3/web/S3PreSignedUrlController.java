@@ -30,12 +30,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
-import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
+import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
@@ -144,11 +144,11 @@ public class S3PreSignedUrlController extends BaseController {
     return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings));
   }
 
-  @Nullable
+  @NotNull
   private String providePresignedUrls(@NotNull final HttpServletRequest httpServletRequest,
                                       @NotNull final S3PresignedUrlProvider.S3Settings settings) throws Exception {
     final PresignedUrlListRequestDto request = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
-    return request.isVersion2
+    return request.isVersion2()
            ? presignedUrlsV2(request, settings)
            : presignedUrlsV1(request, settings);
   }
@@ -156,21 +156,21 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
                                  @NotNull final S3PresignedUrlProvider.S3Settings settings) {
-    final List<PresignedUrlDto> responses = requestList.presignedUrlRequests.stream().map(request -> {
+    final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
-        if (request.numberOfParts > 1) {
-          final String uploadId = myPreSignedManager.startMultipartUpload(request.objectKey, settings);
-          final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.numberOfParts).mapToObj(partNumber -> {
+        if (request.getNumberOfParts() > 1) {
+          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
             try {
-              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.objectKey, partNumber, uploadId, settings), partNumber);
+              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), partNumber, uploadId, settings), partNumber);
             } catch (IOException e) {
               LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
               throw new RuntimeException(e);
             }
           }).collect(Collectors.toList());
-          return PresignedUrlDto.multiPart(request.objectKey, uploadId, presignedUrls);
+          return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
         } else {
-          return PresignedUrlDto.singlePart(request.objectKey, myPreSignedManager.generateUploadUrl(request.objectKey, settings));
+          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
         }
       } catch (Exception e) {
         LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url: " + e.getMessage(), e);
@@ -183,9 +183,9 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private String presignedUrlsV1(@NotNull final PresignedUrlListRequestDto requests,
                                  @NotNull final S3PresignedUrlProvider.S3Settings settings) {
-    return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.presignedUrlRequests.stream().map(request -> {
+    return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.getPresignedUrlRequests().stream().map(request -> {
       try {
-        return PresignedUrlDto.singlePart(request.objectKey, myPreSignedManager.generateUploadUrl(request.objectKey, settings));
+        return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
       } catch (IOException e) {
         LOG.infoAndDebugDetails("Got exception while generating presigned URL: " + e.getMessage(), e);
         throw new RuntimeException(e);

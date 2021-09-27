@@ -29,7 +29,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 24.07.17.
+ * @author Dmitrii Bogdanov
  */
 @Test
 public class PresignedUrlRequestSerializerTest extends BaseTestCase {
@@ -47,7 +47,7 @@ public class PresignedUrlRequestSerializerTest extends BaseTestCase {
     final String serialized = PresignedUrlRequestSerializer.serializeResponseV2(initial);
     Assert.assertFalse(serialized.isEmpty());
     final PresignedUrlListResponseDto deserialized = PresignedUrlRequestSerializer.deserializeResponseV2(serialized);
-    Assert.assertEquals(initial.isVersion2, deserialized.isVersion2);
+    Assert.assertEquals(initial.isVersion2(), deserialized.isVersion2());
     Assert.assertEquals(extractObjectKeys(deserialized), extractObjectKeys(initial));
   }
 
@@ -87,7 +87,7 @@ public class PresignedUrlRequestSerializerTest extends BaseTestCase {
     final String oldData = OldS3PreSignUrlHelper.writeS3ObjectKeys(initialKeys);
 
     final PresignedUrlListRequestDto requestList = PresignedUrlRequestSerializer.deserializeRequest(oldData);
-    assertSameElements(requestList.presignedUrlRequests.stream().map(request -> request.objectKey).collect(Collectors.toList()), initialKeys);
+    assertSameElements(requestList.getPresignedUrlRequests().stream().map(request -> request.getObjectKey()).collect(Collectors.toList()), initialKeys);
 
     final Collection<String> deserializedKeys = OldS3PreSignUrlHelper.readS3ObjectKeys(PresignedUrlRequestSerializer.serializeRequestV1(initialKeys));
     assertSameElements(deserializedKeys, initialKeys);
@@ -112,16 +112,18 @@ public class PresignedUrlRequestSerializerTest extends BaseTestCase {
 
   @NotNull
   private List<String> extractObjectKeys(@NotNull final PresignedUrlListRequestDto request) {
-    return request.presignedUrlRequests.stream().map(url -> url.objectKey).collect(Collectors.toList());
+    return request.getPresignedUrlRequests().stream().map(url -> url.getObjectKey()).collect(Collectors.toList());
   }
 
   @NotNull
   private List<String> extractObjectKeys(@NotNull final PresignedUrlListResponseDto response) {
-    return response.presignedUrls.stream().map(url -> url.objectKey).collect(Collectors.toList());
+    return response.getPresignedUrls().stream().map(url -> url.getObjectKey()).collect(Collectors.toList());
   }
 
   @NotNull
   private List<String> extractUrls(@NotNull final PresignedUrlListResponseDto response) {
-    return response.presignedUrls.stream().map(url -> url.presignedUrlParts.stream().findFirst().orElseThrow(IllegalArgumentException::new).url).collect(Collectors.toList());
+    return response.getPresignedUrls().stream()
+                   .map(url -> url.getPresignedUrlParts().stream().findFirst().orElseThrow(IllegalArgumentException::new).getUrl())
+                   .collect(Collectors.toList());
   }
 }
