@@ -173,19 +173,19 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
           if (cause instanceof SdkClientException) {
             Throwable innerException = cause.getCause();
             if (innerException instanceof UnknownHostException) {
-              LOGGER.error("Could not establish connection to AWS server: " + innerException.getMessage());
+              LOGGER.warnAndDebugDetails("Could not establish connection to AWS server: " + innerException.getMessage(), innerException);
             } else if (innerException != null) {
-              LOGGER.error(EXCEPTION_MESSAGE + part, innerException);
+              LOGGER.warnAndDebugDetails(EXCEPTION_MESSAGE + part, innerException);
             } else {
-              LOGGER.error(EXCEPTION_MESSAGE + part, cause);
+              LOGGER.warnAndDebugDetails(EXCEPTION_MESSAGE + part, cause);
             }
           } else {
-            LOGGER.error(EXCEPTION_MESSAGE + part, cause);
+            LOGGER.warnAndDebugDetails(EXCEPTION_MESSAGE + part, cause);
           }
           errorNum.addAndGet(part.size());
           myCleanupListeners.forEach(l -> l.onError(e, false));
         } catch (InterruptedException e) {
-          LOGGER.error(EXCEPTION_MESSAGE + part, e);
+          LOGGER.warnAndDebugDetails(EXCEPTION_MESSAGE + part, e);
           errorNum.addAndGet(part.size());
           myCleanupListeners.forEach(l -> l.onError(e, false));
         }
