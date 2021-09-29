@@ -6,7 +6,6 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 @XmlRootElement(name = "multipartUploadCompleteRequest")
 @XmlAccessorType(XmlAccessType.PROPERTY)
@@ -23,6 +22,7 @@ public class MultipartUploadCompleteRequestDto {
   public MultipartUploadCompleteRequestDto(@NotNull final String objectKey, @NotNull final String uploadId, @NotNull final List<String> etags) {
     this.objectKey = objectKey;
     this.uploadId = uploadId;
+    this.etags = etags;
   }
 
   public String getObjectKey() {
