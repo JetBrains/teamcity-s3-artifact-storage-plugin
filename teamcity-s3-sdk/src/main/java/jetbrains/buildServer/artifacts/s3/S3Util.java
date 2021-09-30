@@ -131,23 +131,13 @@ public final class S3Util {
   }
 
   @Nullable
-  public static String getCloudFrontDomain(@NotNull final Map<String, String> params){
-    return params.get(CloudFrontConstants.S3_CLOUDFRONT_DOMAIN);
-  }
-
-  @Nullable
   public static String getCloudFrontDistribution(@NotNull final Map<String, String> params){
     return params.get(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION);
   }
 
   @Nullable
   public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params){
-    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_SSH_KEY);
-  }
-
-  @Nullable
-  public static String getCloudFrontPrivateKeyPassphrase(@NotNull final Map<String, String> params){
-    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY_PASSPHRASE);
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY);
   }
 
   @Nullable

@@ -29,6 +29,7 @@ public class S3Constants {
 
   public static final String S3_STORAGE_TYPE = "S3_storage";
   public static final String S3_SETTINGS_PATH = "s3_storage_settings";
+  public static final String S3_PLUGIN_PATH = "/plugins/s3-artifact-storage/";
 
   public static final String S3_PATH_PREFIX_ATTR = "s3_path_prefix";
 

@@ -28,6 +28,7 @@
   <bean class="jetbrains.buildServer.filestorage.GuardedS3PresignedUrlProvider">
     <constructor-arg index="0" ref="internalPresignedUrlProvider"/>
   </bean>
-  <bean class="jetbrains.buildServer.filestorage.CloudFrontPresignedUrlProviderImpl"/>
+  <bean class="jetbrains.buildServer.filestorage.cloudfront.CloudFrontPresignedUrlProviderImpl"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.web.S3CloudFrontDistributionCreationController"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3PreSignedUrlController"/>
 </beans>

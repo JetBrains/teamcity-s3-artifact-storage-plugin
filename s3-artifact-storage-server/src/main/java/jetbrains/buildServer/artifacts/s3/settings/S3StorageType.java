@@ -16,26 +16,13 @@
 
 package jetbrains.buildServer.artifacts.s3.settings;
 
-import com.amazonaws.SdkClientException;
-import com.amazonaws.auth.policy.Policy;
-import com.amazonaws.auth.policy.Principal;
-import com.amazonaws.auth.policy.Statement;
-import com.amazonaws.auth.policy.actions.S3Actions;
-import com.amazonaws.auth.policy.resources.S3ObjectResource;
-import com.amazonaws.services.cloudfront.AmazonCloudFront;
-import com.amazonaws.services.cloudfront.model.*;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.BucketPolicy;
-
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
 import jetbrains.buildServer.artifacts.s3.web.S3StoragePropertiesUtil;
 import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
@@ -47,7 +34,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
-import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.*;
+import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
 

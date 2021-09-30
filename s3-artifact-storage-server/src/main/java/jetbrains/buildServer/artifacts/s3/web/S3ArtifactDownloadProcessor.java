@@ -29,16 +29,13 @@ import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
-import jetbrains.buildServer.filestorage.CloudFrontPresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProviderImpl;
+import jetbrains.buildServer.filestorage.cloudfront.CloudFrontPresignedUrlProvider;
 import jetbrains.buildServer.serverSide.BuildPromotion;
-import jetbrains.buildServer.serverSide.ProjectManager;
-import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
 import jetbrains.buildServer.ssh.ServerSshKeyManager;
-import jetbrains.buildServer.ssh.TeamCitySshKey;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
 import jetbrains.buildServer.web.util.WebUtil;
@@ -59,17 +56,14 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private final ExtensionsProvider myExtensionsProvider;
   private final CloudFrontPresignedUrlProvider myCloudFrontUrlProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
-  private final ProjectManager myProjectManager;
 
   public S3ArtifactDownloadProcessor(@NotNull S3PresignedUrlProvider preSignedUrlProvider,
                                      @NotNull CloudFrontPresignedUrlProvider cloudFrontPresignedUrlProvider,
                                      @NotNull ExtensionsProvider extensionsProvider,
-                                     @NotNull final ProjectManager projectManager,
                                      @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
     myCloudFrontUrlProvider = cloudFrontPresignedUrlProvider;
     myExtensionsProvider = extensionsProvider;
-    myProjectManager = projectManager;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
   }
 
@@ -103,15 +97,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       boolean differentRegions = !Objects.equals(bucketRegion, requestRegion);
 
       if (notAnAgentRequest || differentRegions) {
-        String projectId = buildPromotion.getProjectExternalId();
-        final SProject project = myProjectManager.findProjectByExternalId(projectId);
-        ServerSshKeyManager sshKeyManager = getSshKeyManager();
-        if (sshKeyManager != null && project != null) {
-          TeamCitySshKey privateKey = sshKeyManager.getKey(project, cloudFrontSettings.getCloudFrontPrivateKey());
-          if (privateKey != null) {
-            preSignedUrl = myCloudFrontUrlProvider.generateDownloadUrl(objectKey, privateKey, cloudFrontSettings);
-          }
-        }
+        preSignedUrl = myCloudFrontUrlProvider.generateDownloadUrl(objectKey, cloudFrontSettings);
       }
     }
 

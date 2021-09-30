@@ -1,15 +1,15 @@
-package jetbrains.buildServer.filestorage;
+package jetbrains.buildServer.filestorage.cloudfront;
 
 import java.io.IOException;
 import java.util.Map;
-import jetbrains.buildServer.ssh.TeamCitySshKey;
+import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public interface CloudFrontPresignedUrlProvider{
 
   @Nullable
-  String generateDownloadUrl(@NotNull String objectKey, @NotNull TeamCitySshKey privateKey,
+  String generateDownloadUrl(@NotNull String objectKey,
                              @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
@@ -26,9 +26,6 @@ public interface CloudFrontPresignedUrlProvider{
 
     @NotNull
     String getCloudFrontPrivateKey();
-
-    @Nullable
-    String getCloudFrontPrivateKeyPassphrase();
 
     @NotNull
     String getBucketRegion();

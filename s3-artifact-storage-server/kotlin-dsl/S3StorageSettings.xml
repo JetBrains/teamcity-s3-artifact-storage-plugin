@@ -69,14 +69,9 @@
         Id of Public Key in CloudFront that has access to selected distribution
       </description>
     </param>
-    <param name="teamcitySshKey" dslName="cloudFrontSshKey" type="string">
+    <param name="secure:storage.s3.cloudfront.privateKey" dslName="cloudFrontPrivateKey">
       <description>
-        Id of private SSH Key that corresponds to chosen public key
-      </description>
-    </param>
-    <param name="storage.s3.cloudfront.privateKey.passphrase" dslName="cloudFrontSshKeyPassphrase" type="string">
-      <description>
-        Passphrase for the private key. Leave it empty if the key is not encrypted.
+        Private key that corresponds to chosen public key
       </description>
     </param>
   </params>

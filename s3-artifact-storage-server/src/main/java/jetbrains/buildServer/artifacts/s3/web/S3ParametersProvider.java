@@ -32,8 +32,12 @@ public class S3ParametersProvider {
     return S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
   }
 
+  public String getPluginPath() {
+    return S3Constants.S3_PLUGIN_PATH;
+  }
+
   public String getContainersPath() {
-    return String.format("/plugins/s3-artifact-storage/%s.html", S3Constants.S3_SETTINGS_PATH);
+    return String.format("%s%s.html", S3Constants.S3_PLUGIN_PATH, S3Constants.S3_SETTINGS_PATH);
   }
 
   public String getForceVirtualHostAddressing() {
@@ -60,7 +64,7 @@ public class S3ParametersProvider {
     return CloudFrontConstants.S3_CLOUDFRONT_SETTINGS_GROUP;
   }
 
-  public String getCloudFrontDistribution(){
+  public String getCloudFrontDistribution() {
     return CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION;
   }
 
@@ -68,11 +72,11 @@ public class S3ParametersProvider {
     return CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
   }
 
-  public String getCloudFrontPrivateSshKey() {
-    return CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_SSH_KEY;
+  public String getCloudFrontPrivateKey() {
+    return CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY;
   }
 
-  public String getCloudFrontPrivateKeyPassphrase() {
-    return CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY_PASSPHRASE;
+  public String getCloudFrontCreateDistribution() {
+    return CloudFrontConstants.S3_CLOUDFRONT_CREATE_DISTRIBUTION;
   }
 }
