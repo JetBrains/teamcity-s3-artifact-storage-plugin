@@ -26,6 +26,7 @@ import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.cloudfront.model.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.BucketPolicy;
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.security.*;
@@ -35,6 +36,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -42,7 +44,6 @@ import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -65,13 +66,18 @@ import org.springframework.web.servlet.ModelAndView;
 import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.*;
 
 public class S3CloudFrontDistributionCreationController extends BaseFormXmlController {
+  private static final Logger LOG = Logger.getInstance(S3CloudFrontDistributionCreationController.class.getName());
 
-  public static final String COMMENT = "Created by TeamCity for '%s'";
-  public static final String NUMBERED_COMMENT = "Created by TeamCity for '%s' (%d)";
+  public static final String BASE_COMMENT = "Created by TeamCity";
+  public static final String COMMENT = BASE_COMMENT + " for '%s'";
+  public static final String NUMBERED_COMMENT = COMMENT + " (%d)";
+  public static final AllowedMethods ALL_METHODS_ALLOWED = new AllowedMethods().withItems(Method.values()).withQuantity(7);
+  public static final Predicate<CachePolicy> IS_GENERATED_POLICY = p -> p.getCachePolicyConfig().getName().equals(S3_CLOUDFRONT_GENERATED_CACHE_POLICY);
+  public static final Predicate<CachePolicy> IS_DEFAULT_POLICY = p -> p.getCachePolicyConfig().getName().equals(S3_CLOUDFRONT_DEFAULT_CACHE_POLICY);
 
   @NotNull
   private final ProjectManager myProjectManager;
-  private AccessChecker myAccessChecker;
+  private final AccessChecker myAccessChecker;
 
   public S3CloudFrontDistributionCreationController(@NotNull final PluginDescriptor descriptor,
                                                     @NotNull WebControllerManager controllerManager,
@@ -135,10 +141,31 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
             }
 
             String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
-            String publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
-            String keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
-            Distribution distribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client);
-            return new DistributionDTO(distribution.getId(), comment, publicKeyId, name, privateKey);
+            String publicKeyId = null;
+            String keyGroupId = null;
+            try {
+              publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
+              keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
+              Distribution distribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client);
+              return new DistributionDTO(distribution.getId(), comment, publicKeyId, name, privateKey);
+            } catch (SdkClientException e) {
+              errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTION, e);
+              if (keyGroupId != null) {
+                try {
+                  cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
+                } catch (SdkClientException clientException) {
+                  LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
+                }
+              }
+              if (publicKeyId != null) {
+                try {
+                  cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
+                } catch (SdkClientException clientException) {
+                  LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
+                }
+              }
+            }
+            return null;
           });
           if (distributionDTO != null) {
             Element element = new XmlSerializerImpl().serializeAsElement(distributionDTO);
@@ -234,7 +261,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
 
   @NotNull
   private DefaultCacheBehavior createDefaultCacheBehavior(@NotNull AmazonCloudFront cloudFrontClient, @NotNull String keyGroupId, @NotNull String originId) {
-    CachePolicy defaultPolicy = getCachePolicy(cloudFrontClient);
+    CachePolicy defaultPolicy = getOrCreateCachePolicy(cloudFrontClient);
 
     TrustedKeyGroups trustedKeyGroups = new TrustedKeyGroups()
       .withQuantity(1)
@@ -243,18 +270,50 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     return new DefaultCacheBehavior()
       .withViewerProtocolPolicy(ViewerProtocolPolicy.RedirectToHttps)
       .withTargetOriginId(originId)
+      .withAllowedMethods(ALL_METHODS_ALLOWED)
       .withCachePolicyId(defaultPolicy.getId())
       .withTrustedKeyGroups(trustedKeyGroups);
   }
 
   @NotNull
-  private CachePolicy getCachePolicy(@NotNull AmazonCloudFront cloudFrontClient) {
-    return cloudFrontClient.listCachePolicies(new ListCachePoliciesRequest())
-                           .getCachePolicyList().getItems().stream()
-                           .map(CachePolicySummary::getCachePolicy)
-                           .filter(p -> p.getCachePolicyConfig().getName().equals(CloudFrontConstants.S3_CLOUDFRONT_CACHE_POLICY))
-                           .findFirst()
-                           .orElseThrow(() -> new AmazonCloudFrontException(String.format("Managed Cache policy '%s' not found", CloudFrontConstants.S3_CLOUDFRONT_CACHE_POLICY)));
+  private CachePolicy getOrCreateCachePolicy(@NotNull AmazonCloudFront cloudFrontClient) {
+    List<CachePolicySummary> existingPolicies = cloudFrontClient.listCachePolicies(new ListCachePoliciesRequest()).getCachePolicyList().getItems();
+
+    return existingPolicies
+      .stream()
+      .map(p -> p.getCachePolicy())
+      .filter(IS_GENERATED_POLICY)
+      .findAny()
+      .orElseGet(() -> createNewPolicy(cloudFrontClient, existingPolicies));
+  }
+
+  @NotNull
+  private CachePolicy createNewPolicy(@NotNull AmazonCloudFront cloudFrontClient, @NotNull List<CachePolicySummary> existingPolicies) {
+    CachePolicy defaultPolicy = existingPolicies
+      .stream()
+      .map(p -> p.getCachePolicy())
+      .filter(IS_DEFAULT_POLICY)
+      .findAny()
+      .orElseThrow(() -> new AmazonCloudFrontException(String.format("Managed Cache policy '%s' not found", S3_CLOUDFRONT_DEFAULT_CACHE_POLICY)));
+
+    ParametersInCacheKeyAndForwardedToOrigin forwardingParameters = new ParametersInCacheKeyAndForwardedToOrigin()
+      .withQueryStringsConfig(new CachePolicyQueryStringsConfig().withQueryStringBehavior(CachePolicyQueryStringBehavior.All))
+      .withCookiesConfig(new CachePolicyCookiesConfig().withCookieBehavior(CachePolicyCookieBehavior.None))
+      .withHeadersConfig(new CachePolicyHeadersConfig().withHeaderBehavior(CachePolicyHeaderBehavior.None))
+      .withEnableAcceptEncodingGzip(true)
+      .withEnableAcceptEncodingBrotli(true);
+
+    CreateCachePolicyRequest request = new CreateCachePolicyRequest()
+      .withCachePolicyConfig(defaultPolicy.getCachePolicyConfig()
+                                          .clone()
+                                          .withName(S3_CLOUDFRONT_GENERATED_CACHE_POLICY)
+                                          .withComment(BASE_COMMENT)
+                                          .withParametersInCacheKeyAndForwardedToOrigin(forwardingParameters)
+      );
+
+    CachePolicy newPolicy = cloudFrontClient.createCachePolicy(request).getCachePolicy();
+
+    return newPolicy != null ? newPolicy : defaultPolicy;
   }
 
   @NotNull
@@ -323,7 +382,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   @NotNull
   private Statement generateStatementForOAI(@NotNull String bucketName, @NotNull String id) {
     return new Statement(Statement.Effect.Allow)
-      .withActions(S3Actions.GetObject)
+      .withActions(S3Actions.GetObject, S3Actions.PutObject, S3Actions.DeleteObject)
       .withPrincipals(new Principal(String.format(S3_CLOUDFRONT_PRINCIPAL_TEMPLATE, id)))
       .withResources(new S3ObjectResource(bucketName, "*"));
   }

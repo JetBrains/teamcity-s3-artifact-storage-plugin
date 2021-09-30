@@ -12,21 +12,28 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivateKey;
 import java.security.spec.InvalidKeySpecException;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
+import org.apache.http.client.utils.URIBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUrlProvider {
   @NotNull
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
+
+  private static final String PARAM = "%s=%s";
+
   private final TimeService myTimeService;
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
@@ -35,8 +42,13 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
 
   @Nullable
   @Override
-  public String generateDownloadUrl(@NotNull String objectKey,
-                                    @NotNull CloudFrontSettings settings) throws IOException {
+  public String generateUrl(@NotNull String objectKey,
+                            @NotNull CloudFrontSettings settings) throws IOException {
+    return generateUrl(objectKey, settings, Collections.emptyMap());
+  }
+
+  @Nullable
+  private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters) throws IOException {
     try {
       Distribution distribution = getDistribution(settings);
       String domain = distribution.getDomainName();
@@ -46,6 +58,15 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
       if (jetbrains.buildServer.util.StringUtil.isNotEmpty(domain) && StringUtil.isNotEmpty(publicKeyId)) {
         String resourcePath = SignerUtils.generateResourcePath(SignerUtils.Protocol.https, domain, encodedObjectKey);
 
+        if (!additionalParameters.isEmpty()) {
+          URIBuilder builder = new URIBuilder(resourcePath);
+          for (Map.Entry<String, String> param : additionalParameters.entrySet()) {
+            builder.addParameter(param.getKey(), param.getValue());
+          }
+
+          resourcePath = builder.build().toString();
+        }
+
         byte[] privateKeyBytes = settings.getCloudFrontPrivateKey().getBytes(StandardCharsets.UTF_8);
         PrivateKey decodedPrivateKey = PEM.readPrivateKey(new ByteArrayInputStream(privateKeyBytes));
 
@@ -53,7 +74,7 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
                                                                 new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
       }
       return null;
-    } catch (AmazonCloudFrontException | InvalidKeySpecException | IOException e) {
+    } catch (AmazonCloudFrontException | InvalidKeySpecException | IOException | URISyntaxException e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
       final String details = awsException.getDetails();
@@ -67,18 +88,17 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     }
   }
 
-  @NotNull
   @Override
-  public CloudFrontSettings settings(@NotNull Map<String, String> rawSettings) {
-    if (S3Util.getBucketName(rawSettings) == null) {
-      throw new IllegalArgumentException("Settings don't contain bucket name");
-    }
-    return new CloudFrontSettingsImpl(rawSettings);
+  public String generateUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException {
+    HashMap<String, String> additionalParameters = new HashMap<>();
+    additionalParameters.put("uploadId", uploadId);
+    additionalParameters.put("partNumber", String.valueOf(nPart));
+    return generateUrl(objectKey, settings, additionalParameters);
   }
 
   @NotNull
   private Distribution getDistribution(@NotNull CloudFrontSettings settings) throws AmazonCloudFrontException {
-    Map<String, String> params = ((CloudFrontSettingsImpl)settings).getSettings();
+    Map<String, String> params = ((CloudFrontSettingsImpl)settings).toRawSettings();
     return AWSCommonParams.withAWSClients(params, clients -> {
       AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
       String selectedDistribution = S3Util.getCloudFrontDistribution(params);
@@ -89,57 +109,4 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   }
 
 
-  private static class CloudFrontSettingsImpl implements CloudFrontSettings {
-    @NotNull
-    private final Map<String, String> mySettings;
-
-    private CloudFrontSettingsImpl(@NotNull final Map<String, String> params) {
-      mySettings = params;
-    }
-
-    @NotNull
-    private Map<String, String> getSettings() {
-      return mySettings;
-    }
-
-    @Override
-    public boolean getCloudFrontEnabled() {
-      return S3Util.getCloudFrontEnabled(mySettings);
-    }
-
-    @Nullable
-    @Override
-    public String getCloudFrontDistribution() {
-      return S3Util.getCloudFrontDistribution(mySettings);
-    }
-
-    @Nullable
-    @Override
-    public String getCloudFrontPublicKeyId() {
-      return S3Util.getCloudFrontPublicKeyId(mySettings);
-    }
-
-    @NotNull
-    @Override
-    public String getCloudFrontPrivateKey() {
-      return S3Util.getCloudFrontPrivateKey(mySettings);
-    }
-
-    @NotNull
-    @Override
-    public String getBucketRegion() {
-      return S3Util.getBucketRegion(mySettings);
-    }
-
-    @NotNull
-    @Override
-    public String getBucketName() {
-      return S3Util.getBucketName(mySettings);
-    }
-
-    @Override
-    public int getUrlTtlSeconds() {
-      return S3Util.getUrlTtlSeconds(mySettings);
-    }
-  }
 }

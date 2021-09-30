@@ -21,17 +21,15 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
-import java.util.Objects;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.ExtensionsProvider;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProviderImpl;
-import jetbrains.buildServer.filestorage.cloudfront.CloudFrontPresignedUrlProvider;
+import jetbrains.buildServer.filestorage.cloudfront.CloudFrontEnabledPresignedUrlProvider;
+import jetbrains.buildServer.filestorage.cloudfront.CloudFrontSettings;
+import jetbrains.buildServer.filestorage.cloudfront.RequestMetadata;
 import jetbrains.buildServer.serverSide.BuildPromotion;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
@@ -52,17 +50,14 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactDownloadProcessor.class.getName());
 
-  private final S3PresignedUrlProvider myPreSignedUrlProvider;
+  private final CloudFrontEnabledPresignedUrlProvider myPreSignedUrlProvider;
   private final ExtensionsProvider myExtensionsProvider;
-  private final CloudFrontPresignedUrlProvider myCloudFrontUrlProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
 
-  public S3ArtifactDownloadProcessor(@NotNull S3PresignedUrlProvider preSignedUrlProvider,
-                                     @NotNull CloudFrontPresignedUrlProvider cloudFrontPresignedUrlProvider,
+  public S3ArtifactDownloadProcessor(@NotNull CloudFrontEnabledPresignedUrlProvider preSignedUrlProvider,
                                      @NotNull ExtensionsProvider extensionsProvider,
                                      @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
     myPreSignedUrlProvider = preSignedUrlProvider;
-    myCloudFrontUrlProvider = cloudFrontPresignedUrlProvider;
     myExtensionsProvider = extensionsProvider;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
   }
@@ -80,30 +75,15 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
                                  @NotNull HttpServletResponse httpServletResponse) throws IOException {
     final ArtifactData artifactData = storedBuildArtifactInfo.getArtifactData();
     if (artifactData == null) throw new IOException("Can not process artifact download request for a folder");
-    final S3PresignedUrlProviderImpl.S3Settings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings());
+
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
     final String objectKey = pathPrefix + artifactData.getPath();
+    String requestRegion = httpServletRequest.getHeader(S3Constants.S3_REGION_HEADER_NAME);
+    String userAgent = WebUtil.getUserAgent(httpServletRequest);
+    CloudFrontSettings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings(), RequestMetadata.from(requestRegion, userAgent));
 
-    CloudFrontPresignedUrlProvider.CloudFrontSettings cloudFrontSettings = myCloudFrontUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings());
-
-    String preSignedUrl = null;
-    if (TeamCityProperties.getBoolean(CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION) && cloudFrontSettings.getCloudFrontEnabled()) {
-      String requestRegion = httpServletRequest.getHeader(S3Constants.S3_REGION_HEADER_NAME);
-      String bucketRegion = cloudFrontSettings.getBucketRegion();
-      String userAgent = WebUtil.getUserAgent(httpServletRequest);
-
-      boolean notAnAgentRequest = userAgent == null || !userAgent.contains("Agent");
-      boolean differentRegions = !Objects.equals(bucketRegion, requestRegion);
-
-      if (notAnAgentRequest || differentRegions) {
-        preSignedUrl = myCloudFrontUrlProvider.generateDownloadUrl(objectKey, cloudFrontSettings);
-      }
-    }
-
-    if (preSignedUrl == null) {
-      preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
-    }
+    String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
 
     fixContentSecurityPolicy(preSignedUrl);
 

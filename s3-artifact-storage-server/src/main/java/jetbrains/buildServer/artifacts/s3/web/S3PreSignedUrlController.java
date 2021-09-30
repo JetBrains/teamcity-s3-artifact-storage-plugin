@@ -30,12 +30,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
+import jetbrains.buildServer.filestorage.cloudfront.CloudFrontEnabledPresignedUrlProvider;
+import jetbrains.buildServer.filestorage.cloudfront.CloudFrontSettings;
+import jetbrains.buildServer.filestorage.cloudfront.RequestMetadata;
 import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
@@ -62,13 +65,13 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private final RunningBuildsManagerEx myRunningBuildsManager;
   @NotNull
-  private final S3PresignedUrlProvider myPreSignedManager;
+  private final CloudFrontEnabledPresignedUrlProvider myPreSignedManager;
   @NotNull
   private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsManagerEx runningBuildsManager,
-                                  @NotNull S3PresignedUrlProvider preSignedManager,
+                                  @NotNull CloudFrontEnabledPresignedUrlProvider preSignedManager,
                                   @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider) {
     myRunningBuildsManager = runningBuildsManager;
     myPreSignedManager = preSignedManager;
@@ -81,7 +84,7 @@ public class S3PreSignedUrlController extends BaseController {
   @Override
   protected ModelAndView doHandle(@NotNull HttpServletRequest httpServletRequest, @NotNull HttpServletResponse httpServletResponse) throws Exception {
     try {
-      final Pair<RequestType, S3PresignedUrlProvider.S3Settings> request = parseRequest(httpServletRequest);
+      final Pair<RequestType, CloudFrontSettings> request = parseRequest(httpServletRequest);
 
       if (request.getFirst() == RequestType.FINISH_MULTIPART_UPLOAD) {
         finishMultipartUpload(httpServletRequest, request.getSecond());
@@ -119,7 +122,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @NotNull
-  private Pair<RequestType, S3PresignedUrlProvider.S3Settings> parseRequest(@NotNull final HttpServletRequest request) {
+  private Pair<RequestType, CloudFrontSettings> parseRequest(@NotNull final HttpServletRequest request) {
     if (!isPost(request)) {
       throw new HttpServerErrorException(HttpStatus.METHOD_NOT_ALLOWED, request.getMethod() + " not allowed");
     }
@@ -141,12 +144,14 @@ public class S3PreSignedUrlController extends BaseController {
       LOG.infoAndDebugDetails(() -> "Failed to provide presigned urls, artifact storage settings are invalid " + ex.getMessage() + ". " + LogUtil.describe(runningBuild), ex);
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
-    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings));
+    String requestRegion = request.getHeader(S3Constants.S3_REGION_HEADER_NAME);
+    String userAgent = WebUtil.getUserAgent(request);
+    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings, RequestMetadata.from(requestRegion, userAgent)));
   }
 
   @NotNull
   private String providePresignedUrls(@NotNull final HttpServletRequest httpServletRequest,
-                                      @NotNull final S3PresignedUrlProvider.S3Settings settings) throws Exception {
+                                      @NotNull final CloudFrontSettings settings) throws Exception {
     final PresignedUrlListRequestDto request = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
     return request.isVersion2()
            ? presignedUrlsV2(request, settings)
@@ -155,7 +160,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
-                                 @NotNull final S3PresignedUrlProvider.S3Settings settings) {
+                                 @NotNull final CloudFrontSettings settings) {
     final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
         if (request.getNumberOfParts() > 1) {
@@ -182,7 +187,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private String presignedUrlsV1(@NotNull final PresignedUrlListRequestDto requests,
-                                 @NotNull final S3PresignedUrlProvider.S3Settings settings) {
+                                 @NotNull final CloudFrontSettings settings) {
     return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.getPresignedUrlRequests().stream().map(request -> {
       try {
         return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
@@ -194,7 +199,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   private void finishMultipartUpload(@NotNull final HttpServletRequest httpServletRequest,
-                                     @NotNull final S3PresignedUrlProvider.S3Settings settings) throws Exception {
+                                     @NotNull final CloudFrontSettings settings) throws Exception {
     final String objectKey = httpServletRequest.getParameter(OBJECT_KEY);
     if (StringUtil.isEmpty(objectKey)) {
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, OBJECT_KEY + " should be present");

@@ -23,10 +23,7 @@ import com.amazonaws.util.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -145,7 +142,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   }
 
   private <T> T callS3(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
-    return S3Util.withS3ClientShuttingDownImmediately(((S3SettingsImpl)settings).getSettings(), client -> {
+    return S3Util.withS3ClientShuttingDownImmediately(settings.toRawSettings(), client -> {
       try {
         return callable.apply(client);
       } catch (final Throwable t) {
@@ -186,8 +183,8 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     }
 
     @NotNull
-    private Map<String, String> getSettings() {
-      return mySettings;
+    public Map<String, String> toRawSettings() {
+      return new HashMap<>(mySettings);
     }
   }
 }

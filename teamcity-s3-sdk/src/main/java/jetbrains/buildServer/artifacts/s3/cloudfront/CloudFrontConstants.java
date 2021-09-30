@@ -11,7 +11,8 @@ public class CloudFrontConstants {
   public static final String S3_CLOUDFRONT_CREATE_DISTRIBUTION = "storage.s3.cloudfront.create.distribution";
 
   public static final String S3_CLOUDFRONT_DEFAULT_OAI_COMMENT = "teamcity.cloudfront.access";
-  public static final String S3_CLOUDFRONT_CACHE_POLICY = "Managed-CachingOptimized";
+  public static final String S3_CLOUDFRONT_DEFAULT_CACHE_POLICY = "Managed-CachingOptimized";
+  public static final String S3_CLOUDFRONT_GENERATED_CACHE_POLICY = "Generated-MultipartSupport";
   public static final String S3_CLOUDFRONT_OAI_SUBSTRING = "CloudFront Origin Access Identity";
   public static final String S3_CLOUDFRONT_OAI_ID_TEMPLATE = "origin-access-identity/cloudfront/%s";
   public static final String S3_CLOUDFRONT_PRINCIPAL_TEMPLATE = "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity %s";

@@ -44,10 +44,4 @@ public interface S3PresignedUrlProvider {
   @NotNull
   S3Settings settings(@NotNull Map<String, String> rawSettings);
 
-  interface S3Settings {
-    @NotNull
-    String getBucketName();
-
-    int getUrlTtlSeconds();
-  }
 }

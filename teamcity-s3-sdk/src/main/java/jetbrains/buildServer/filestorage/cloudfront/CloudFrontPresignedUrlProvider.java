@@ -1,33 +1,13 @@
 package jetbrains.buildServer.filestorage.cloudfront;
 
 import java.io.IOException;
-import java.util.Map;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface CloudFrontPresignedUrlProvider{
+public interface CloudFrontPresignedUrlProvider {
 
   @Nullable
-  String generateDownloadUrl(@NotNull String objectKey,
-                             @NotNull CloudFrontSettings settings) throws IOException;
+  String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
 
-  @NotNull
-  CloudFrontSettings settings(@NotNull Map<String, String> rawSettings);
-
-  interface CloudFrontSettings extends S3PresignedUrlProvider.S3Settings {
-    boolean getCloudFrontEnabled();
-
-    @Nullable
-    String getCloudFrontDistribution();
-
-    @Nullable
-    String getCloudFrontPublicKeyId();
-
-    @NotNull
-    String getCloudFrontPrivateKey();
-
-    @NotNull
-    String getBucketRegion();
-  }
+  String generateUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException;
 }
