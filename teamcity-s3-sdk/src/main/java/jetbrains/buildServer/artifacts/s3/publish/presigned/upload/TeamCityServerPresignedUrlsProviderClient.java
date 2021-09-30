@@ -7,6 +7,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -61,9 +62,20 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     validateClient();
     try {
       final PostMethod post = postTemplate();
-      post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys));
+      post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys, null));
       final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
       return deserializeResponseV1(responseBody).getPresignedUrls();
+    } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
+      LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
+      throw new FetchFailedException(e);
+    }
+  }
+
+  @NotNull
+  public PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String httpMethod) {
+    validateClient();
+    try {
+      return fetchPresignedUrlDto(objectKey, s3ObjectKeysRequestEntity(Collections.singletonList(objectKey), httpMethod));
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
@@ -75,18 +87,23 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, final int nParts) {
     validateClient();
     try {
-      final PostMethod post = postTemplate();
-      post.setRequestEntity(multipartRequestEntity(objectKey, nParts));
-      final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
-      final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
-      return presignedUrlListResponseDto.getPresignedUrls()
-                                        .stream()
-                                        .filter(presignedUrlDto -> Objects.equals(presignedUrlDto.getObjectKey(), objectKey))
-                                        .findFirst()
-                                        .orElseThrow(() -> new IllegalArgumentException("Response from s3 urls provider does not contain required object " + objectKey));
+      return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, nParts));
     } catch (Exception e) {
       throw new FetchFailedException(e);
     }
+  }
+
+  @NotNull
+  private PresignedUrlDto fetchPresignedUrlDto(@NotNull final String objectKey, @NotNull final StringRequestEntity requestEntity) throws IOException {
+    final PostMethod post = postTemplate();
+    post.setRequestEntity(requestEntity);
+    final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+    final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
+    return presignedUrlListResponseDto.getPresignedUrls()
+                                      .stream()
+                                      .filter(presignedUrlDto -> Objects.equals(presignedUrlDto.getObjectKey(), objectKey))
+                                      .findFirst()
+                                      .orElseThrow(() -> new IllegalArgumentException("Response from s3 urls provider does not contain required object " + objectKey));
   }
 
   @Override
@@ -144,9 +161,13 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  private StringRequestEntity s3ObjectKeysRequestEntity(@NotNull Collection<String> s3ObjectKeys) {
+  private StringRequestEntity s3ObjectKeysRequestEntity(@NotNull Collection<String> s3ObjectKeys, @Nullable String httpMethod) {
     try {
-      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV1(s3ObjectKeys));
+      if (httpMethod == null) {
+        return requestEntity(PresignedUrlRequestSerializer.serializeRequestV1(s3ObjectKeys));
+      } else {
+        return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeysWithMethod(s3ObjectKeys, httpMethod)));
+      }
     } catch (UnsupportedEncodingException e) {
       LOGGER.warnAndDebugDetails("Unsupported encoding", e);
       throw new MisconfigurationException(e);

@@ -95,6 +95,11 @@ public class S3SignedUploadManager implements AutoCloseable {
     return presignedUrl;
   }
 
+  @NotNull
+  public PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String httpMethod) {
+    return myPresignedUrlsProviderClient.getUrl(objectKey, httpMethod);
+  }
+
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {
     onUploadFinished(upload, true);
   }

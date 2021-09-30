@@ -25,6 +25,14 @@ public class PresignedUrlListRequestDto {
   }
 
   @NotNull
+  public static PresignedUrlListRequestDto forObjectKeysWithMethod(@NotNull final Collection<String> objectKeys, @NotNull final String httpMethod) {
+    return new PresignedUrlListRequestDto(objectKeys.stream()
+                                                    .map(objectKey -> new PresignedUrlRequestDto(objectKey, httpMethod))
+                                                    .collect(Collectors.toList()),
+                                          true);
+  }
+
+  @NotNull
   public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey, final int nParts) {
     final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, nParts);
     return new PresignedUrlListRequestDto(Collections.singleton(request), true);
@@ -39,6 +47,7 @@ public class PresignedUrlListRequestDto {
     return presignedUrlRequests;
   }
 
+  @Used("serialization")
   public void setPresignedUrlRequests(Collection<PresignedUrlRequestDto> presignedUrlRequests) {
     this.presignedUrlRequests = presignedUrlRequests;
   }
@@ -47,6 +56,7 @@ public class PresignedUrlListRequestDto {
     return isVersion2;
   }
 
+  @Used("serialization")
   public void setVersion2(boolean version2) {
     isVersion2 = version2;
   }

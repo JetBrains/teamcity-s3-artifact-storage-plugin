@@ -54,6 +54,7 @@ public abstract class S3FileUploader {
       .withConnectionTimeout(jetbrains.buildServer.artifacts.s3.S3Util.getConnectionTimeout(sharedConfigurationParameters))
       .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreads(sharedConfigurationParameters))
       .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
+      .withConsistencyCheckEnabled(jetbrains.buildServer.artifacts.s3.S3Util.isConsistencyCheckEnabled(sharedConfigurationParameters))
       .withShutdownClient();
   }
 

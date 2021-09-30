@@ -9,6 +9,8 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUrlsProviderClient extends AutoCloseable {
+  @NotNull
+  PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String httpMethod);
 
   @NotNull
   Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull List<String> objectKey);

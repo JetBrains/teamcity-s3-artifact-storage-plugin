@@ -12,11 +12,17 @@ import org.jetbrains.annotations.Nullable;
 @XmlRootElement(name = "presignedUrlRequest")
 @XmlAccessorType(XmlAccessType.PROPERTY)
 public class PresignedUrlRequestDto {
+  private String httpMethod;
   private String objectKey;
   private int numberOfParts;
 
   @Used("serialization")
   public PresignedUrlRequestDto() {
+  }
+
+  public PresignedUrlRequestDto(@NotNull final String objectKey, @NotNull final String httpMethod) {
+    this(objectKey, 1);
+    this.httpMethod = httpMethod;
   }
 
   private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts) {
@@ -36,13 +42,26 @@ public class PresignedUrlRequestDto {
 
   @NotNull
   public static PresignedUrlRequestDto from(@Nullable final String objectKey, int numberOfParts) {
+    return from(objectKey, numberOfParts, null);
+  }
+
+  @NotNull
+  public static PresignedUrlRequestDto from(@Nullable final String objectKey, int numberOfParts, @Nullable String httpMethod) {
     if (objectKey == null) {
       throw new IllegalArgumentException("Object Key cannot be null");
     }
     if (numberOfParts < 1) {
       throw new IllegalArgumentException("Number of parts cannot be < 1");
     }
-    return new PresignedUrlRequestDto(objectKey, numberOfParts);
+    if (httpMethod == null) {
+      return new PresignedUrlRequestDto(objectKey, numberOfParts);
+    } else {
+      return new PresignedUrlRequestDto(objectKey, httpMethod);
+    }
+  }
+
+  public String getHttpMethod() {
+    return httpMethod;
   }
 
   public String getObjectKey() {

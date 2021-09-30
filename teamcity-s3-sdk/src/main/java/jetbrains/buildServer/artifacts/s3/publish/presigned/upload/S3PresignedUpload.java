@@ -1,13 +1,13 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
+import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
@@ -22,6 +22,9 @@ import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
 import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -45,7 +48,9 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   private final long myChunkSizeInBytes;
   private final long myMultipartThresholdInBytes;
   private final boolean myMultipartEnabled;
+  @NotNull
   private final Retrier myRetrier;
+  private final boolean myCheckConsistency;
   @Nullable
   private String[] etags;
 
@@ -65,6 +70,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold();
     myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
+    myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(new AbortingListener(UnknownHostException.class) {
@@ -124,6 +130,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     } else {
       regularUpload();
     }
+    checkConsistency();
   }
 
   private void multipartUpload() {
@@ -154,6 +161,47 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e);
       throw e;
+    }
+  }
+
+  private void checkConsistency() {
+    if (myCheckConsistency) {
+      final String headUrl = myS3SignedUploadManager.getUrl(myObjectKey, HttpMethod.HEAD.name()).getPresignedUrlParts()
+                                                    .stream()
+                                                    .findFirst()
+                                                    .orElseThrow(() -> new IllegalArgumentException("Expected response from presigned urls provider to contain exactly one URL"))
+                                                    .getUrl();
+      final String eTag = myRetrier.execute(() -> myLowLevelS3Client.fetchETag(headUrl));
+      final String computedHash = getDigest();
+      if (!Objects.equals(computedHash, eTag)) {
+        throw new FileUploadFailedException("Consistency check failed, wrong object hash. Computed hash: [" + computedHash + "], s3 hash: [" + eTag + "]", false);
+      }
+    }
+  }
+
+  @NotNull
+  private String getDigest() {
+    if (isMultipartUpload()) {
+      try (final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+        getEtags().forEach(etag -> {
+          try {
+            outputStream.write(Hex.decodeHex(etag));
+          } catch (DecoderException | IOException e) {
+            throw new FileUploadFailedException("Decode of etag " + etag + " failed", true);
+          }
+        });
+        return DigestUtils.md5Hex(outputStream.toByteArray()) + "-" + getEtags().size();
+      } catch (IOException e) {
+        LOGGER.debug("Got exception while closing bytearrayoutputstream", e);
+        return "";
+      }
+    } else {
+      try (FileInputStream fis = new FileInputStream(myFile)) {
+        return DigestUtils.md5Hex(fis);
+      } catch (IOException e) {
+        LOGGER.warnAndDebugDetails("Calculating digest for a file failed", e);
+        throw new FileUploadFailedException("Calculating digest for a file failed " + e.getMessage(), false);
+      }
     }
   }
 

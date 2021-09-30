@@ -57,6 +57,8 @@ public class PresignedUrlRequestSerializer {
   private static final String PRESIGN_URL_MAPPING = "s3-presign-url-mapping";
   @NotNull
   private static final String NUMBER_OF_PARTS = "s3-number-of-parts";
+  @NotNull
+  private static final String HTTP_METHOD = "s3-http-method";
 
   @SuppressWarnings("unchecked")
   @NotNull
@@ -156,6 +158,9 @@ public class PresignedUrlRequestSerializer {
     }
     request.getPresignedUrlRequests().stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
       final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.getObjectKey());
+      if (s3ObjectKey.getHttpMethod() != null) {
+        element.setAttribute(HTTP_METHOD, String.valueOf(s3ObjectKey.getHttpMethod()));
+      }
       element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getNumberOfParts()));
     });
     return XmlUtil.toString(document);
@@ -171,8 +176,12 @@ public class PresignedUrlRequestSerializer {
       final Collection<PresignedUrlRequestDto> result = new HashSet<>();
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;
-        final Attribute nPartsAttr = ((Element)child).getAttribute(NUMBER_OF_PARTS);
-        result.add(PresignedUrlRequestDto.from(objectKeyEl.getValue(), nPartsAttr != null ? nPartsAttr.getIntValue() : 1));
+        final Attribute nPartsAttr = objectKeyEl.getAttribute(NUMBER_OF_PARTS);
+        final Attribute httpMethodAttr = objectKeyEl.getAttribute(HTTP_METHOD);
+
+        final int numberOfParts = nPartsAttr != null ? nPartsAttr.getIntValue() : 1;
+        final String httpMethod = httpMethodAttr != null ? httpMethodAttr.getValue() : null;
+        result.add(PresignedUrlRequestDto.from(objectKeyEl.getValue(), numberOfParts, httpMethod));
       }
       return new PresignedUrlListRequestDto(result, document.getAttribute(PRE_SIGN_V2) != null);
     } catch (Exception e) {

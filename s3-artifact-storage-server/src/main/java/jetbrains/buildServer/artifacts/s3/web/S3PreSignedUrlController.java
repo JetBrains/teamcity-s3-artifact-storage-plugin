@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkBaseException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
@@ -174,6 +175,9 @@ public class S3PreSignedUrlController extends BaseController {
             }
           }).collect(Collectors.toList());
           return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
+        } else if (request.getHttpMethod() != null) {
+          return PresignedUrlDto.singlePart(request.getObjectKey(),
+                                            myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings));
         } else {
           return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
         }

@@ -122,26 +122,26 @@ public final class S3Util {
   }
 
   @NotNull
-  public static String getBucketRegion(@NotNull final Map<String, String> params){
+  public static String getBucketRegion(@NotNull final Map<String, String> params) {
     return params.get(REGION_NAME_PARAM);
   }
 
-  public static boolean getCloudFrontEnabled(@NotNull final Map<String, String> params){
+  public static boolean getCloudFrontEnabled(@NotNull final Map<String, String> params) {
     return Boolean.parseBoolean(params.get(CloudFrontConstants.S3_CLOUDFRONT_ENABLED));
   }
 
   @Nullable
-  public static String getCloudFrontDistribution(@NotNull final Map<String, String> params){
+  public static String getCloudFrontDistribution(@NotNull final Map<String, String> params) {
     return params.get(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION);
   }
 
   @Nullable
-  public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params){
+  public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params) {
     return params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY);
   }
 
   @Nullable
-  public static String getCloudFrontPublicKeyId(@NotNull final Map<String, String> params){
+  public static String getCloudFrontPublicKeyId(@NotNull final Map<String, String> params) {
     return params.get(CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID);
   }
 
@@ -208,7 +208,8 @@ public final class S3Util {
   @Nullable
   public static Long getMinimumUploadPartSize(Map<String, String> sharedConfigurationParameters,
                                               @NotNull final Map<String, String> artifactStorageSettings) {
-    final String stringValue = artifactStorageSettings.getOrDefault(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE, sharedConfigurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
+    final String stringValue =
+      artifactStorageSettings.getOrDefault(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE, sharedConfigurationParameters.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
     if (stringValue == null) {
       return null;
     }
@@ -245,11 +246,17 @@ public final class S3Util {
   }
 
   public static int getNumberOfThreads(@NotNull final Map<String, String> configuration) {
-    return Integer.parseInt(configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
+    return Integer.parseInt(
+      configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
   }
 
   public static int getUrlTtlSeconds(@NotNull final Map<String, String> configuration) {
     return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_URL_LIFETIME_SEC))));
+  }
+
+  public static boolean isConsistencyCheckEnabled(@NotNull final Map<String, String> configuration) {
+    return Boolean.parseBoolean(
+      configuration.getOrDefault(S3_ENABLE_CONSISTENCY_CHECK, TeamCityProperties.getProperty(S3_ENABLE_CONSISTENCY_CHECK, String.valueOf(DEFAULT_ENABLE_CONSISTENCY_CHECK))));
   }
 
   private static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {
@@ -269,8 +276,8 @@ public final class S3Util {
   }
 
   private static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params,
-                                                         @NotNull final WithCloudFront<T, E> withClient,
-                                                         boolean shutdownImmediately) throws E {
+                                                                 @NotNull final WithCloudFront<T, E> withClient,
+                                                                 boolean shutdownImmediately) throws E {
     return AWSCommonParams.withAWSClients(params, clients -> {
       clients.setS3SignerType(V4_SIGNER_TYPE);
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
@@ -326,9 +333,10 @@ public final class S3Util {
                                                                         @NotNull final WithTransferManager<T> withTransferManager,
                                                                         @Nullable final S3AdvancedConfiguration advancedConfiguration)
     throws Throwable {
+    final S3AdvancedConfiguration configuration = advancedConfiguration != null ? advancedConfiguration : S3AdvancedConfiguration.defaultConfiguration();
     return AWSCommonParams.withAWSClients(s3Settings, clients -> {
       patchAWSClientsSsl(clients, s3Settings);
-      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), withTransferManager, advancedConfiguration);
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), withTransferManager, configuration);
     });
   }
 
