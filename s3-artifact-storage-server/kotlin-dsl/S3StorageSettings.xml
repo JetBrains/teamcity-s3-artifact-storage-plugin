@@ -56,7 +56,7 @@
     </param>
     <param name="storage.s3.cloudfront.enabled" dslName="cloudFrontEnabled" type="boolean" trueValue="true" falseValue="">
       <description>
-        Whether to use CloudFront for artifact downloads
+        Whether to use CloudFront for artifact transport
       </description>
     </param>
     <param name="storage.s3.cloudfront.distribution" dslName="cloudFrontDistribution" type="string">

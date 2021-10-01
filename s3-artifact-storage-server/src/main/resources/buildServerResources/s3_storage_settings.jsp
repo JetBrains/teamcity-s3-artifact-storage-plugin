@@ -112,7 +112,7 @@
 <c:if test="${cloudfrontFeatureOn}">
   <l:settingsGroup title="CloudFront Settings">
     <tr class="noBorder">
-      <th><label for="${params.cloudFrontEnabled}">Use CloudFront to download artifacts: </label></th>
+      <th><label for="${params.cloudFrontEnabled}">Use CloudFront to transport artifacts: </label></th>
       <td>
         <props:checkboxProperty name="${params.cloudFrontEnabled}" id="${params.cloudFrontEnabled}" value="${propertiesBean.properties[params.cloudFrontEnabled]}"/>
       </td>
