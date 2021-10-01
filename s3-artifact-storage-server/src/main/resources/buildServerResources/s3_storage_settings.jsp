@@ -466,14 +466,6 @@
       loadDistributionList();
       loadPublicKeyList();
     });
-    $j(document).on('ready', function () {
-      redrawBucketSelector([], "");
-      loadBucketList();
-      loadDistributionList();
-      loadPublicKeyList();
-      redrawPrivateKeyUploader('uploaded.pem');
-      updateCloudFrontVisibility();
-    });
     $j(document).on('click', '#buckets-refresh', function () {
       loadBucketList();
     });
@@ -589,5 +581,12 @@
         $refreshButton.removeClass('icon-spin');
       });
     });
+
+    redrawBucketSelector([], "");
+    loadBucketList();
+    loadDistributionList();
+    loadPublicKeyList();
+    redrawPrivateKeyUploader('uploaded.pem');
+    updateCloudFrontVisibility();
   });
 </script>
