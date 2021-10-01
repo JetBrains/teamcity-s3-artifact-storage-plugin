@@ -29,6 +29,7 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.CompositeS3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
@@ -84,15 +85,19 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final S3FileUploader fileUploader = getFileUploader(build);
-      final Collection<FileUploadInfo> upload = fileUploader.upload(filteredMap, () -> {
-        final BuildInterruptReason interruptReason = build.getInterruptReason();
-        if (interruptReason == null) {
-          return null;
-        } else {
-          return interruptReason.getUserDescription();
-        }
-      });
-      upload.stream().map(fileInfo -> ArtifactDataInstance.create(fileInfo.getArtifactPath(), fileInfo.getSize())).forEach(myArtifacts::add);
+      try {
+        final Collection<FileUploadInfo> upload = fileUploader.upload(filteredMap, () -> {
+          final BuildInterruptReason interruptReason = build.getInterruptReason();
+          if (interruptReason == null) {
+            return null;
+          } else {
+            return interruptReason.getUserDescription();
+          }
+        });
+        upload.stream().map(fileInfo -> ArtifactDataInstance.create(fileInfo.getArtifactPath(), fileInfo.getSize())).forEach(myArtifacts::add);
+      } catch (FileUploadFailedException e) {
+        throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
+      }
       publishArtifactsList(build);
     }
 
