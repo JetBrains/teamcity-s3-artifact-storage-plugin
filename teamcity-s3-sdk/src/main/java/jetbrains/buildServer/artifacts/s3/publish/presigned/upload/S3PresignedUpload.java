@@ -2,7 +2,9 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.amazonaws.HttpMethod;
 import com.intellij.openapi.diagnostic.Logger;
-import java.io.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -12,6 +14,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
@@ -22,9 +25,6 @@ import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
 import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
-import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -125,15 +125,17 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
   private void upload() throws IOException {
     myProgressListener.beforeUploadStarted();
+    final String digest;
     if (isMultipartUpload()) {
-      multipartUpload();
+      digest = multipartUpload();
     } else {
-      regularUpload();
+      digest = regularUpload();
     }
-    checkConsistency();
+    checkConsistency(digest);
   }
 
-  private void multipartUpload() {
+  @NotNull
+  private String multipartUpload() {
     LOGGER.debug(() -> "Multipart upload " + this + " started");
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
@@ -157,6 +159,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
         }
       });
       myProgressListener.onFileUploadSuccess();
+      return DigestUtil.multipartDigest(getEtags());
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e);
@@ -164,53 +167,28 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     }
   }
 
-  private void checkConsistency() {
+  private void checkConsistency(@NotNull final String digest) {
     if (myCheckConsistency) {
       final String headUrl = myS3SignedUploadManager.getUrl(myObjectKey, HttpMethod.HEAD.name()).getPresignedUrlParts()
                                                     .stream()
                                                     .findFirst()
                                                     .orElseThrow(() -> new IllegalArgumentException("Expected response from presigned urls provider to contain exactly one URL"))
                                                     .getUrl();
-      final String eTag = myRetrier.execute(() -> myLowLevelS3Client.fetchETag(headUrl));
-      final String computedHash = getDigest();
-      if (!Objects.equals(computedHash, eTag)) {
-        throw new FileUploadFailedException("Consistency check failed, wrong object hash. Computed hash: [" + computedHash + "], s3 hash: [" + eTag + "]", false);
+      final String etag = myRetrier.execute(() -> myLowLevelS3Client.fetchETag(headUrl));
+      if (!Objects.equals(etag, digest)) {
+        throw new FileUploadFailedException("Consistency check failed. Calculated digest [" + digest + "] is different from S3 etag [" + etag + "]", true);
       }
     }
   }
 
   @NotNull
-  private String getDigest() {
-    if (isMultipartUpload()) {
-      try (final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-        getEtags().forEach(etag -> {
-          try {
-            outputStream.write(Hex.decodeHex(etag));
-          } catch (DecoderException | IOException e) {
-            throw new FileUploadFailedException("Decode of etag " + etag + " failed", true);
-          }
-        });
-        return DigestUtils.md5Hex(outputStream.toByteArray()) + "-" + getEtags().size();
-      } catch (IOException e) {
-        LOGGER.debug("Got exception while closing bytearrayoutputstream", e);
-        return "";
-      }
-    } else {
-      try (FileInputStream fis = new FileInputStream(myFile)) {
-        return DigestUtils.md5Hex(fis);
-      } catch (IOException e) {
-        LOGGER.warnAndDebugDetails("Calculating digest for a file failed", e);
-        throw new FileUploadFailedException("Calculating digest for a file failed " + e.getMessage(), false);
-      }
-    }
-  }
-
-  private void regularUpload() {
+  private String regularUpload() {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      myRetrier.execute(() -> myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile));
+      final String digest = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile));
       myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess();
+      return digest;
     } catch (final Exception e) {
       myProgressListener.onFileUploadFailed(e);
       throw e;
