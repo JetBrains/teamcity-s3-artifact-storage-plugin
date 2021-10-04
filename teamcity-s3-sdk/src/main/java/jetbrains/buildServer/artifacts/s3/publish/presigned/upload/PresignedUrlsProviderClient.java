@@ -6,6 +6,7 @@ import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadAbortRequestD
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadCompleteRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadStartRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
+import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUrlsProviderClient extends AutoCloseable {
@@ -33,9 +34,17 @@ public interface PresignedUrlsProviderClient extends AutoCloseable {
     }
   }
 
-  class FetchFailedException extends RuntimeException {
+  class FetchFailedException extends RecoverableException {
+    private final boolean myIsRecoverable;
+
     public FetchFailedException(@NotNull final Throwable cause) {
-      super(cause);
+      super(cause.getMessage(), cause);
+      myIsRecoverable = RecoverableException.isRecoverable(cause);
+    }
+
+    @Override
+    public boolean isRecoverable() {
+      return myIsRecoverable;
     }
   }
 }

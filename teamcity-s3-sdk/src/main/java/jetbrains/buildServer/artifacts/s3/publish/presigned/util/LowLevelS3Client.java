@@ -81,16 +81,16 @@ public class LowLevelS3Client implements AutoCloseable {
 
   @NotNull
   private EntityEnclosingMethod putRequest(@NotNull String url) {
-    return setHeader(new PutMethod(url));
+    return withUserAgent(new PutMethod(url));
   }
 
   @NotNull
   private HeadMethod headRequest(@NotNull final String url) {
-    return setHeader(new HeadMethod(url));
+    return withUserAgent(new HeadMethod(url));
   }
 
   @NotNull
-  private <T extends HttpMethodBase> T setHeader(@NotNull final T request) {
+  private <T extends HttpMethodBase> T withUserAgent(@NotNull final T request) {
     request.setRequestHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent());
     return request;
   }

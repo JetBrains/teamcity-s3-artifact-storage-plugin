@@ -29,7 +29,6 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.CompositeS3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
@@ -39,6 +38,7 @@ import jetbrains.buildServer.log.LogUtil;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -95,7 +95,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
           }
         });
         upload.stream().map(fileInfo -> ArtifactDataInstance.create(fileInfo.getArtifactPath(), fileInfo.getSize())).forEach(myArtifacts::add);
-      } catch (FileUploadFailedException e) {
+      } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
       publishArtifactsList(build);
