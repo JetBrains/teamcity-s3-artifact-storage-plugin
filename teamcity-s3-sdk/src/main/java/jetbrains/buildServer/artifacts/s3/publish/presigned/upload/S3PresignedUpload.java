@@ -168,7 +168,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   }
 
   private void checkConsistency(@NotNull final String digest) {
-    if (myCheckConsistency) {
+    if (myCheckConsistency && isMultipartUpload()) {
       final String headUrl = myS3SignedUploadManager.getUrl(myObjectKey, HttpMethod.HEAD.name()).getPresignedUrlParts()
                                                     .stream()
                                                     .findFirst()
