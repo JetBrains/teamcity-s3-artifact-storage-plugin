@@ -108,7 +108,7 @@ public final class HttpClientUtil {
     private final boolean isBuildFinishedReason;
 
     public HttpErrorCodeException(final int responseCode, @Nullable final String responseString) {
-      super("Got response code " + responseCode + "." + responseString == null ? "" : " Response: " + responseString);
+      super("Got response code " + responseCode + ". Response: '" + StringUtil.emptyIfNull(responseString) + "'");
       myResponseCode = responseCode;
       myResponse = responseString;
       isBuildFinishedReason = responseString != null && responseString.contains(AgentServerSharedErrorMessages.buildIsAlreadyFinishedOrDoesNotExist());
@@ -135,7 +135,9 @@ public final class HttpClientUtil {
       return myResponseCode == HttpStatus.SC_INTERNAL_SERVER_ERROR ||
              myResponseCode == HttpStatus.SC_BAD_GATEWAY ||
              myResponseCode == HttpStatus.SC_GATEWAY_TIMEOUT ||
-             (myResponse != null && (StringUtil.containsIgnoreCase(myResponse, "timeout") || StringUtil.containsIgnoreCase(myResponse, "retry")));
+             (myResponse != null && (StringUtil.containsIgnoreCase(myResponse, "timeout")
+                                     || StringUtil.containsIgnoreCase(myResponse, "retry")
+                                     || StringUtil.containsIgnoreCase(myResponse, "connection refused")));
     }
   }
 }

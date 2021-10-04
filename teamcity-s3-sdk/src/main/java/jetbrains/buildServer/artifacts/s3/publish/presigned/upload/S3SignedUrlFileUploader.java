@@ -118,6 +118,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
         LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
         return Collections.emptyList();
       } else {
+        if (th instanceof FileUploadFailedException) {
+          throw th;
+        }
         LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
         throw new FileUploadFailedException(th.getMessage(), false, th);
       }
