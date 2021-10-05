@@ -49,7 +49,7 @@ public class RepeatableFilePartRequestEntity implements RequestEntity, Digesting
         final int readContentLength = dis.read(buffer, 0, currentChunkSize);
         if (readContentLength == -1) {
           //eof
-          return;
+          break;
         }
         remaining -= readContentLength;
         out.write(buffer, 0, readContentLength);
