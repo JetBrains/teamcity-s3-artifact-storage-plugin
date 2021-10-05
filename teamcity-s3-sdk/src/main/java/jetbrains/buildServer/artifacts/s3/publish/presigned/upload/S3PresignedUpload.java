@@ -52,7 +52,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   private final Retrier myRetrier;
   private final boolean myCheckConsistency;
   @Nullable
-  private String[] etags;
+  private String[] myEtags;
 
   private S3PresignedUpload(@NotNull final String artifactPath,
                             @NotNull final String objectKey,
@@ -105,7 +105,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
   @Override
   public FileUploadInfo call() {
-    etags = null;
+    myEtags = null;
     try {
       if (!myFile.exists()) {
         throw new FileNotFoundException(myFile.getAbsolutePath());
@@ -139,7 +139,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     LOGGER.debug(() -> "Multipart upload " + this + " started");
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
-    etags = new String[nParts];
+    myEtags = new String[nParts];
     final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, nParts);
     myProgressListener.beforeUploadStarted();
     try {
@@ -152,7 +152,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
           final long start = partIndex * myChunkSizeInBytes;
           final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.getUrl(), myFile, start, contentLength));
           myProgressListener.onPartUploadSuccess();
-          etags[partIndex] = etag;
+          myEtags[partIndex] = etag;
         } catch (Exception e) {
           myProgressListener.onPartUploadFailed(e);
           ExceptionUtil.rethrowAsRuntimeException(e);
@@ -201,7 +201,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
   @NotNull
   public List<String> getEtags() {
-    return etags != null ? Arrays.asList(etags) : Collections.emptyList();
+    return myEtags != null ? Arrays.asList(myEtags) : Collections.emptyList();
   }
 
   @NotNull
