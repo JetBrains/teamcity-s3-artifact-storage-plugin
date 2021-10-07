@@ -28,6 +28,7 @@ import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
+import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
@@ -76,7 +77,7 @@ public class S3SettingsController extends BaseFormXmlController {
         errors.addError("resource", "Invalid request: unsupported resource " + resource);
       } else {
         try {
-          xmlResponse.addContent(handler.fetchAsElement(parameters));
+          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters)));
         } catch (InvalidSettingsException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
           if (LOG.isDebugEnabled()) {
