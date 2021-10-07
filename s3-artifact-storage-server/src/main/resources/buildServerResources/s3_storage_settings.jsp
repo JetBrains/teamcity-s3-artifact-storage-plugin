@@ -493,7 +493,6 @@
       BS.EditStorageForm.clearErrors();
       var distributionName = $j(this).val();
       updateSelectedDistributionName(distributionName === "" ? null : distributionName);
-      redrawKeyGroupSelector();
     });
 
     $j(document).on('change', '#${cloudfrontKeyPairSelect}', function () {
@@ -563,6 +562,10 @@
 
         reader.readAsText(file);
       }
+    });
+
+    $distributionInput.change(function () {
+      redrawKeyGroupSelector();
     });
 
     $realBucketInput.change(function () {
