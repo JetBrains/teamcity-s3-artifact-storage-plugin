@@ -11,6 +11,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.S3ResponseErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.TeamCityPresignedUrlsProviderErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.http.HttpUserAgent;
@@ -37,6 +41,8 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private final HttpClient myTeamCityClient;
   @NotNull
   private final AtomicBoolean myShutdown = new AtomicBoolean(false);
+  @NotNull
+  private final HttpResponseErrorHandler myErrorHandler = new CompositeHttpRequestErrorHandler(new S3ResponseErrorHandler(), new TeamCityPresignedUrlsProviderErrorHandler());
 
   public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
     myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
@@ -63,7 +69,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys, null));
-      final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+      final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
       return deserializeResponseV1(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
@@ -97,7 +103,8 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private PresignedUrlDto fetchPresignedUrlDto(@NotNull final String objectKey, @NotNull final StringRequestEntity requestEntity) throws IOException {
     final PostMethod post = postTemplate();
     post.setRequestEntity(requestEntity);
-    final String responseBody = HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+    post.setRequestHeader("Accept", "application/xml");
+    final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
     final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
     return presignedUrlListResponseDto.getPresignedUrls()
                                       .stream()
@@ -136,7 +143,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       etags.forEach(etag -> post.addParameter(ETAGS, etag));
     }
     try {
-      HttpClientUtil.executeReleasingConnectionAndReadResponseBody(myTeamCityClient, post);
+      HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
       LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
     } catch (Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);

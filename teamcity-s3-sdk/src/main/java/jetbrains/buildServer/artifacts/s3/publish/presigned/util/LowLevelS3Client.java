@@ -1,10 +1,15 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.Objects;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
+import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.S3ResponseErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.TeamCityPresignedUrlsProviderErrorHandler;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -22,7 +27,11 @@ import org.jetbrains.annotations.Nullable;
 
 public class LowLevelS3Client implements AutoCloseable {
   @NotNull
+  private static final Logger LOGGER = Logger.getInstance(LowLevelS3Client.class);
+  @NotNull
   private final HttpClient myHttpClient;
+  @NotNull
+  private final HttpResponseErrorHandler myErrorHandler = new CompositeHttpRequestErrorHandler(new S3ResponseErrorHandler(), new TeamCityPresignedUrlsProviderErrorHandler());
   private final boolean myCheckConsistency;
 
   public LowLevelS3Client(@NotNull final S3AdvancedConfiguration s3Config) {
@@ -67,7 +76,8 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   private HttpMethodBase head(@NotNull final String url) throws IOException {
     final HttpMethodBase request = headRequest(url);
-    HttpClientUtil.executeAndReleaseConnection(myHttpClient, request);
+    request.setRequestHeader("Accept", "application/xml");
+    HttpClientUtil.executeAndReleaseConnection(myHttpClient, request, myErrorHandler);
     return request;
   }
 
@@ -75,7 +85,8 @@ public class LowLevelS3Client implements AutoCloseable {
   private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity) throws IOException {
     final EntityEnclosingMethod request = putRequest(url);
     request.setRequestEntity(requestEntity);
-    HttpClientUtil.executeAndReleaseConnection(myHttpClient, request);
+    request.setRequestHeader("Accept", "application/xml");
+    HttpClientUtil.executeAndReleaseConnection(myHttpClient, request, myErrorHandler);
     return request;
   }
 
@@ -100,6 +111,8 @@ public class LowLevelS3Client implements AutoCloseable {
       String etag = parseEtags(request);
       if (!Objects.equals(etag, digest)) {
         throw new FileUploadFailedException("Consistency check failed. Calculated digest [" + digest + "] is different from S3 etag [" + etag + "]", true);
+      } else {
+        LOGGER.debug("Consistency check successful");
       }
     }
   }

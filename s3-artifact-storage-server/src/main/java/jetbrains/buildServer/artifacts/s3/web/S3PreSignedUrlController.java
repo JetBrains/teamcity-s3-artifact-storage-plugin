@@ -18,6 +18,7 @@ package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkBaseException;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
@@ -34,6 +35,7 @@ import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
@@ -46,15 +48,18 @@ import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import jetbrains.buildServer.web.util.WebUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.servlet.ModelAndView;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.ERROR_SOURCE_HEADER_NAME;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 /**
@@ -95,22 +100,50 @@ public class S3PreSignedUrlController extends BaseController {
         httpServletResponse.getWriter().append(response);
       }
       httpServletResponse.setStatus(HttpServletResponse.SC_OK);
-    } catch (HttpServerErrorException e) {
+      return null;
+    } catch (final Exception e) {
       logError(httpServletRequest, e);
-      httpServletResponse.sendError(e.getStatusCode().value(), e.getMessage());
-    } catch (SdkBaseException | IOException | IllegalArgumentException e) {
-      logError(httpServletRequest, e);
-      httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
-    } catch (Exception e) {
-      final SdkBaseException sdkException = ExceptionUtil.getCause(e, SdkBaseException.class);
-      logError(httpServletRequest, e);
-      if (sdkException != null) {
-        httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, sdkException.getMessage());
-      } else {
-        httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
-      }
+      handleException(httpServletResponse, e);
+      return null;
     }
-    return null;
+  }
+
+  private void handleException(@NotNull final HttpServletResponse httpServletResponse, @NotNull final Exception e) throws IOException {
+    final AmazonS3Exception s3Exception = ExceptionUtil.getCause(e, AmazonS3Exception.class);
+    final Exception cause = getMostInformativeRootException(e);
+    setErrorHeader(httpServletResponse, cause);
+    if (cause instanceof AmazonS3Exception) {
+      handleAmazonException(httpServletResponse, (AmazonS3Exception)cause);
+    } else {
+      final HttpStatus status = cause instanceof HttpStatusCodeException ? ((HttpStatusCodeException)cause).getStatusCode() : HttpStatus.BAD_REQUEST;
+      httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, S3Constants.ErrorSource.TEAMCITY.name());
+      httpServletResponse.sendError(status.value(), e.getMessage());
+    }
+  }
+
+  @NotNull
+  private Exception getMostInformativeRootException(@NotNull final Exception e) {
+    return Util.ofNullable(() -> ExceptionUtil.getCause(e, AmazonS3Exception.class),
+                           Util.ofNullable(() -> ExceptionUtil.getCause(e, SdkBaseException.class),
+                                           Util.ofNullable(() -> ExceptionUtil.getCause(e, HttpStatusCodeException.class), e)));
+  }
+
+  private void setErrorHeader(HttpServletResponse httpServletResponse, Exception e) {
+    final String header;
+    if (e instanceof AmazonS3Exception) {
+      header = S3Constants.ErrorSource.S3.name();
+    } else if (e instanceof SdkBaseException) {
+      header = S3Constants.ErrorSource.SDK.name();
+    } else {
+      header = S3Constants.ErrorSource.TEAMCITY.name();
+    }
+    httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, header);
+  }
+
+  private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AmazonS3Exception e) throws IOException {
+    httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, S3Constants.ErrorSource.S3.name());
+    httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+    httpServletResponse.getWriter().append(S3XmlSerializerFactory.getInstance().serialize(AmazonS3ErrorDto.from(e)));
   }
 
   private void logError(@NotNull final HttpServletRequest request,

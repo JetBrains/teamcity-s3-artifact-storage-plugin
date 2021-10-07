@@ -143,7 +143,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
   public static boolean isPublishingInterruptedException(@NotNull Throwable e) {
     final HttpClientUtil.HttpErrorCodeException errorCodeException = ExceptionUtil.getCause(e, HttpClientUtil.HttpErrorCodeException.class);
-    if (errorCodeException != null && errorCodeException.isBuildFinishedReason()) {
+    if (errorCodeException != null && errorCodeException.isUploadInterrupted()) {
       return true;
     }
     return ExceptionUtil.getCause(e, InterruptedException.class) != null || ExceptionUtil.getCause(e, PublishingInterruptedException.class) != null;

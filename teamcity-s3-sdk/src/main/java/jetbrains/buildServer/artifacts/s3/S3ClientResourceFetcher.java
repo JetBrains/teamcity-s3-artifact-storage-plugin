@@ -17,25 +17,22 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.serialization.XmlSerializer;
-import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
+import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
 public abstract class S3ClientResourceFetcher<T> {
-  @NotNull
-  private static final XmlSerializer OUR_XML_SERIALIZER = new XmlSerializerImpl();
 
   @NotNull
   public String fetchAsXml(final Map<String, String> parameters) throws Exception {
     final T dto = fetchDto(parameters);
-    return OUR_XML_SERIALIZER.serialize(dto);
+    return S3XmlSerializerFactory.getInstance().serialize(dto);
   }
 
   @NotNull
   public Element fetchAsElement(final Map<String, String> parameters) throws Exception {
     final T dto = fetchDto(parameters);
-    return OUR_XML_SERIALIZER.serializeAsElement(dto);
+    return S3XmlSerializerFactory.getInstance().serializeAsElement(dto);
   }
 
   protected abstract T fetchDto(final Map<String, String> parameters) throws Exception;

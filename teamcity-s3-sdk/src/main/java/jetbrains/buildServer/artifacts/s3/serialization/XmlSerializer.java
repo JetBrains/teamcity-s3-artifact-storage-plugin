@@ -6,7 +6,10 @@ import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
 public interface XmlSerializer {
+
   String serialize(@NotNull Object object) throws JsonProcessingException;
 
   Element serializeAsElement(@NotNull Object object);
+
+  <T> T deserialize(@NotNull String xml, @NotNull Class<T> clazz);
 }

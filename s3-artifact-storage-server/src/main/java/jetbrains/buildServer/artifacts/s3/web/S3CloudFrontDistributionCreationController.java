@@ -43,7 +43,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
+import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
@@ -167,7 +167,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
             return null;
           });
           if (distributionDTO != null) {
-            Element element = new XmlSerializerImpl().serializeAsElement(distributionDTO);
+            Element element = S3XmlSerializerFactory.getInstance().serializeAsElement(distributionDTO);
             xmlResponse.addContent(element);
           }
         }
