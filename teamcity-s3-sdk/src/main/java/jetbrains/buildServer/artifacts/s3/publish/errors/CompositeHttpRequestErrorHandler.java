@@ -39,7 +39,7 @@ public class CompositeHttpRequestErrorHandler implements HttpResponseErrorHandle
 
   @Override
   public boolean canHandle(@NotNull final ResponseAdapter responseWrapper) {
-    return myHttpRequestErrorHandlers.stream().anyMatch(handler -> handler.canHandle(responseWrapper));
+    return myHttpRequestErrorHandlers.stream().anyMatch(handler -> handler.canHandle(responseWrapper)) || myDefaultHandler.canHandle(responseWrapper);
   }
 
   @NotNull
