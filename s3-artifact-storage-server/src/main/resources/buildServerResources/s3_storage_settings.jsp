@@ -25,6 +25,10 @@
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
+<%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
+<c:set var="environment_name_param" value="<%=AWSCommonParams.ENVIRONMENT_NAME_PARAM%>"/>
+<c:set var="environment_type_custom" value="<%=AWSCommonParams.ENVIRONMENT_TYPE_CUSTOM%>"/>
+
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 <c:set var="pathPrefixesFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
@@ -213,6 +217,7 @@
     var $publicKeySelect = $j(BS.Util.escapeId('${cloudfrontKeyPairSelect}'));
     var $privateKeyUpload = $j('#file\\:${cloudFrontPrivateKeyUpload}');
     var $privateKeyNote = $j(BS.Util.escapeId('${cloudFrontPrivateKeyNote}'));
+    var $awsEnvSelect = $j(BS.Util.escapeId('${environment_name_param}'));
 
     var bucketLocations = {};
     var publicKeys = [];
@@ -543,6 +548,14 @@
         BS.Util.hide($j('#${cloudFrontDistributionCreationLoader}'));
       });
     }
+
+    $awsEnvSelect.on('change', function () {
+      const val = $awsEnvSelect.val();
+      if (val === '${environment_type_custom}') {
+        const cloudfrontEnabled = $j(BS.Util.escapeId('${params.cloudFrontEnabled}'));
+        cloudfrontEnabled.prop('checked', false).change();
+      }
+    });
 
     $createDistributionButton.on('click', function () {
       createDistribution();
