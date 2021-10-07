@@ -46,6 +46,7 @@ public class CompositeHttpRequestErrorHandler implements HttpResponseErrorHandle
   @Override
   public HttpClientUtil.HttpErrorCodeException handle(@NotNull final ResponseAdapter responseWrapper) {
     final HttpResponseErrorHandler errorHandler = myHttpRequestErrorHandlers.stream()
+                                                                            .filter(handler -> handler.canHandle(responseWrapper))
                                                                             .findFirst()
                                                                             .orElse(myDefaultHandler);
     LOGGER.debug(() -> "Handling response error with '" + errorHandler.name() + "' started");
