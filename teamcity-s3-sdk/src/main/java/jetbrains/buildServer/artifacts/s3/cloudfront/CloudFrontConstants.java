@@ -3,6 +3,9 @@ package jetbrains.buildServer.artifacts.s3.cloudfront;
 public class CloudFrontConstants {
   public static final String S3_ENABLE_CLOUDFRONT_INTEGRATION = "teamcity.s3.use.cloudfront.enabled";
 
+  public static final String S3_BUCKET_DOMAIN_PATTERN = "%s.s3.%s.amazonaws.com";
+  public static final String S3_BUCKET_DOMAIN_PATTERN_NO_REGION = "%s.s3.amazonaws.com";
+
   public static final String S3_CLOUDFRONT_ENABLED = "storage.s3.cloudfront.enabled";
   public static final String S3_CLOUDFRONT_DISTRIBUTION = "storage.s3.cloudfront.distribution";
   public static final String S3_CLOUDFRONT_PUBLIC_KEY_ID = "storage.s3.cloudfront.publicKeyId";

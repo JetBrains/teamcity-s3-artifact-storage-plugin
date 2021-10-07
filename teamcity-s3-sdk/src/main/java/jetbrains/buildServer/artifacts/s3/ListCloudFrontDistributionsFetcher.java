@@ -6,6 +6,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
 import jetbrains.buildServer.Used;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import org.jetbrains.annotations.NotNull;
 
 public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<ListCloudFrontDistributionsFetcher.ListDistributionsDto> {
@@ -17,6 +18,13 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     if (bucketName == null) {
       throw new IllegalArgumentException("No S3 bucket specified");
     }
+
+    String bucketRegion = S3Util.withS3Client(parameters, client -> {
+      return client.getBucketLocation(bucketName);
+    });
+
+    String domainPattern = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN, bucketName, bucketRegion);
+    String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
 
     return S3Util.withCloudFrontClient(parameters, client -> {
       ListDistributionsRequest request = new ListDistributionsRequest();
@@ -38,9 +46,8 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
         .filter(d -> d.getOrigins()
                       .getItems()
                       .stream()
-                      .anyMatch(o -> o.getDomainName().equals(bucketName + "." + S3Constants.S3_ADDRESS))
-        )
-        .map(d -> {
+                      .anyMatch(o -> o.getDomainName().equals(domainPattern) || o.getDomainName().equals(domainPatternNoRegion))
+        ).map(d -> {
           String id = d.getId();
           String comment = d.getComment();
           Boolean enabled = d.isEnabled();

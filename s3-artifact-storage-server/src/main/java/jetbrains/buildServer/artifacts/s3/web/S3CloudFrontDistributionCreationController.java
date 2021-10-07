@@ -42,7 +42,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.serialization.impl.XmlSerializerImpl;
 import jetbrains.buildServer.controllers.ActionErrors;
@@ -199,8 +198,8 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     String originId = bucketName + "." + UUID.randomUUID();
 
     String oaiId = getOriginAccessIdentityId(s3Client, cloudFrontClient, bucketName);
-
-    Origin origin = createOrigin(bucketName, originId, oaiId);
+    String bucketRegion = s3Client.getBucketLocation(bucketName);
+    Origin origin = createOrigin(bucketName, bucketRegion, originId, oaiId);
     DistributionConfig distributionConfig = createDistributionConfig(cloudFrontClient, keyGroupId, origin, comment);
     CreateDistributionResult result = cloudFrontClient.createDistribution(new CreateDistributionRequest(distributionConfig));
     return result.getDistribution();
@@ -250,12 +249,12 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   }
 
   @NotNull
-  private Origin createOrigin(@NotNull String bucketName, @NotNull String originId, @NotNull String originAccessIdentityId) {
+  private Origin createOrigin(@NotNull String bucketName, @NotNull String bucketRegion, @NotNull String originId, @NotNull String originAccessIdentityId) {
 
     String oaiId = String.format(S3_CLOUDFRONT_OAI_ID_TEMPLATE, originAccessIdentityId);
     return new Origin()
       .withS3OriginConfig(new S3OriginConfig().withOriginAccessIdentity(oaiId))
-      .withDomainName(bucketName + "." + S3Constants.S3_ADDRESS)
+      .withDomainName(String.format(S3_BUCKET_DOMAIN_PATTERN, bucketName, bucketRegion))
       .withId(originId);
   }
 
