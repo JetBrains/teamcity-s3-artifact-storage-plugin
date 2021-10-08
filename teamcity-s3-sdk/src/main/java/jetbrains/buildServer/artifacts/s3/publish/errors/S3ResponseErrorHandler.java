@@ -9,7 +9,6 @@ import jetbrains.buildServer.artifacts.s3.transport.AmazonS3ErrorDto;
 import org.jetbrains.annotations.NotNull;
 
 public class S3ResponseErrorHandler implements HttpResponseErrorHandler {
-
   @Override
   public boolean canHandle(@NotNull ResponseAdapter responseWrapper) {
     return S3Constants.ErrorSource.S3.name().equals(responseWrapper.getHeader(S3Constants.ERROR_SOURCE_HEADER_NAME));
@@ -18,6 +17,9 @@ public class S3ResponseErrorHandler implements HttpResponseErrorHandler {
   @NotNull
   @Override
   public HttpClientUtil.HttpErrorCodeException handle(@NotNull ResponseAdapter responseWrapper) {
+    if (OUR_RECOVERABLE_STATUS_CODES.contains(responseWrapper.getStatusCode())) {
+      return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), responseWrapper.getResponse(), true);
+    }
     if (responseWrapper.getResponse() != null) {
       final AmazonS3ErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), AmazonS3ErrorDto.class);
       final AmazonS3Exception exception = deserialize.toException();
