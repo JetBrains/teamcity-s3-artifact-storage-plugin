@@ -32,8 +32,10 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   @NotNull
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
 
-  private static final String PARAM = "%s=%s";
+  @NotNull
+  private static final Map<String, String> MANDATORY_PARAMETERS = Collections.singletonMap("x-amz-acl", "bucket-owner-full-control");
 
+  @NotNull
   private final TimeService myTimeService;
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
@@ -58,14 +60,17 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
       if (jetbrains.buildServer.util.StringUtil.isNotEmpty(domain) && StringUtil.isNotEmpty(publicKeyId)) {
         String resourcePath = SignerUtils.generateResourcePath(SignerUtils.Protocol.https, domain, encodedObjectKey);
 
+        URIBuilder builder = new URIBuilder(resourcePath);
+
+        MANDATORY_PARAMETERS.forEach((k, v) -> builder.addParameter(k, v));
+
         if (!additionalParameters.isEmpty()) {
-          URIBuilder builder = new URIBuilder(resourcePath);
           for (Map.Entry<String, String> param : additionalParameters.entrySet()) {
             builder.addParameter(param.getKey(), param.getValue());
           }
-
-          resourcePath = builder.build().toString();
         }
+
+        resourcePath = builder.build().toString();
 
         byte[] privateKeyBytes = settings.getCloudFrontPrivateKey().getBytes(StandardCharsets.UTF_8);
         PrivateKey decodedPrivateKey = PEM.readPrivateKey(new ByteArrayInputStream(privateKeyBytes));

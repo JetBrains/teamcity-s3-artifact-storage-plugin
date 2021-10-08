@@ -153,11 +153,11 @@
       </td>
     </tr>
     <tr>
-      <th><label for=${cloudFrontPrivateKeyUpload}>Private Key: <l:star/></label></th>
+      <th><label for=${cloudFrontPrivateKeyUpload}>Private key: <l:star/></label></th>
       <td>
         <div class="posRel invisibleUpload">
           <forms:file name="${cloudFrontPrivateKeyUpload}" size="28" attributes="accept=\".pem\""/>
-          <span id="${cloudFrontPrivateKeyNote}">Key uploaded</span>
+          <span id="${cloudFrontPrivateKeyNote}" class="smallNote">Key uploaded</span>
           <span class="error" id="error_${cloudFrontPrivateKeyUpload}"></span>
           <span class="error" id="error_${params.cloudFrontPrivateKey}"></span>
           <props:hiddenProperty name="${params.cloudFrontPrivateKey}" value="${propertiesBean.properties[params.cloudFrontPrivateKey]}"/>
