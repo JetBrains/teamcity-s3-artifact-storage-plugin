@@ -198,7 +198,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onPartUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error " + e.getMessage());
+      myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error: " + e.getMessage());
     }
 
     @Override
@@ -208,7 +208,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onFileUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error " + e.getMessage());
+      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + e.getMessage());
       myUploadManager.onUploadFailed(myUpload);
     }
 

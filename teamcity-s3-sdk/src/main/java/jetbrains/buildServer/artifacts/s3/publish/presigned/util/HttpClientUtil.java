@@ -18,6 +18,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
+import java.net.UnknownHostException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpMethodResponseAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
 import jetbrains.buildServer.http.HttpUtil;
@@ -71,6 +72,8 @@ public final class HttpClientUtil {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
+    } catch (UnknownHostException e) {
+      throw new RuntimeException("Host '" + e.getMessage() + "' not found", e);
     } finally {
       try {
         method.releaseConnection();

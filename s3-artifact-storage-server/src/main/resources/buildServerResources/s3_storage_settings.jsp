@@ -54,7 +54,6 @@
 
   .invisibleUpload input[type='file'] {
     color: transparent;
-    max-width: 7em;
   }
 </style>
 
@@ -120,6 +119,7 @@
       <th><label for="${params.cloudFrontEnabled}">Use CloudFront to transport artifacts: </label></th>
       <td>
         <props:checkboxProperty name="${params.cloudFrontEnabled}" id="${params.cloudFrontEnabled}" value="${propertiesBean.properties[params.cloudFrontEnabled]}"/>
+        <bs:help file="CloudFrontSettings"/>
       </td>
     </tr>
     <tbody id="${params.cloudFrontSettingsGroup}">
