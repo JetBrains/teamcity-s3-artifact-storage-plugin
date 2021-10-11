@@ -116,7 +116,6 @@ public class S3PreSignedUrlController extends BaseController {
       handleAmazonException(httpServletResponse, (AmazonS3Exception)cause);
     } else {
       final HttpStatus status = cause instanceof HttpStatusCodeException ? ((HttpStatusCodeException)cause).getStatusCode() : HttpStatus.BAD_REQUEST;
-      httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, S3Constants.ErrorSource.TEAMCITY.name());
       httpServletResponse.sendError(status.value(), e.getMessage());
     }
   }
