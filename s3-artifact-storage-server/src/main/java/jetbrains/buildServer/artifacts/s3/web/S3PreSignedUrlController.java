@@ -109,14 +109,12 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   private void handleException(@NotNull final HttpServletResponse httpServletResponse, @NotNull final Exception e) throws IOException {
-    final AmazonS3Exception s3Exception = ExceptionUtil.getCause(e, AmazonS3Exception.class);
     final Exception cause = getMostInformativeRootException(e);
     setErrorHeader(httpServletResponse, cause);
     if (cause instanceof AmazonS3Exception) {
       handleAmazonException(httpServletResponse, (AmazonS3Exception)cause);
     } else {
-      final HttpStatus status = cause instanceof HttpStatusCodeException ? ((HttpStatusCodeException)cause).getStatusCode() : HttpStatus.BAD_REQUEST;
-      httpServletResponse.sendError(status.value(), e.getMessage());
+      handleGenericException(httpServletResponse, cause);
     }
   }
 
@@ -139,8 +137,11 @@ public class S3PreSignedUrlController extends BaseController {
     httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, header);
   }
 
+  private void handleGenericException(@NotNull final HttpServletResponse response, @NotNull final Exception e) throws IOException {
+    response.sendError(e instanceof HttpStatusCodeException ? ((HttpStatusCodeException)e).getRawStatusCode() : HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
+  }
+
   private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AmazonS3Exception e) throws IOException {
-    httpServletResponse.setHeader(ERROR_SOURCE_HEADER_NAME, S3Constants.ErrorSource.S3.name());
     httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
     httpServletResponse.getWriter().append(S3XmlSerializerFactory.getInstance().serialize(AmazonS3ErrorDto.from(e)));
   }
