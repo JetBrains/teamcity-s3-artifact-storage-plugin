@@ -86,6 +86,12 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     myExecutorService = executorServices.getLowPriorityExecutorService();
   }
 
+  @NotNull
+  @Override
+  public String getDisplayName() {
+    return "S3 artifacts cleaner";
+  }
+
   @Override
   public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) throws CleanupInterruptedException {
     for (SFinishedBuild build : cleanupContext.getBuilds()) {
