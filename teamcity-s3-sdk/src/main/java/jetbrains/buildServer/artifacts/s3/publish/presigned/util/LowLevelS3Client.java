@@ -3,6 +3,8 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Objects;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
@@ -28,6 +30,10 @@ import org.jetbrains.annotations.Nullable;
 public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(LowLevelS3Client.class);
+
+  @NotNull
+  //Ensures that bucket owner has access to any objects we upload
+  public static final Map<String, String> MANDATORY_HEADERS_FOR_SINGLE_UPLOAD = Collections.singletonMap("x-amz-acl", "bucket-owner-full-control");
   @NotNull
   private final HttpClient myHttpClient;
   @NotNull
@@ -43,7 +49,7 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   public String uploadFile(@NotNull final String url, @NotNull final File file) throws IOException {
     final DigestingFileRequestEntity entity = new DigestingFileRequestEntity(file, S3Util.getContentType(file));
-    EntityEnclosingMethod request = put(url, entity);
+    EntityEnclosingMethod request = put(url, entity, MANDATORY_HEADERS_FOR_SINGLE_UPLOAD);
     final String digest = entity.getDigest();
     checkEtagsConsistency(digest, request);
     return digest;
@@ -57,7 +63,7 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   public String uploadFilePart(@NotNull final String url, @NotNull final File file, final long start, final long size) throws IOException {
     final RepeatableFilePartRequestEntity entity = new RepeatableFilePartRequestEntity(file, start, size);
-    final HttpMethodBase request = put(url, entity);
+    final HttpMethodBase request = put(url, entity, Collections.emptyMap());
     final String digest = entity.getDigest();
     checkEtagsConsistency(digest, request);
     return digest;
@@ -82,10 +88,11 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity) throws IOException {
+  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity, Map<String, String> additionalHeaders) throws IOException {
     final EntityEnclosingMethod request = putRequest(url);
     request.setRequestEntity(requestEntity);
     request.setRequestHeader("Accept", "application/xml");
+    additionalHeaders.forEach((name, value) -> request.setRequestHeader(name, value));
     HttpClientUtil.executeAndReleaseConnection(myHttpClient, request, myErrorHandler);
     return request;
   }

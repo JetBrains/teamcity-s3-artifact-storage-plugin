@@ -60,7 +60,7 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
     PrivateKey privateKey;
     try {
       privateKey = PEM.readPrivateKey(new ByteArrayInputStream(cloudFrontPrivateKey.getBytes(StandardCharsets.UTF_8)));
-    } catch (InvalidKeySpecException | IOException | IllegalArgumentException e) {
+    } catch (InvalidKeySpecException | IOException | IllegalArgumentException | NullPointerException e) {
       LOG.warnAndDebugDetails("Error while processing private key in CloudFront settings", e);
       invalids.add(new InvalidProperty(S3_CLOUDFRONT_PRIVATE_KEY, "Chosen Private key is not compatible with CloudFront"));
       return null;

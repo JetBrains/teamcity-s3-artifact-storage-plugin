@@ -33,9 +33,6 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
 
   @NotNull
-  private static final Map<String, String> MANDATORY_PARAMETERS = Collections.singletonMap("x-amz-acl", "bucket-owner-full-control");
-
-  @NotNull
   private final TimeService myTimeService;
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
@@ -61,8 +58,6 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
         String resourcePath = SignerUtils.generateResourcePath(SignerUtils.Protocol.https, domain, encodedObjectKey);
 
         URIBuilder builder = new URIBuilder(resourcePath);
-
-        MANDATORY_PARAMETERS.forEach((k, v) -> builder.addParameter(k, v));
 
         if (!additionalParameters.isEmpty()) {
           for (Map.Entry<String, String> param : additionalParameters.entrySet()) {

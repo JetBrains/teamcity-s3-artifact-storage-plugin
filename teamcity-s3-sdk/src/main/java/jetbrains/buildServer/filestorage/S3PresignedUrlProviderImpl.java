@@ -93,6 +93,10 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
                                         .withContentDisposition("inline; filename=\"" + filename + "\""));
         }
       }
+      //This header ensures that bucket owner always has access to uploaded objects
+      if (nPart == null && uploadId == null) {
+        request.putCustomRequestHeader("x-amz-acl", "bucket-owner-full-control");
+      }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
     } catch (Exception e) {
       final Throwable cause = e.getCause();
