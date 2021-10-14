@@ -1,5 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
+import jetbrains.buildServer.serverSide.TeamCityProperties;
+
 public class CloudFrontConstants {
   public static final String S3_ENABLE_CLOUDFRONT_INTEGRATION = "teamcity.s3.use.cloudfront.enabled";
 
@@ -19,4 +21,8 @@ public class CloudFrontConstants {
   public static final String S3_CLOUDFRONT_OAI_SUBSTRING = "CloudFront Origin Access Identity";
   public static final String S3_CLOUDFRONT_OAI_ID_TEMPLATE = "origin-access-identity/cloudfront/%s";
   public static final String S3_CLOUDFRONT_PRINCIPAL_TEMPLATE = "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity %s";
+
+  public static boolean isEnabled() {
+    return TeamCityProperties.getBoolean(S3_ENABLE_CLOUDFRONT_INTEGRATION);
+  }
 }

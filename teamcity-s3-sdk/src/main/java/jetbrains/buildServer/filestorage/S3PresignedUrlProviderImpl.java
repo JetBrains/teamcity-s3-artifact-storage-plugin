@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -94,7 +95,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
-      if (nPart == null && uploadId == null) {
+      if (CloudFrontConstants.isEnabled() && nPart == null && uploadId == null && httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) {
         request.putCustomRequestHeader("x-amz-acl", "bucket-owner-full-control");
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
