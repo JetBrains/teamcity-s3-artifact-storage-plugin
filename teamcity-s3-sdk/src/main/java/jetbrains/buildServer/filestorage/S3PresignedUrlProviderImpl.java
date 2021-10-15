@@ -95,7 +95,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
-      if (CloudFrontConstants.isEnabled() && nPart == null && uploadId == null && httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) {
+      if (CloudFrontConstants.isEnabled() && nPart == null && uploadId == null && (httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST)) {
         request.putCustomRequestHeader("x-amz-acl", "bucket-owner-full-control");
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
