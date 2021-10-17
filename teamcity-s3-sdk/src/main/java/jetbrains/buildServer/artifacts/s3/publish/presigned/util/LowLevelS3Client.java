@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Supplier;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
@@ -29,11 +31,12 @@ import org.jetbrains.annotations.Nullable;
 
 public class LowLevelS3Client implements AutoCloseable {
   @NotNull
-  private static final Logger LOGGER = Logger.getInstance(LowLevelS3Client.class);
-
-  @NotNull
   //Ensures that bucket owner has access to any objects we upload
-  public static final Map<String, String> MANDATORY_HEADERS_FOR_SINGLE_UPLOAD = Collections.singletonMap("x-amz-acl", "bucket-owner-full-control");
+  public static final Supplier<Map<String, String>> MANDATORY_HEADERS_FOR_SINGLE_UPLOAD = () -> {
+    return CloudFrontConstants.isEnabled() ? Collections.singletonMap("x-amz-acl", "bucket-owner-full-control") : Collections.emptyMap();
+  };
+  @NotNull
+  private static final Logger LOGGER = Logger.getInstance(LowLevelS3Client.class);
   @NotNull
   private final HttpClient myHttpClient;
   @NotNull
@@ -49,7 +52,7 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   public String uploadFile(@NotNull final String url, @NotNull final File file) throws IOException {
     final DigestingFileRequestEntity entity = new DigestingFileRequestEntity(file, S3Util.getContentType(file));
-    EntityEnclosingMethod request = put(url, entity, MANDATORY_HEADERS_FOR_SINGLE_UPLOAD);
+    EntityEnclosingMethod request = put(url, entity, MANDATORY_HEADERS_FOR_SINGLE_UPLOAD.get());
     final String digest = entity.getDigest();
     checkEtagsConsistency(digest, request);
     return digest;
