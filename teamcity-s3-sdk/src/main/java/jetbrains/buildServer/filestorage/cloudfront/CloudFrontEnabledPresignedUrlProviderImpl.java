@@ -8,7 +8,6 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3Settings;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -101,7 +100,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
   }
 
   private boolean shouldUseCloudFront(CloudFrontSettings settings) {
-    if (TeamCityProperties.getBoolean(CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION) && settings.getCloudFrontEnabled()) {
+    if (CloudFrontConstants.isEnabled() && settings.getCloudFrontEnabled()) {
       String requestRegion = settings.getRequestRegion();
       String bucketRegion = settings.getBucketRegion();
       String userAgent = settings.getRequestUserAgent();

@@ -3,7 +3,7 @@ package jetbrains.buildServer.artifacts.s3.cloudfront;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 
 public class CloudFrontConstants {
-  public static final String S3_ENABLE_CLOUDFRONT_INTEGRATION = "teamcity.s3.use.cloudfront.enabled";
+  private static final String S3_ENABLE_CLOUDFRONT_INTEGRATION = "teamcity.s3.use.cloudfront.enabled";
 
   public static final String S3_BUCKET_DOMAIN_PATTERN = "%s.s3.%s.amazonaws.com";
   public static final String S3_BUCKET_DOMAIN_PATTERN_NO_REGION = "%s.s3.amazonaws.com";
