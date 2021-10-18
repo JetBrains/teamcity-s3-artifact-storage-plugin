@@ -20,7 +20,8 @@ public class TeamCityPresignedUrlsProviderErrorHandler implements HttpResponseEr
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), response, false,
                                                        response.contains(AgentServerSharedErrorMessages.buildIsAlreadyFinishedOrDoesNotExist()));
     } else {
-      return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, OUR_RECOVERABLE_STATUS_CODES.contains(responseWrapper.getStatusCode()));
+      return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, OUR_RECOVERABLE_STATUS_CODES.contains(responseWrapper.getStatusCode())
+                                                                                              || responseWrapper.getStatusCode() == 404);
     }
   }
 }
