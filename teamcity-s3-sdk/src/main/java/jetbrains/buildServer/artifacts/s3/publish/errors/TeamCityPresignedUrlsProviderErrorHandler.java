@@ -20,6 +20,7 @@ public class TeamCityPresignedUrlsProviderErrorHandler implements HttpResponseEr
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), response, false,
                                                        response.contains(AgentServerSharedErrorMessages.buildIsAlreadyFinishedOrDoesNotExist()));
     } else {
+      //When TeamCity unloads the plugin, the endpoint for presigned urls unloads too, thus resulting in server responding 404 for url generation requests
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, OUR_RECOVERABLE_STATUS_CODES.contains(responseWrapper.getStatusCode())
                                                                                               || responseWrapper.getStatusCode() == 404);
     }
