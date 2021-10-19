@@ -20,6 +20,7 @@ import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.ExceptionUtil;
+import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.methods.PostMethod;
@@ -29,7 +30,6 @@ import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsProviderClient {
@@ -45,7 +45,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private final HttpResponseErrorHandler myErrorHandler = new CompositeHttpRequestErrorHandler(new S3ResponseErrorHandler(), new TeamCityPresignedUrlsProviderErrorHandler());
 
   public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
-    myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
+    myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth/" + StringUtil.removeLeadingSlash(teamCityConnectionConfiguration.getUrlsProviderPath());
     myTeamCityClient = createClient(teamCityConnectionConfiguration);
   }
 

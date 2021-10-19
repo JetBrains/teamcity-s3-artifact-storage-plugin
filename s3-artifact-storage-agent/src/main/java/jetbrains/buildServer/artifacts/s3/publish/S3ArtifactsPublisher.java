@@ -42,8 +42,7 @@ import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
@@ -156,6 +155,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   @NotNull
   private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
     return new TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
+                                               build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_URLS_PROVIDER_PATH, ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML),
                                                build.getAccessUser(),
                                                build.getAccessCode(),
                                                build.getAgentConfiguration().getServerConnectionTimeout());

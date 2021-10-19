@@ -16,13 +16,20 @@ public class TeamCityConnectionConfiguration {
   private final String myAccessUser;
   @NotNull
   private final String myAccessCode;
+  @NotNull
+  private final String myUrlsProviderPath;
   private final int myConnectionTimeout;
 
-  public TeamCityConnectionConfiguration(@NotNull final String teamCityUrl, @NotNull final String accessUser, @NotNull final String accessCode, final int connectionTimeout) {
+  public TeamCityConnectionConfiguration(@NotNull final String teamCityUrl,
+                                         @NotNull final String urlsProviderPath,
+                                         @NotNull final String accessUser,
+                                         @NotNull final String accessCode,
+                                         final int connectionTimeout) {
     myTeamCityUrl = teamCityUrl;
     myAccessUser = accessUser;
     myAccessCode = accessCode;
     myConnectionTimeout = connectionTimeout;
+    myUrlsProviderPath = urlsProviderPath;
   }
 
   public int getConnectionTimeout() {
@@ -38,7 +45,13 @@ public class TeamCityConnectionConfiguration {
     return myTeamCityUrl;
   }
 
+  @NotNull
   public Credentials getCredentials() {
     return new UsernamePasswordCredentials(myAccessUser, myAccessCode);
+  }
+
+  @NotNull
+  public String getUrlsProviderPath() {
+    return myUrlsProviderPath;
   }
 }
