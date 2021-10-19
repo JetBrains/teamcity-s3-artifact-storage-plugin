@@ -31,7 +31,6 @@
 
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
-<c:set var="pathPrefixesFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.bucket.prefix.enable')}"/>
 
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBoolean('teamcity.s3.use.cloudfront.enabled')}"/>
 <c:set var="cloudFrontDistributionEmptyOption" value="--Select distribution --"/>
@@ -93,16 +92,27 @@
       </tr>
     </props:selectSectionPropertyContent>
   </props:selectSectionProperty>
-  <c:if test="${pathPrefixesFeatureOn or propertiesBean.properties[params.pathPrefix]}">
-    <tr>
-      <th><label for="${params.pathPrefix}">S3 path prefix: </label></th>
-      <td>
-        <props:textProperty name="${params.pathPrefix}" id="${params.pathPrefix}" className="longField" value="${propertiesBean.properties[params.pathPrefix]}"/>
-        <span class="smallNote">Specify the path prefix</span>
-        <span class="error" id="error_${params.pathPrefix}"></span>
-      </td>
-    </tr>
-  </c:if>
+  <tr>
+    <th><label for="${params.pathPrefix}">S3 path prefix: </label></th>
+    <td>
+      <props:textProperty name="${params.pathPrefix}" id="${params.pathPrefix}" className="longField" value="${propertiesBean.properties[params.pathPrefix]}"/>
+      <span class="smallNote">Specify the path prefix</span>
+      <span class="error" id="error_${params.pathPrefix}"></span>
+    </td>
+  </tr>
+  <tr>
+    <th><label for="${params.acl}">S3 ACL: </label></th>
+    <td>
+      <c:set value="${propertiesBean.properties[params.acl]}" var="aclSetValue"/>
+      <props:selectProperty name="${params.acl}" enableFilter="true" id="${params.acl}">
+        <c:forEach items="${params.aclEnum}" var="aclValue">
+          <props:option value="${aclValue}" selected="${aclSetValue == aclValue || (empty aclSetValue && aclValue == params.defaultAcl)}">${aclValue}</props:option>
+        </c:forEach>
+      </props:selectProperty>
+      <span class="smallNote">Specify the ACL</span>
+      <span class="error" id="error_${params.acl}"></span>
+    </td>
+  </tr>
   <tr class="noBorder">
     <th class="noBorder"></th>
     <td class="noBorder">

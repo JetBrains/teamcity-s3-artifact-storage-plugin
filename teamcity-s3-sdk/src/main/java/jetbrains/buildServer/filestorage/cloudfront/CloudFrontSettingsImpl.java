@@ -1,7 +1,9 @@
 package jetbrains.buildServer.filestorage.cloudfront;
 
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -66,11 +68,17 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   @NotNull
   @Override
   public String getBucketName() {
-    return S3Util.getBucketName(mySettings);
+    return Objects.requireNonNull(S3Util.getBucketName(mySettings));
   }
 
   @Override
   public int getUrlTtlSeconds() {
     return S3Util.getUrlTtlSeconds(mySettings);
+  }
+
+  @NotNull
+  @Override
+  public CannedAccessControlList getAcl() {
+    return S3Util.getAcl(mySettings);
   }
 }

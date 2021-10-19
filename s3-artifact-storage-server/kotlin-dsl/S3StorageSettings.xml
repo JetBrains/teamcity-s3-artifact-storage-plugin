@@ -31,6 +31,12 @@
         Bucket path prefix
       </description>
     </param>
+    <param name="storage.s3.upload.acl" dslName="acl">
+      <description>
+        Canned ACL for objects in a bucket.
+        Leave empty to use the default value.
+      </description>
+    </param>
     <param name="storage.s3.upload.presignedUrl.enabled" dslName="enablePresignedURLUpload" type="boolean" trueValue="true" falseValue="">
       <description>
         Whether to use Pre-Signed URLs to upload
