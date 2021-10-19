@@ -84,15 +84,17 @@ public final class S3Util {
       invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
     }
     final String pathPrefix = params.getOrDefault(S3_PATH_PREFIX_SETTING, "");
-    if (pathPrefix.length() > OUT_MAX_PREFIX_LENGTH) {
-      invalids.put(S3_PATH_PREFIX_SETTING, "Should be less than " + OUT_MAX_PREFIX_LENGTH + " characters");
+    if(!StringUtil.isEmptyOrSpaces(pathPrefix)) {
+      if (pathPrefix.length() > OUT_MAX_PREFIX_LENGTH) {
+        invalids.put(S3_PATH_PREFIX_SETTING, "Should be less than " + OUT_MAX_PREFIX_LENGTH + " characters");
+      }
+      if (!OUR_OBJECT_KEY_PATTERN.matcher(pathPrefix).matches()) {
+        invalids.put(S3_PATH_PREFIX_SETTING, "Should match the regexp [" + OUR_OBJECT_KEY_PATTERN.pattern() + "]");
+      }
     }
     final String acl = params.getOrDefault(S3_ACL, CannedAccessControlList.Private.name());
     if (acl.isEmpty()) {
       invalids.put(S3_ACL, "Should be present");
-    }
-    if (!OUR_OBJECT_KEY_PATTERN.matcher(pathPrefix).matches()) {
-      invalids.put(S3_PATH_PREFIX_SETTING, "Should match the regexp [" + OUR_OBJECT_KEY_PATTERN.pattern() + "]");
     }
     final Pair<Long, String> partSizeValueWithError = parseMultipartUploadByteSetting(params.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
     if (partSizeValueWithError.getSecond() != null) {
