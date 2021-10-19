@@ -50,6 +50,8 @@ public class S3Constants {
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
+  public static final String S3_URLS_PROVIDER_PATH = "storage.s3.presignedUrl.serverPath";
+
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 
   public static final String ERROR_SOURCE_HEADER_NAME = "X-SIGNED-URL-PROVIDER-ERROR-SOURCE";
