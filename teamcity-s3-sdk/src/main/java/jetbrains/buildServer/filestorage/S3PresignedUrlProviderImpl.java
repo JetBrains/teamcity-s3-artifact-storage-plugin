@@ -25,6 +25,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
@@ -94,7 +95,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
-      if (httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) {
+      if (httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST && settings.toRawSettings().containsKey(S3Constants.S3_ACL)) {
         request.putCustomRequestHeader("x-amz-acl", settings.getAcl().toString());
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
