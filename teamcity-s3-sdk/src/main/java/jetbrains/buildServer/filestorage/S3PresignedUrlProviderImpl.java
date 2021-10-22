@@ -95,7 +95,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
-      if ((httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) && settings.toRawSettings().containsKey(S3Constants.S3_ACL)) {
+      if ((httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) && settings.toRawSettings().containsKey(S3Constants.S3_ACL) && nPart == null) {
         request.putCustomRequestHeader("x-amz-acl", settings.getAcl().toString());
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
@@ -117,8 +117,8 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   public String startMultipartUpload(@NotNull final String objectKey, @NotNull final S3Settings settings) throws Exception {
     return callS3(client -> {
       final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(settings.getBucketName(), objectKey);
-      final InitiateMultipartUploadResult initiateMultipartUploadResult =
-        client.initiateMultipartUpload(initiateMultipartUploadRequest);
+      initiateMultipartUploadRequest.setCannedACL(settings.getAcl());
+      final InitiateMultipartUploadResult initiateMultipartUploadResult = client.initiateMultipartUpload(initiateMultipartUploadRequest);
       return initiateMultipartUploadResult.getUploadId();
     }, settings);
   }
@@ -151,11 +151,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       try {
         return callable.apply(client);
       } catch (final Throwable t) {
-        if (t instanceof IOException) {
-          throw (IOException)t;
-        } else {
-          throw new IOException(t);
-        }
+        throw new IOException(t);
       }
     });
   }

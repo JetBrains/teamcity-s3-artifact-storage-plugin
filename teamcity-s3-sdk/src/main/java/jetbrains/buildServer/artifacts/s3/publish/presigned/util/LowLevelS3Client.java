@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -48,13 +49,12 @@ public class LowLevelS3Client implements AutoCloseable {
     if (s3Config.getSettingsMap().containsKey(S3Constants.S3_ACL)) {
       myAdditionalHeaders.put("x-amz-acl", s3Config.getAcl().toString());
     }
-    myAdditionalHeaders.put("Accept", "application/xml");
   }
 
   @NotNull
   public String uploadFile(@NotNull final String url, @NotNull final File file) throws IOException {
     final DigestingFileRequestEntity entity = new DigestingFileRequestEntity(file, S3Util.getContentType(file));
-    EntityEnclosingMethod request = put(url, entity);
+    EntityEnclosingMethod request = put(url, entity, myAdditionalHeaders);
     final String digest = entity.getDigest();
     checkEtagsConsistency(digest, request);
     return digest;
@@ -68,7 +68,7 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   public String uploadFilePart(@NotNull final String url, @NotNull final File file, final long start, final long size) throws IOException {
     final RepeatableFilePartRequestEntity entity = new RepeatableFilePartRequestEntity(file, start, size);
-    final HttpMethodBase request = put(url, entity);
+    final HttpMethodBase request = put(url, entity, Collections.emptyMap());
     final String digest = entity.getDigest();
     checkEtagsConsistency(digest, request);
     return digest;
@@ -92,10 +92,11 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity) throws IOException {
+  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity, @NotNull final Map<String, String> headers) throws IOException {
     final EntityEnclosingMethod request = putRequest(url);
     request.setRequestEntity(requestEntity);
-    myAdditionalHeaders.forEach((name, value) -> request.setRequestHeader(name, value));
+    headers.forEach((name, value) -> request.setRequestHeader(name, value));
+    request.setRequestHeader("Accept", "application/xml");
     HttpClientUtil.executeAndReleaseConnection(myHttpClient, request, myErrorHandler);
     return request;
   }
