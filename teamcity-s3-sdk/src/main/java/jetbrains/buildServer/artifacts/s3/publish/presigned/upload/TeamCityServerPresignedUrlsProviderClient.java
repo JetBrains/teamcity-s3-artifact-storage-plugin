@@ -6,11 +6,9 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.S3ResponseErrorHandler;
@@ -23,6 +21,7 @@ import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
+import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.commons.httpclient.methods.StringRequestEntity;
 import org.apache.http.HttpHeaders;
@@ -40,13 +39,17 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @NotNull
   private final HttpClient myTeamCityClient;
   @NotNull
+  private final Collection<ArtifactTransportAdditionalHeadersProvider> myAdditionalHeadersProviders;
+  @NotNull
   private final AtomicBoolean myShutdown = new AtomicBoolean(false);
   @NotNull
   private final HttpResponseErrorHandler myErrorHandler = new CompositeHttpRequestErrorHandler(new S3ResponseErrorHandler(), new TeamCityPresignedUrlsProviderErrorHandler());
 
-  public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
+  public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration,
+                                                   @NotNull final Collection<ArtifactTransportAdditionalHeadersProvider> additionalHeadersProviders) {
     myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth/" + StringUtil.removeLeadingSlash(teamCityConnectionConfiguration.getUrlsProviderPath());
     myTeamCityClient = createClient(teamCityConnectionConfiguration);
+    myAdditionalHeadersProviders = additionalHeadersProviders;
   }
 
   @NotNull
@@ -185,6 +188,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private PostMethod postTemplate() {
     final PostMethod post = new PostMethod(myPresignedUrlsPostUrl);
     post.addRequestHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent());
+    addAdditionalHeaders(post);
     post.setDoAuthentication(true);
     return post;
   }
@@ -199,6 +203,32 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     if (myShutdown.get()) {
       LOGGER.warn("TeamCity presigned urls provider client already shut down");
       throw new ClientAlreadyShutdownException("TeamCity presigned urls provider client already shut down");
+    }
+  }
+
+  private void addAdditionalHeaders(HttpMethod request) {
+    HashMap<String, String> headerToProviderMap = new HashMap<>();
+    ArtifactTransportAdditionalHeadersProvider.Configuration configuration = new ArtifactTransportAdditionalHeadersProvider.Configuration() {
+      @Override
+      @NotNull
+      public String getMethod() {
+        return request.getName();
+      }
+    };
+    for (ArtifactTransportAdditionalHeadersProvider extension : myAdditionalHeadersProviders) {
+      List<ArtifactTransportAdditionalHeadersProvider.Header> headers = extension.getHeaders(configuration);
+      String extensionName = extension.getClass().getName();
+      for (ArtifactTransportAdditionalHeadersProvider.Header header : headers) {
+        String existingExtensionsName = headerToProviderMap.get(header.getName());
+        if (existingExtensionsName == null) {
+          request.addRequestHeader(header.getName(), header.getValue());
+          headerToProviderMap.put(header.getName(), extensionName);
+        } else {
+          String headerName = header.getName();
+          String message = String.format("Multiple extensions(%s, %s) provide the same additional header '%s'", existingExtensionsName, extensionName, headerName);
+          LOGGER.warn(message);
+        }
+      }
     }
   }
 
