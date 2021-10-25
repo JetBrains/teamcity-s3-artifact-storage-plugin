@@ -16,6 +16,7 @@ import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.CleanupLevel;
+import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
@@ -219,6 +220,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     build.stubs().method("getBuildNumber").will(returnValue("1"));
     build.stubs().method("getBuildId").will(returnValue(1L));
     build.stubs().method("getBuildTypeExternalId").will(returnValue("id"));
+    build.stubs().method("getProjectId").will(returnValue("projectId"));
 
     Mock context = mock(BuildCleanupContextEx.class);
 
@@ -243,7 +245,11 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
 
     ServerPaths serverPaths = new ServerPaths("./target");
 
-    return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths, EXECUTOR_SERVICES);
+    Mock projectManager = mock(ProjectManager.class);
+    projectManager.stubs().method("findProjectById").will(returnValue(null));
+
+    return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths,
+                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES);
   }
 
   @NotNull

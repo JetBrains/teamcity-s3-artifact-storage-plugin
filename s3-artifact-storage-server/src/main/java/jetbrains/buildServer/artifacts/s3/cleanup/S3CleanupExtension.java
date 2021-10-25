@@ -25,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
@@ -37,9 +38,7 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.serverSide.SFinishedBuild;
-import jetbrains.buildServer.serverSide.ServerPaths;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
@@ -70,6 +69,7 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   private final ServerArtifactHelper myHelper;
   @NotNull
   private final ServerPaths myServerPaths;
+  private final ProjectManager myProjectManager;
   @NotNull
   private final ExecutorService myExecutorService;
   @NotNull
@@ -79,10 +79,12 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     @NotNull final ServerArtifactHelper helper,
     @NotNull final ServerArtifactStorageSettingsProvider settingsProvider,
     @NotNull final ServerPaths serverPaths,
+    @NotNull final ProjectManager projectManager,
     @NotNull final ExecutorServices executorServices) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
     myServerPaths = serverPaths;
+    myProjectManager = projectManager;
     myExecutorService = executorServices.getLowPriorityExecutorService();
   }
 
@@ -131,7 +133,11 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
     final String bucketName = S3Util.getBucketName(params);
 
-    final Retrier retrier = defaultRetrier(S3Util.getNumberOfRetries(params), S3Util.getRetryDelayInMs(params), CLEANUP);
+    SProject project = myProjectManager.findProjectById(build.getProjectId());
+
+    Map<String, String> projectParameters = project != null ? project.getParameters() : Collections.emptyMap();
+
+    final Retrier retrier = defaultRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
 
     retrier.registerListener(new AbstractRetrierEventListener() {
       @Override
