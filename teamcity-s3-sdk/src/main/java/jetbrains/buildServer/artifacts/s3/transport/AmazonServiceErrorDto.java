@@ -1,12 +1,11 @@
 package jetbrains.buildServer.artifacts.s3.transport;
 
-import com.amazonaws.services.s3.internal.AmazonS3ExceptionBuilder;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.AmazonServiceException;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.jetbrains.annotations.NotNull;
 
 @XmlRootElement(name = "error")
-public class AmazonS3ErrorDto {
+public class AmazonServiceErrorDto {
   private String error;
   private String code;
   private String requestId;
@@ -14,8 +13,8 @@ public class AmazonS3ErrorDto {
   private int statusCode;
 
   @NotNull
-  public static AmazonS3ErrorDto from(@NotNull final AmazonS3Exception e) {
-    final AmazonS3ErrorDto errorDto = new AmazonS3ErrorDto();
+  public static AmazonServiceErrorDto from(@NotNull final AmazonServiceException e) {
+    final AmazonServiceErrorDto errorDto = new AmazonServiceErrorDto();
     errorDto.error = e.getErrorMessage();
     errorDto.code = e.getErrorCode();
     errorDto.hostId = e.getProxyHost();
@@ -65,13 +64,12 @@ public class AmazonS3ErrorDto {
   }
 
   @NotNull
-  public AmazonS3Exception toException() {
-    final AmazonS3ExceptionBuilder builder = new AmazonS3ExceptionBuilder();
-    builder.setErrorMessage(error);
-    builder.setErrorCode(code);
-    builder.setProxyHost(hostId);
-    builder.setRequestId(requestId);
-    builder.setStatusCode(statusCode);
-    return builder.build();
+  public AmazonServiceException toException() {
+    AmazonServiceException exception = new AmazonServiceException(error);
+    exception.setErrorCode(code);
+    exception.setProxyHost(hostId);
+    exception.setRequestId(requestId);
+    exception.setStatusCode(statusCode);
+    return exception;
   }
 }

@@ -1,11 +1,11 @@
 package jetbrains.buildServer.artifacts.s3.publish.errors;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.retry.RetryUtils;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
-import jetbrains.buildServer.artifacts.s3.transport.AmazonS3ErrorDto;
+import jetbrains.buildServer.artifacts.s3.transport.AmazonServiceErrorDto;
 import org.jetbrains.annotations.NotNull;
 
 public class S3ResponseErrorHandler implements HttpResponseErrorHandler {
@@ -21,8 +21,8 @@ public class S3ResponseErrorHandler implements HttpResponseErrorHandler {
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), responseWrapper.getResponse(), true);
     }
     if (responseWrapper.getResponse() != null) {
-      final AmazonS3ErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), AmazonS3ErrorDto.class);
-      final AmazonS3Exception exception = deserialize.toException();
+      final AmazonServiceErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), AmazonServiceErrorDto.class);
+      final AmazonServiceException exception = deserialize.toException();
       return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), RetryUtils.isRetryableServiceException(exception));
     } else {
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, false);
