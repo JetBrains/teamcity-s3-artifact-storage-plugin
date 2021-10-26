@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -89,11 +90,11 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
         AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
 
         try {
-          byte[] keyBytes = cloudFrontClient.getPublicKey(new GetPublicKeyRequest().withId(cloudFrontPublicKeyId))
-                                            .getPublicKey()
-                                            .getPublicKeyConfig()
-                                            .getEncodedKey()
-                                            .getBytes(StandardCharsets.UTF_8);
+          byte[] keyBytes = IOGuard.allowNetworkCall(() -> cloudFrontClient.getPublicKey(new GetPublicKeyRequest().withId(cloudFrontPublicKeyId))
+                                                                           .getPublicKey()
+                                                                           .getPublicKeyConfig()
+                                                                           .getEncodedKey()
+                                                                           .getBytes(StandardCharsets.UTF_8));
 
           return PEM.readPublicKey(new ByteArrayInputStream(keyBytes));
 
