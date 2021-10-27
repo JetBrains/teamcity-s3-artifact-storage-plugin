@@ -42,7 +42,6 @@ import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
@@ -62,8 +61,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
   @NotNull
   private final ExtensionHolder myExtensionHolder;
-  @Nullable
-  private Collection<ArtifactTransportAdditionalHeadersProvider> myAdditionalHeadersProviders;
 
   @Autowired
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
@@ -150,16 +147,14 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
   @NotNull
   private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build) {
-    if (myAdditionalHeadersProviders == null) {
-      myAdditionalHeadersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
-    }
     if (myFileUploader == null) {
+      Collection<ArtifactTransportAdditionalHeadersProvider> headersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
       myFileUploader = S3FileUploader.create(s3Configuration,
                                              CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()),
-                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), myAdditionalHeadersProviders));
+                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
     }
     return myFileUploader;
   }

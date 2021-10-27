@@ -219,10 +219,10 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       List<ArtifactTransportAdditionalHeadersProvider.Header> headers = extension.getHeaders(configuration);
       String extensionName = extension.getClass().getName();
       for (ArtifactTransportAdditionalHeadersProvider.Header header : headers) {
-        String existingExtensionsName = headerToProviderMap.get(header.getName());
+        String existingExtensionsName = headerToProviderMap.get(header.getName().toUpperCase());
         if (existingExtensionsName == null) {
           request.addRequestHeader(header.getName(), header.getValue());
-          headerToProviderMap.put(header.getName(), extensionName);
+          headerToProviderMap.put(header.getName().toUpperCase(), extensionName);
         } else {
           String headerName = header.getName();
           String message = String.format("Multiple extensions(%s, %s) provide the same additional header '%s'", existingExtensionsName, extensionName, headerName);
