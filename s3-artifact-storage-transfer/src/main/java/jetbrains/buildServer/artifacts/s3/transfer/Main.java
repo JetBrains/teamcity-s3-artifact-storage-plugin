@@ -26,7 +26,7 @@ public class Main {
     ExecutorService executor = Executors.newFixedThreadPool(4);
 
     try {
-      ProjectProcessor processor = new ProjectProcessor(new TeamCityClient(parameters), executor);
+      ProjectProcessor processor = new ProjectProcessor(new TeamCityClient(parameters.getToken()), executor);
 
       processor.process(projectId, parameters);
     } finally {
