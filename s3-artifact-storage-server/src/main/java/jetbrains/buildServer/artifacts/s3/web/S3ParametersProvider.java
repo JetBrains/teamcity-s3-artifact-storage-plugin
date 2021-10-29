@@ -16,6 +16,10 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.services.s3.model.CannedAccessControlList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 
@@ -48,6 +52,10 @@ public class S3ParametersProvider {
     return S3Constants.S3_PATH_PREFIX_SETTING;
   }
 
+  public String getAcl() {
+    return S3Constants.S3_ACL;
+  }
+
   public String getMultipartUploadThreshold() {
     return S3Constants.S3_MULTIPART_UPLOAD_THRESHOLD;
   }
@@ -56,7 +64,7 @@ public class S3ParametersProvider {
     return S3Constants.S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE;
   }
 
-  public String getCloudFrontEnabled(){
+  public String getCloudFrontEnabled() {
     return CloudFrontConstants.S3_CLOUDFRONT_ENABLED;
   }
 
@@ -78,5 +86,13 @@ public class S3ParametersProvider {
 
   public String getCloudFrontCreateDistribution() {
     return CloudFrontConstants.S3_CLOUDFRONT_CREATE_DISTRIBUTION;
+  }
+
+  public List<String> getAclEnum() {
+    return Arrays.stream(CannedAccessControlList.values()).map(CannedAccessControlList::name).collect(Collectors.toList());
+  }
+
+  public String getDefaultAcl() {
+    return CannedAccessControlList.Private.name();
   }
 }

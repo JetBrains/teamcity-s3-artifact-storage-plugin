@@ -47,8 +47,11 @@ public class S3Constants {
   public static final String S3_CONNECTION_TIMEOUT = "teamcity.internal.storage.s3.upload.connectionTimeout";
   public static final String S3_NUMBER_OF_THREADS = "teamcity.internal.storage.s3.upload.numberOfThreads";
   public static final String S3_ENABLE_CONSISTENCY_CHECK = "teamcity.internal.storage.s3.upload.enableConsistencyCheck";
+  public static final String S3_ACL = "storage.s3.acl";
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
+
+  public static final String S3_URLS_PROVIDER_PATH = "storage.s3.presignedUrl.serverPath";
 
   public static final String ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML = "/artefacts/s3/upload/presign-urls.html";
 

@@ -25,6 +25,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
@@ -94,8 +95,8 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
-      if (nPart == null && uploadId == null) {
-        request.putCustomRequestHeader("x-amz-acl", "bucket-owner-full-control");
+      if ((httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) && settings.toRawSettings().containsKey(S3Constants.S3_ACL) && nPart == null) {
+        request.putCustomRequestHeader("x-amz-acl", settings.getAcl().toString());
       }
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
     } catch (Exception e) {
@@ -116,8 +117,8 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   public String startMultipartUpload(@NotNull final String objectKey, @NotNull final S3Settings settings) throws Exception {
     return callS3(client -> {
       final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(settings.getBucketName(), objectKey);
-      final InitiateMultipartUploadResult initiateMultipartUploadResult =
-        client.initiateMultipartUpload(initiateMultipartUploadRequest);
+      initiateMultipartUploadRequest.setCannedACL(settings.getAcl());
+      final InitiateMultipartUploadResult initiateMultipartUploadResult = client.initiateMultipartUpload(initiateMultipartUploadRequest);
       return initiateMultipartUploadResult.getUploadId();
     }, settings);
   }
@@ -150,11 +151,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       try {
         return callable.apply(client);
       } catch (final Throwable t) {
-        if (t instanceof IOException) {
-          throw (IOException)t;
-        } else {
-          throw new IOException(t);
-        }
+        throw new IOException(t);
       }
     });
   }
@@ -178,12 +175,18 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @NotNull
     @Override
     public String getBucketName() {
-      return S3Util.getBucketName(mySettings);
+      return Objects.requireNonNull(S3Util.getBucketName(mySettings));
     }
 
     @Override
     public int getUrlTtlSeconds() {
       return S3Util.getUrlTtlSeconds(mySettings);
+    }
+
+    @NotNull
+    @Override
+    public CannedAccessControlList getAcl() {
+      return S3Util.getAcl(mySettings);
     }
 
     @NotNull

@@ -23,9 +23,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import jetbrains.buildServer.ExtensionHolder;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -42,8 +44,7 @@ import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 public class S3ArtifactsPublisher implements ArtifactsPublisher {
 
@@ -58,17 +59,21 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
+  @NotNull
+  private final ExtensionHolder myExtensionHolder;
 
   @Autowired
   public S3ArtifactsPublisher(@NotNull final AgentArtifactHelper helper,
                               @NotNull final EventDispatcher<AgentLifeCycleListener> dispatcher,
                               @NotNull final CurrentBuildTracker tracker,
                               @NotNull final BuildAgentConfiguration buildAgentConfiguration,
-                              @NotNull final PresignedUrlsProviderClientFactory presignedUrlsProviderClient) {
+                              @NotNull final PresignedUrlsProviderClientFactory presignedUrlsProviderClient,
+                              @NotNull final ExtensionHolder extensionHolder) {
     myHelper = helper;
     myTracker = tracker;
     myBuildAgentConfiguration = buildAgentConfiguration;
     myPresignedUrlsProviderClientFactory = presignedUrlsProviderClient;
+    myExtensionHolder = extensionHolder;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
@@ -143,12 +148,13 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   @NotNull
   private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build) {
     if (myFileUploader == null) {
+      Collection<ArtifactTransportAdditionalHeadersProvider> headersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
       myFileUploader = S3FileUploader.create(s3Configuration,
                                              CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()),
-                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build)));
+                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
     }
     return myFileUploader;
   }
@@ -156,6 +162,7 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   @NotNull
   private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
     return new TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
+                                               build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_URLS_PROVIDER_PATH, ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML),
                                                build.getAccessUser(),
                                                build.getAccessCode(),
                                                build.getAgentConfiguration().getServerConnectionTimeout());

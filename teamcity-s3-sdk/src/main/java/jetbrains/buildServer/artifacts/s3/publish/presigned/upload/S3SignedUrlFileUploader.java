@@ -35,7 +35,6 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableForkJo
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.util.ExceptionUtil;
-import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -77,7 +76,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
-         final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration.getAdvancedConfiguration());
+         final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration);
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
@@ -170,8 +169,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @NotNull
-  private LowLevelS3Client createAwsClient(@NotNull final S3AdvancedConfiguration advancedConfiguration) {
-    return new LowLevelS3Client(advancedConfiguration);
+  private LowLevelS3Client createAwsClient(@NotNull final S3Configuration s3Configuration) {
+    return new LowLevelS3Client(s3Configuration);
   }
 
   private static class PresignedUploadProgressListenerImpl implements PresignedUploadProgressListener {

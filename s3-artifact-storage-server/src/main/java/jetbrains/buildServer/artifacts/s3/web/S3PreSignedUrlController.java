@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkBaseException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -111,8 +112,8 @@ public class S3PreSignedUrlController extends BaseController {
   private void handleException(@NotNull final HttpServletResponse httpServletResponse, @NotNull final Exception e) throws IOException {
     final Exception cause = getMostInformativeRootException(e);
     setErrorHeader(httpServletResponse, cause);
-    if (cause instanceof AmazonS3Exception) {
-      handleAmazonException(httpServletResponse, (AmazonS3Exception)cause);
+    if (cause instanceof AmazonServiceException) {
+      handleAmazonException(httpServletResponse, (AmazonServiceException)cause);
     } else {
       handleGenericException(httpServletResponse, cause);
     }
@@ -127,7 +128,7 @@ public class S3PreSignedUrlController extends BaseController {
 
   private void setErrorHeader(HttpServletResponse httpServletResponse, Exception e) {
     final String header;
-    if (e instanceof AmazonS3Exception) {
+    if (e instanceof AmazonServiceException) {
       header = S3Constants.ErrorSource.S3.name();
     } else if (e instanceof SdkBaseException) {
       header = S3Constants.ErrorSource.SDK.name();
@@ -141,9 +142,9 @@ public class S3PreSignedUrlController extends BaseController {
     response.sendError(e instanceof HttpStatusCodeException ? ((HttpStatusCodeException)e).getRawStatusCode() : HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
   }
 
-  private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AmazonS3Exception e) throws IOException {
+  private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AmazonServiceException e) throws IOException {
     httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-    httpServletResponse.getWriter().append(S3XmlSerializerFactory.getInstance().serialize(AmazonS3ErrorDto.from(e)));
+    httpServletResponse.getWriter().append(S3XmlSerializerFactory.getInstance().serialize(AmazonServiceErrorDto.from(e)));
   }
 
   private void logError(@NotNull final HttpServletRequest request,

@@ -26,7 +26,8 @@ public class CompositeHttpRequestErrorHandler implements HttpResponseErrorHandle
       @NotNull
       @Override
       public HttpClientUtil.HttpErrorCodeException handle(@NotNull ResponseAdapter responseWrapper) {
-        return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), responseWrapper.getResponse(), false);
+        return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), responseWrapper.getResponse(),
+                                                         OUR_RECOVERABLE_STATUS_CODES.contains(responseWrapper.getStatusCode()));
       }
 
       @NotNull

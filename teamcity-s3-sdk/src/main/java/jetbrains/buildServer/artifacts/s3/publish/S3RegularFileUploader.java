@@ -18,7 +18,6 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.transfer.PersistableTransfer;
@@ -141,7 +140,7 @@ public class S3RegularFileUploader extends S3FileUploader {
     final ObjectMetadata metadata = new ObjectMetadata();
     metadata.setContentType(S3Util.getContentType(file));
     return new PutObjectRequest(bucketName, objectKey, file)
-      .withCannedAcl(CannedAccessControlList.Private)
+      .withCannedAcl(myS3Configuration.getAcl())
       .withMetadata(metadata);
   }
 

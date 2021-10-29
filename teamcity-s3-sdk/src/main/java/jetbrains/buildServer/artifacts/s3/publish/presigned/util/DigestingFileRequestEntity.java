@@ -30,9 +30,9 @@ public class DigestingFileRequestEntity implements RequestEntity, DigestingReque
   public void writeRequest(final OutputStream out) throws IOException {
     final MessageDigest messageDigest = DigestUtil.createDigest();
     try (final FileInputStream fis = new FileInputStream(myFile);
-         final DigestInputStream dis = new DigestInputStream(fis, messageDigest);
-         final BufferedInputStream bis = new BufferedInputStream(dis)) {
-      IOUtils.copy(bis, out);
+         final BufferedInputStream bis = new BufferedInputStream(fis);
+         final DigestInputStream dis = new DigestInputStream(bis, messageDigest)) {
+      IOUtils.copy(dis, out);
     }
     myDigest.set(DigestUtil.asString(messageDigest));
   }
