@@ -15,10 +15,12 @@ import jetbrains.buildServer.artifacts.util.ArtifactListUtil;
 import jetbrains.buildServer.artifacts.util.SerializableArtifactData;
 import jetbrains.buildServer.artifacts.util.SerializableArtifactListData;
 import jetbrains.buildServer.serverSide.impl.artifacts.FileAwareBufferedInputStream;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class AbstractStorage implements Storage {
 
-  protected void addToArtifactList(File artifact, Build metadata) {
+  protected void addToArtifactList(@NotNull File artifact, @NotNull Build metadata) {
     SerializableArtifactListData artifactListData = readArtifactList(metadata);
 
     if (artifactListData == null) {
@@ -37,9 +39,10 @@ public abstract class AbstractStorage implements Storage {
 
   }
 
-  protected abstract Map<String, String> getCommonProperties(Build metadata);
+  @NotNull
+  protected abstract Map<String, String> getCommonProperties(@NotNull Build metadata);
 
-  protected boolean listedAsArtifact(String name, Build metadata) {
+  protected boolean listedAsArtifact(@NotNull String name, @NotNull Build metadata) {
     ArtifactListData artifactListData = readArtifactList(metadata);
     if (artifactListData == null) {
       return false;
@@ -48,7 +51,8 @@ public abstract class AbstractStorage implements Storage {
     return artifact.isPresent();
   }
 
-  private SerializableArtifactListData readArtifactList(Build metadata) {
+  @Nullable
+  private SerializableArtifactListData readArtifactList(@NotNull Build metadata) {
     String artifactsDirectory = metadata.getDirectory();
 
     final File artifactListFile = new File(artifactsDirectory, ArtifactsConstants.ARTIFACT_LIST_PATH);
@@ -59,13 +63,14 @@ public abstract class AbstractStorage implements Storage {
     try {
       artifactListData = ArtifactListUtil.readArtifactList(new FileAwareBufferedInputStream(artifactListFile));
     } catch (FileNotFoundException e) {
+      //TODO Logging
       e.printStackTrace();
     }
 
     return artifactListData;
   }
 
-  private void writeArtifactList(Build metadata, SerializableArtifactListData artifactListData) {
+  private void writeArtifactList(@NotNull Build metadata, @NotNull SerializableArtifactListData artifactListData) {
     String artifactsDirectory = metadata.getDirectory();
 
     final File artifactListFile = new File(artifactsDirectory, ArtifactsConstants.ARTIFACT_LIST_PATH);

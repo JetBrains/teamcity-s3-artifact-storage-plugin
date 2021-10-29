@@ -7,29 +7,32 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class LocalStorage implements Storage {
+  @NotNull
   private final String myFeatureId;
 
-  public LocalStorage(String featureId) {
+  public LocalStorage(@NotNull final String featureId) {
     myFeatureId = featureId;
   }
 
+  @NotNull
   @Override
   public String getType() {
     return ArtifactStorageSettings.DEFAULT_TYPE;
   }
 
-  @Override
   @Nullable
-  public File download(String artifact, Build Build) {
+  @Override
+  public File download(@NotNull final String artifact, @NotNull final Build Build) {
     File file = Paths.get(Build.getDirectory(), artifact).toFile();
     return file.exists() ? file : null;
   }
 
   @Override
-  public void upload(File artifact, Build metadata) {
+  public void upload(@NotNull final File artifact, @NotNull final Build metadata) {
     try {
       Files.copy(artifact.toPath(), Paths.get(metadata.getDirectory()), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     } catch (IOException e) {
@@ -38,7 +41,7 @@ public class LocalStorage implements Storage {
   }
 
   @Override
-  public void delete(File artifact) {
+  public void delete(@NotNull final File artifact) {
     try {
       Files.delete(artifact.toPath());
     } catch (IOException e) {
@@ -47,6 +50,7 @@ public class LocalStorage implements Storage {
   }
 
   @Override
+  @NotNull
   public String getFeatureId() {
     return myFeatureId;
   }

@@ -34,14 +34,15 @@ public class TeamCityClient {
                                                                                                           .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
   );
 
+  @NotNull
   private final String myToken;
 
-  public TeamCityClient(String token) {
+  public TeamCityClient(@NotNull String token) {
     myToken = token;
   }
 
   @NotNull
-  public Project getDetails(String project) throws IOException {
+  public Project getDetails(@NotNull String project) throws IOException {
     try (CloseableHttpClient client = HttpClients.createDefault()) {
 
       CloseableHttpResponse response = get(client, String.format(DETAILS_URL, project));
@@ -54,7 +55,7 @@ public class TeamCityClient {
   }
 
   @NotNull
-  public List<Property> getFeatureProperties(String project, String featureLocator) throws IOException {
+  public List<Property> getFeatureProperties(@NotNull String project, @NotNull String featureLocator) throws IOException {
     try (CloseableHttpClient client = HttpClients.createDefault()) {
 
       CloseableHttpResponse response = get(client, String.format(PROPERTIES_URL, project, featureLocator));
@@ -68,7 +69,7 @@ public class TeamCityClient {
   }
 
   @NotNull
-  public List<Build> getBuilds(String project) throws IOException {
+  public List<Build> getBuilds(@NotNull String project) throws IOException {
     try (CloseableHttpClient client = HttpClients.createDefault()) {
 
       CloseableHttpResponse response = get(client, String.format(BUILDS_URL, project));
@@ -82,7 +83,7 @@ public class TeamCityClient {
   }
 
   @NotNull
-  public BuildArtifacts getArtifacts(String buildId) throws IOException {
+  public BuildArtifacts getArtifacts(@NotNull String buildId) throws IOException {
     try (CloseableHttpClient client = HttpClients.createDefault()) {
 
       CloseableHttpResponse response = get(client, String.format(ARTIFACTS_URL, buildId));
@@ -91,14 +92,17 @@ public class TeamCityClient {
       ObjectMapper mapper = MAPPER.get();
       Build result = mapper.readValue(content, Build.class);
 
-      List<String> files = result.getArtifacts().getFile().stream().map(File::getName).collect(Collectors.toList());
+      List<String> files = result.getArtifacts().getFile()
+                                 .stream().map(File::getName)
+                                 .collect(Collectors.toList());
 
       return new BuildArtifacts(result, files);
     }
   }
 
-  private CloseableHttpResponse get(CloseableHttpClient client, String format) throws IOException {
-    HttpGet request = new HttpGet(format);
+  @NotNull
+  private CloseableHttpResponse get(@NotNull CloseableHttpClient client, @NotNull String url) throws IOException {
+    HttpGet request = new HttpGet(url);
     request.addHeader("Authorization", "Bearer " + myToken);
     request.addHeader(HttpHeaders.ACCEPT, ContentType.APPLICATION_JSON.getMimeType());
     return client.execute(request);

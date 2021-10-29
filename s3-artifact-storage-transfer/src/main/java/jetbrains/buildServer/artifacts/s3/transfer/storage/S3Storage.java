@@ -27,34 +27,38 @@ import static jetbrains.buildServer.artifacts.s3.publish.S3FileUploader.configur
 
 public class S3Storage extends AbstractStorage {
 
+  @NotNull
   private final String myFeatureId;
+  @NotNull
   private final Map<String, String> myStorageProperties;
 
-  public S3Storage(String featureId, Map<String, String> storageProperties) {
+  public S3Storage(@NotNull String featureId, @NotNull Map<String, String> storageProperties) {
     myFeatureId = featureId;
     myStorageProperties = storageProperties;
     //TODO get actual secure parameter
     myStorageProperties.put(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM, "ZMke0fR4oHQjLaF6l0xC+ZqNZHF53yUCKOT7x03K");
   }
 
+  @NotNull
   @Override
   public String getFeatureId() {
     return myFeatureId;
   }
 
+  @NotNull
   @Override
   public String getType() {
     return S3Constants.S3_STORAGE_TYPE;
   }
 
+  @NotNull
   @Override
-  public File download(String artifact, Build Build) {
+  public File download(@NotNull String artifact, @NotNull Build Build) {
     throw new UnsupportedOperationException("Download from S3 is not yet supported");
   }
 
   @Override
-  public void upload(File artifact, Build metadata) {
-
+  public void upload(@NotNull File artifact, @NotNull Build metadata) {
     S3Configuration s3Configuration = getS3Configuration(metadata);
     S3RegularFileUploader myUploader = new S3RegularFileUploader(s3Configuration, new S3Log4jUploadLogger());
     boolean artifactExists = artifactExists(s3Configuration, artifact.getName());
@@ -104,7 +108,7 @@ public class S3Storage extends AbstractStorage {
   }
 
   @Override
-  public void delete(File artifact) {
+  public void delete(@NotNull File artifact) {
     throw new UnsupportedOperationException("Deletion is not yet supported in S3");
   }
 
@@ -135,8 +139,9 @@ public class S3Storage extends AbstractStorage {
     return DigestUtils.md5Hex(String.join("", myEtags).getBytes(StandardCharsets.UTF_8)) + "-" + nParts;
   }
 
+  @NotNull
   @Override
-  protected Map<String, String> getCommonProperties(Build metadata) {
+  protected Map<String, String> getCommonProperties(@NotNull Build metadata) {
     return CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, getPathPrefix(metadata));
   }
 }
