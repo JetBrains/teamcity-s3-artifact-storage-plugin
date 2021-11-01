@@ -135,7 +135,7 @@ public class S3RegularFileUploader extends S3FileUploader {
     final String artifactPath = S3Util.normalizeArtifactPath(fileWithPath.getFirst(), file);
     final String objectKey = pathPrefix + artifactPath;
 
-    artifacts.add(new FileUploadInfo(artifactPath, file.length()));
+    artifacts.add(new FileUploadInfo(artifactPath, file.getAbsolutePath(), file.length(), null));
 
     final ObjectMetadata metadata = new ObjectMetadata();
     metadata.setContentType(S3Util.getContentType(file));

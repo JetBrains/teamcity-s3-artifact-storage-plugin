@@ -111,8 +111,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
         throw new FileNotFoundException(myFile.getAbsolutePath());
       }
       myRemainingBytes.set(myFile.length());
-      upload();
-      return new FileUploadInfo(myArtifactPath, myFile.length());
+      String digest = upload();
+      return new FileUploadInfo(myArtifactPath, myFile.getAbsolutePath(), myFile.length(), digest);
     } catch (HttpClientUtil.HttpErrorCodeException e) {
       final String msg = "Failed to upload artifact " + myArtifactPath + ": " + e.getMessage();
       LOGGER.infoAndDebugDetails(msg, e);
@@ -123,7 +123,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     }
   }
 
-  private void upload() throws IOException {
+  private String upload() throws IOException {
     myProgressListener.beforeUploadStarted();
     final String digest;
     if (isMultipartUpload()) {
@@ -132,6 +132,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       digest = regularUpload();
     }
     checkConsistency(digest);
+    return digest;
   }
 
   @NotNull
