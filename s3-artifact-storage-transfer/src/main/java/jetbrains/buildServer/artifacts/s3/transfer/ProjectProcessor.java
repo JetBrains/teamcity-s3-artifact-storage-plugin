@@ -1,22 +1,31 @@
 package jetbrains.buildServer.artifacts.s3.transfer;
 
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.*;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.transfer.model.*;
+import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
+import jetbrains.buildServer.artifacts.s3.transfer.model.Feature;
+import jetbrains.buildServer.artifacts.s3.transfer.model.Project;
 import jetbrains.buildServer.artifacts.s3.transfer.storage.LocalStorage;
 import jetbrains.buildServer.artifacts.s3.transfer.storage.S3Storage;
 import jetbrains.buildServer.artifacts.s3.transfer.storage.Storage;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.transfer.settings.ArtifactTransferConstants.BUILD_PROCESSING_TIMEOUT;
+import static jetbrains.buildServer.artifacts.s3.transfer.settings.ArtifactTransferConstants.DEFAULT_BUILD_PROCESSING_TIMEOUT;
+
 public class ProjectProcessor {
+  private final static Logger LOG = Logger.getInstance(ProjectProcessor.class.getName());
+
   @NotNull
   private final TeamCityClient myClient;
   @NotNull
@@ -27,44 +36,45 @@ public class ProjectProcessor {
     myExecutor = executor;
   }
 
-  public void process(@NotNull String projectId, @NotNull Parameters parameters) throws IOException, ExecutionException, InterruptedException {
-    process(projectId, parameters, Collections.emptyList());
+  public void process(@NotNull String projectId, @NotNull String source, @NotNull String target) throws IOException, ExecutionException, InterruptedException, TimeoutException {
+    process(projectId, source, target, Collections.emptyList());
   }
 
-  private void process(@NotNull String projectId, @NotNull Parameters parameters, @NotNull List<Feature> parentFeatures)
-    throws IOException, ExecutionException, InterruptedException {
+  private void process(@NotNull String projectId, @NotNull String source, @NotNull String target, List<Feature> parentFeatures)
+    throws IOException, ExecutionException, InterruptedException, TimeoutException {
     Project project = myClient.getDetails(projectId);
 
-    List<Feature> features = project.getProjectFeatures().getProjectFeature();
+    List<Feature> features = project.getFeatures();
 
-    Storage targetStorage = getStorage(features, parentFeatures, parameters.getTarget());
+    Storage targetStorage = getStorage(features, parentFeatures, target);
     if (targetStorage == null) {
-      throw new IllegalArgumentException(String.format("Could not find target storage with name '%s'", parameters.getTarget()));
+      String message = String.format("Could not find target storage with name '%s'", target);
+      LOG.error(message);
+      throw new IllegalArgumentException(message);
     }
 
-    Storage sourceStorage = getStorage(features, parentFeatures, parameters.getSource());
+    Storage sourceStorage = getStorage(features, parentFeatures, source);
     if (sourceStorage == null) {
-      throw new IllegalArgumentException(String.format("Could not find source storage with name '%s'", parameters.getSource()));
+      String message = String.format("Could not find source storage with name '%s'", source);
+      LOG.error(message);
+      throw new IllegalArgumentException(message);
     }
 
-    List<Build> builds = myClient.getBuilds(projectId);
+    List<String> builds = myClient.getBuilds(projectId);
 
-    List<BuildArtifacts> artifacts = new ArrayList<>();
-    for (Build build : builds) {
-      artifacts.add(myClient.getArtifacts(build.getId()));
-    }
     List<CompletableFuture<Void>> futures = new ArrayList<>();
-    for (BuildArtifacts buildInfo : artifacts) {
+    for (String buildId : builds) {
+      Build build = myClient.getArtifacts(buildId);
       futures.add(CompletableFuture.runAsync(() -> {
-        processBuild(buildInfo, sourceStorage, targetStorage);
+        processBuild(build, sourceStorage, targetStorage);
       }, myExecutor));
     }
 
-    //TODO Add timeout settings and configuration
-    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+    int timeout = TeamCityProperties.getInteger(BUILD_PROCESSING_TIMEOUT, DEFAULT_BUILD_PROCESSING_TIMEOUT);
+    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get(timeout, TimeUnit.SECONDS);
     features.addAll(parentFeatures);
-    for (Project subProject : project.getProjects().getProject()) {
-      process(subProject.getId(), parameters, features);
+    for (String subProjectId : project.getSubprojects()) {
+      process(subProjectId, source, target, features);
     }
   }
 
@@ -82,14 +92,12 @@ public class ProjectProcessor {
     return getStorage(parentFeatures, storageName);
   }
 
-  private void processBuild(@NotNull BuildArtifacts buildInfo, @NotNull Storage sourceStorage, @NotNull Storage targetStorage) {
-    Build metadata = buildInfo.getMetadata();
-
+  private void processBuild(@NotNull Build buildInfo, @NotNull Storage sourceStorage, @NotNull Storage targetStorage) {
     List<String> artifacts = buildInfo.getArtifacts();
     for (String artifact : artifacts) {
-      File file = sourceStorage.download(artifact, metadata);
+      File file = sourceStorage.download(artifact, buildInfo);
       if (file != null) {
-        targetStorage.upload(file, metadata);
+        targetStorage.upload(file, buildInfo);
         sourceStorage.delete(file);
       }
     }
@@ -97,22 +105,12 @@ public class ProjectProcessor {
 
   @Nullable
   private Storage getStorage(@NotNull List<Feature> features, @NotNull String storageName) {
-    Optional<Feature> featureOptional = features.stream()
-                                                .filter(f -> f.getProperties().getProperty().stream()
-                                                              .anyMatch(p -> p.getName().equals(ArtifactStorageSettings.TEAMCITY_STORAGE_NAME_KEY) &&
-                                                                             p.getValue().equals(storageName)))
-                                                .findFirst();
-
-    if (featureOptional.isPresent()) {
-      Feature feature = featureOptional.get();
-      Map<String, String> storageProperties = feature.getProperties().getProperty().stream()
-                                                     .filter(p -> p.getValue() != null)
-                                                     .collect(Collectors.toMap(Property::getName, Property::getValue));
-
-      return getStorage(feature.getId(), storageProperties);
-    } else {
-      return null;
-    }
+    return features.stream()
+                   .filter(f -> f.getType().equals(ArtifactStorageSettings.STORAGE_FEATURE_TYPE))
+                   .filter(f -> storageName.equals(f.getProperties().get(ArtifactStorageSettings.TEAMCITY_STORAGE_NAME_KEY)))
+                   .map(f -> getStorage(f.getId(), f.getProperties()))
+                   .findFirst()
+                   .orElse(null);
   }
 
   @NotNull

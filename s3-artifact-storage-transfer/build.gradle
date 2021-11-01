@@ -16,7 +16,7 @@
 
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
-  compile project(':teamcity-s3-sdk')
+  compile project(':s3-artifact-storage-common')
 }
 
 tasks.withType(JavaCompile) {

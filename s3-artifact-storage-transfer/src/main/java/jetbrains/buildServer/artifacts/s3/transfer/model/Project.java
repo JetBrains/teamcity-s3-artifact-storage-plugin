@@ -1,18 +1,23 @@
 package jetbrains.buildServer.artifacts.s3.transfer.model;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
-/**
- * Represents a project.
- */
-//TODO introduce custom deserializer to avoid having all these intermediate classes
+@JsonDeserialize(using = ProjectDeserializer.class)
 public class Project {
+  private final List<Feature> features;
+  private final List<String> subprojects;
   private String id;
   private String name;
-  private BuildTypes buildTypes;
-  private Properties parameters;
-  private ProjectFeatures projectFeatures;
-  private Projects projects;
+
+  public Project(String id, String name, List<Feature> features, ArrayList<String> subprojects) {
+    this.id = id;
+    this.name = name;
+    this.features = features;
+    this.subprojects = subprojects;
+  }
 
   public String getId() {
     return id;
@@ -30,36 +35,12 @@ public class Project {
     this.name = name;
   }
 
-  public BuildTypes getBuildTypes() {
-    return buildTypes;
+  public List<Feature> getFeatures() {
+    return features;
   }
 
-  public void setBuildTypes(BuildTypes buildTypes) {
-    this.buildTypes = buildTypes;
-  }
-
-  public Properties getParameters() {
-    return parameters;
-  }
-
-  public void setParameters(Properties parameters) {
-    this.parameters = parameters;
-  }
-
-  public ProjectFeatures getProjectFeatures() {
-    return projectFeatures;
-  }
-
-  public void setProjectFeatures(ProjectFeatures projectFeatures) {
-    this.projectFeatures = projectFeatures;
-  }
-
-  public Projects getProjects() {
-    return projects;
-  }
-
-  public void setProjects(Projects projects) {
-    this.projects = projects;
+  public List<String> getSubprojects() {
+    return subprojects;
   }
 
   @Override
@@ -67,25 +48,22 @@ public class Project {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     Project project = (Project)o;
-    return Objects.equals(id, project.id) && Objects.equals(name, project.name) && Objects.equals(buildTypes, project.buildTypes) &&
-           Objects.equals(parameters, project.parameters) && Objects.equals(projectFeatures, project.projectFeatures) &&
-           Objects.equals(projects, project.projects);
+    return Objects.equals(features, project.features) && Objects.equals(subprojects, project.subprojects) && Objects.equals(id, project.id) &&
+           Objects.equals(name, project.name);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(id, name, buildTypes, parameters, projectFeatures, projects);
+    return Objects.hash(features, subprojects, id, name);
   }
 
   @Override
   public String toString() {
     return "Project{" +
-           "id='" + id + '\'' +
+           "features=" + features +
+           ", subprojects=" + subprojects +
+           ", id='" + id + '\'' +
            ", name='" + name + '\'' +
-           ", buildTypes=" + buildTypes +
-           ", parameters=" + parameters +
-           ", projectFeatures=" + projectFeatures +
-           ", projects=" + projects +
            '}';
   }
 }

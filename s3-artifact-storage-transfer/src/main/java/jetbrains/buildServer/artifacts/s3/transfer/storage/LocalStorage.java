@@ -26,8 +26,8 @@ public class LocalStorage implements Storage {
 
   @Nullable
   @Override
-  public File download(@NotNull final String artifact, @NotNull final Build Build) {
-    File file = Paths.get(Build.getDirectory(), artifact).toFile();
+  public File download(@NotNull final String artifact, @NotNull final Build metadata) {
+    File file = Paths.get(metadata.getDirectory(), artifact).toFile();
     return file.exists() ? file : null;
   }
 

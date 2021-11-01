@@ -10,7 +10,7 @@ public interface Storage {
   String getType();
 
   @Nullable
-  File download(@NotNull String artifact, @NotNull Build Build);
+  File download(@NotNull String artifact, @NotNull Build metadata);
 
   void upload(@NotNull File artifact, @NotNull Build metadata);
 

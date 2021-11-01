@@ -53,7 +53,7 @@ public class S3Storage extends AbstractStorage {
 
   @NotNull
   @Override
-  public File download(@NotNull String artifact, @NotNull Build Build) {
+  public File download(@NotNull String artifact, @NotNull Build metadata) {
     throw new UnsupportedOperationException("Download from S3 is not yet supported");
   }
 
@@ -103,7 +103,7 @@ public class S3Storage extends AbstractStorage {
     }
     pathSegments.add(metadata.getProjectId());
     pathSegments.add(metadata.getBuildTypeId());
-    pathSegments.add(metadata.getBuildId());
+    pathSegments.add(metadata.getId());
     return StringUtil.join("/", pathSegments) + "/";
   }
 
