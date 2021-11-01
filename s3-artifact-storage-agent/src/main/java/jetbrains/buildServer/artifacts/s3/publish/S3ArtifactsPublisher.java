@@ -26,6 +26,7 @@ import java.util.Map;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.ArtifactFileInfo;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -45,7 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 
-public class S3ArtifactsPublisher implements ArtifactsPublisher {
+public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   private static final Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
   private static final String ERROR_PUBLISHING_ARTIFACTS_LIST = "Error publishing artifacts list";
@@ -54,7 +55,6 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
   private final AgentArtifactHelper myHelper;
   private final BuildAgentConfiguration myBuildAgentConfiguration;
 
-  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<>();
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
@@ -73,15 +73,21 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myFileUploader = null;
-        myArtifacts.clear();
       }
     });
   }
 
   @Override
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
+    return publishFilesWithDigests(map).size();
+  }
+
+  @Override
+  public Collection<ArtifactFileInfo> publishFilesWithDigests(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
     final Map<File, String> filteredMap = CollectionsUtil.filterMapByValues(map, s -> myHelper.isEnabled(this, s));
 
+    final List<ArtifactFileInfo> fileInfos = new ArrayList<>();
+    final List<ArtifactDataInstance> artifactInfos = new ArrayList<>();
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final S3FileUploader fileUploader = getFileUploader(build);
@@ -94,14 +100,17 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
             return interruptReason.getUserDescription();
           }
         });
-        upload.stream().map(fileInfo -> ArtifactDataInstance.create(fileInfo.getArtifactPath(), fileInfo.getSize())).forEach(myArtifacts::add);
+        upload.forEach(fileUploadInfo -> {
+          artifactInfos.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
+          fileInfos.add(new ArtifactFileInfo(new File(fileUploadInfo.getAbsolutePath()), "", fileUploadInfo.getSize(), fileUploadInfo.getDigest()));
+        });
       } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
-      publishArtifactsList(build);
+      publishArtifactsList(build, artifactInfos);
     }
 
-    return filteredMap.size();
+    return fileInfos;
   }
 
   @Override
@@ -115,11 +124,11 @@ public class S3ArtifactsPublisher implements ArtifactsPublisher {
     return S3_STORAGE_TYPE;
   }
 
-  private void publishArtifactsList(@NotNull final AgentRunningBuild build) {
-    if (!myArtifacts.isEmpty()) {
+  private void publishArtifactsList(@NotNull final AgentRunningBuild build, @NotNull final List<ArtifactDataInstance> artifactData) {
+    if (!artifactData.isEmpty()) {
       final String pathPrefix = getPathPrefix(build);
       try {
-        myHelper.publishArtifactList(myArtifacts, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
+        myHelper.publishArtifactList(artifactData, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
       } catch (IOException e) {
         build.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
         LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(build), e);
