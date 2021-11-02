@@ -1,18 +1,17 @@
 package jetbrains.buildServer.artifacts.s3.transfer.model;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 import java.util.Objects;
 
 @JsonDeserialize(using = ProjectDeserializer.class)
 public class Project {
-  private final List<Feature> features;
-  private final List<String> subprojects;
+  private final Collection<Feature> features;
+  private final Collection<String> subprojects;
   private String id;
   private String name;
 
-  public Project(String id, String name, List<Feature> features, ArrayList<String> subprojects) {
+  public Project(String id, String name, Collection<Feature> features, Collection<String> subprojects) {
     this.id = id;
     this.name = name;
     this.features = features;
@@ -35,11 +34,11 @@ public class Project {
     this.name = name;
   }
 
-  public List<Feature> getFeatures() {
+  public Collection<Feature> getFeatures() {
     return features;
   }
 
-  public List<String> getSubprojects() {
+  public Collection<String> getSubprojects() {
     return subprojects;
   }
 

@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.transfer.model;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.jetbrains.annotations.NotNull;
@@ -26,7 +25,7 @@ public class Build {
                @NotNull String buildTypeId,
                @NotNull String buildTypeName,
                @NotNull String directory,
-               @NotNull ArrayList<String> artifacts) {
+               @NotNull List<String> artifacts) {
     this.id = id;
     this.projectId = projectId;
     this.buildTypeId = buildTypeId;

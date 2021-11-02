@@ -3,10 +3,13 @@ package jetbrains.buildServer.artifacts.s3.transfer;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
+import jetbrains.buildServer.artifacts.s3.transfer.storage.LocalStorage;
+import jetbrains.buildServer.artifacts.s3.transfer.storage.StorageFactoryImpl;
 import jetbrains.buildServer.serverSide.FileWatchingPropertiesModel;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 
@@ -14,7 +17,7 @@ import static jetbrains.buildServer.artifacts.s3.transfer.settings.ArtifactTrans
 import static jetbrains.buildServer.artifacts.s3.transfer.settings.ArtifactTransferConstants.PROCESSING_THREAD_COUNT;
 
 public class Main {
-  private final static Logger LOG = Logger.getInstance(ProjectProcessor.class.getName());
+  private final static Logger LOG = Logger.getInstance(Main.class.getName());
 
   public static void main(String[] args) throws IOException {
     if ((args.length == 1 && args[0].equals("--help")) || args.length < 3) {
@@ -39,7 +42,7 @@ public class Main {
     ExecutorService executor = Executors.newFixedThreadPool(TeamCityProperties.getInteger(PROCESSING_THREAD_COUNT, DEFAULT_PROCESSING_THREAD_COUNT));
 
     try {
-      ProjectProcessor processor = new ProjectProcessor(new TeamCityClient(), executor);
+      ProjectProcessor processor = new ProjectProcessor(new TeamCityRestClient(), new StorageFactoryImpl(Arrays.asList(new LocalStorage())), executor);
 
       processor.process(projectID, source, target);
     } catch (ExecutionException | InterruptedException | TimeoutException e) {

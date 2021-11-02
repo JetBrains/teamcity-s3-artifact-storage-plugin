@@ -15,26 +15,29 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.S3RegularFileUploader;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
+import jetbrains.buildServer.artifacts.s3.transfer.model.Feature;
 import jetbrains.buildServer.java.nio.file.Files;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
 import static jetbrains.buildServer.artifacts.s3.publish.S3FileUploader.configuration;
 
 public class S3Storage extends AbstractStorage {
 
-  @NotNull
-  private final String myFeatureId;
-  @NotNull
-  private final Map<String, String> myStorageProperties;
+  @Nullable
+  private String myFeatureId;
+  @Nullable
+  private Map<String, String> myStorageProperties;
 
-  public S3Storage(@NotNull String featureId, @NotNull Map<String, String> storageProperties) {
-    myFeatureId = featureId;
-    myStorageProperties = storageProperties;
+  @Override
+  public void init(@NotNull Feature feature) {
+    myFeatureId = feature.getId();
+    myStorageProperties = feature.getProperties();
     //TODO get actual secure parameter
     myStorageProperties.put(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM, "ZMke0fR4oHQjLaF6l0xC+ZqNZHF53yUCKOT7x03K");
   }
@@ -42,6 +45,9 @@ public class S3Storage extends AbstractStorage {
   @NotNull
   @Override
   public String getFeatureId() {
+    if (myFeatureId == null) {
+      throw new IllegalStateException("Storage is not initialized");
+    }
     return myFeatureId;
   }
 
@@ -86,6 +92,10 @@ public class S3Storage extends AbstractStorage {
   }
 
   private S3Configuration getS3Configuration(Build metadata) {
+    if (myStorageProperties == null) {
+      throw new IllegalStateException("Storage is not initialized");
+    }
+
     String pathPrefix = getPathPrefix(metadata);
 
     S3Configuration s3Configuration = new S3Configuration(configuration(myStorageProperties, myStorageProperties), myStorageProperties);
@@ -95,6 +105,9 @@ public class S3Storage extends AbstractStorage {
 
   @NotNull
   private String getPathPrefix(Build metadata) {
+    if (myStorageProperties == null) {
+      throw new IllegalStateException("Storage is not initialized");
+    }
     final List<String> pathSegments = new ArrayList<>();
 
     String prefix = myStorageProperties.get(S3Constants.S3_PATH_PREFIX_SETTING);

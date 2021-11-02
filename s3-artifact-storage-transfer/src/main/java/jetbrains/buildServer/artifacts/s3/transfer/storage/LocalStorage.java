@@ -10,13 +10,7 @@ import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class LocalStorage implements Storage {
-  @NotNull
-  private final String myFeatureId;
-
-  public LocalStorage(@NotNull final String featureId) {
-    myFeatureId = featureId;
-  }
+public class LocalStorage extends AbstractStorage {
 
   @NotNull
   @Override
@@ -52,6 +46,6 @@ public class LocalStorage implements Storage {
   @Override
   @NotNull
   public String getFeatureId() {
-    return myFeatureId;
+    return ArtifactStorageSettings.DEFAULT_TYPE;
   }
 }

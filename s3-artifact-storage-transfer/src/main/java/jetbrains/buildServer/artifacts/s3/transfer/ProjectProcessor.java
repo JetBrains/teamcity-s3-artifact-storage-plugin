@@ -4,18 +4,16 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.*;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Feature;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Project;
-import jetbrains.buildServer.artifacts.s3.transfer.storage.LocalStorage;
-import jetbrains.buildServer.artifacts.s3.transfer.storage.S3Storage;
 import jetbrains.buildServer.artifacts.s3.transfer.storage.Storage;
+import jetbrains.buildServer.artifacts.s3.transfer.storage.StorageFactoryImpl;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,11 +26,13 @@ public class ProjectProcessor {
 
   @NotNull
   private final TeamCityClient myClient;
+  private StorageFactoryImpl myStorageFactory;
   @NotNull
   private final ExecutorService myExecutor;
 
-  public ProjectProcessor(@NotNull TeamCityClient client, @NotNull ExecutorService executor) {
+  public ProjectProcessor(@NotNull TeamCityClient client, @NotNull StorageFactoryImpl storageFactory, @NotNull ExecutorService executor) {
     myClient = client;
+    myStorageFactory = storageFactory;
     myExecutor = executor;
   }
 
@@ -40,11 +40,11 @@ public class ProjectProcessor {
     process(projectId, source, target, Collections.emptyList());
   }
 
-  private void process(@NotNull String projectId, @NotNull String source, @NotNull String target, List<Feature> parentFeatures)
+  private void process(@NotNull String projectId, @NotNull String source, @NotNull String target, Collection<Feature> parentFeatures)
     throws IOException, ExecutionException, InterruptedException, TimeoutException {
     Project project = myClient.getDetails(projectId);
 
-    List<Feature> features = project.getFeatures();
+    Collection<Feature> features = project.getFeatures();
 
     Storage targetStorage = getStorage(features, parentFeatures, target);
     if (targetStorage == null) {
@@ -79,9 +79,9 @@ public class ProjectProcessor {
   }
 
   @Nullable
-  private Storage getStorage(@NotNull List<Feature> features, @NotNull List<Feature> parentFeatures, @NotNull String storageName) {
-    if (storageName.equals("default")) {
-      return getStorage(ArtifactStorageSettings.DEFAULT_TYPE, Collections.emptyMap());
+  private Storage getStorage(@NotNull Collection<Feature> features, @NotNull Collection<Feature> parentFeatures, @NotNull String storageName) {
+    if (storageName.equals(ArtifactStorageSettings.DEFAULT_TYPE)) {
+      return myStorageFactory.getDefaultStorage();
     }
 
     Storage storage = getStorage(features, storageName);
@@ -99,32 +99,22 @@ public class ProjectProcessor {
       if (file != null) {
         targetStorage.upload(file, buildInfo);
         sourceStorage.delete(file);
+      } else {
+        LOG.warn(String.format("Artifact '%s' for build '%s' not found in storage '%s'", artifact, buildInfo.getId(), sourceStorage.getType()));
       }
     }
   }
 
   @Nullable
-  private Storage getStorage(@NotNull List<Feature> features, @NotNull String storageName) {
+  private Storage getStorage(@NotNull Collection<Feature> features, @NotNull String storageName) {
     return features.stream()
                    .filter(f -> f.getType().equals(ArtifactStorageSettings.STORAGE_FEATURE_TYPE))
                    .filter(f -> storageName.equals(f.getProperties().get(ArtifactStorageSettings.TEAMCITY_STORAGE_NAME_KEY)))
-                   .map(f -> getStorage(f.getId(), f.getProperties()))
+                   .map(f -> myStorageFactory.getStorage(f))
                    .findFirst()
                    .orElse(null);
   }
 
-  @NotNull
-  private Storage getStorage(@NotNull String featureId, @NotNull Map<String, String> storageProperties) {
-    String storageType = storageProperties.getOrDefault(ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY, featureId);
 
-    switch (storageType) {
-      case S3Constants.S3_STORAGE_TYPE:
-        return new S3Storage(featureId, storageProperties);
-      case ArtifactStorageSettings.DEFAULT_TYPE:
-        return new LocalStorage(featureId);
-      default:
-        throw new RuntimeException("Unsupported storage type requested");
-    }
-  }
 
 }

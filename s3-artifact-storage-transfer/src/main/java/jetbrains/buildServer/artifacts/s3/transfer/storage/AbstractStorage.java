@@ -2,15 +2,13 @@ package jetbrains.buildServer.artifacts.s3.transfer.storage;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.transfer.model.Build;
+import jetbrains.buildServer.artifacts.s3.transfer.model.Feature;
 import jetbrains.buildServer.artifacts.util.ArtifactListUtil;
 import jetbrains.buildServer.artifacts.util.SerializableArtifactData;
 import jetbrains.buildServer.artifacts.util.SerializableArtifactListData;
@@ -40,7 +38,9 @@ public abstract class AbstractStorage implements Storage {
   }
 
   @NotNull
-  protected abstract Map<String, String> getCommonProperties(@NotNull Build metadata);
+  protected Map<String, String> getCommonProperties(@NotNull Build metadata) {
+    return new HashMap<>();
+  }
 
   protected boolean listedAsArtifact(@NotNull String name, @NotNull Build metadata) {
     ArtifactListData artifactListData = readArtifactList(metadata);
@@ -76,5 +76,10 @@ public abstract class AbstractStorage implements Storage {
     final File artifactListFile = new File(artifactsDirectory, ArtifactsConstants.ARTIFACT_LIST_PATH);
 
     ArtifactListUtil.writeArtifactList(artifactListData, artifactListFile);
+  }
+
+  @Override
+  public void init(Feature feature) {
+    //do nothing
   }
 }
