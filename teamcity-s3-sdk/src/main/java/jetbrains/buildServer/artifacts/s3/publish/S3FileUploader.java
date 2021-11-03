@@ -24,8 +24,6 @@ import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClient;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3SignedUrlFileUploader;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
 
@@ -56,14 +54,6 @@ public abstract class S3FileUploader {
       .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
       .withConsistencyCheckEnabled(jetbrains.buildServer.artifacts.s3.S3Util.isConsistencyCheckEnabled(sharedConfigurationParameters))
       .withShutdownClient();
-  }
-
-  public static S3FileUploader create(@NotNull final S3Configuration s3Configuration,
-                                      @NotNull final S3UploadLogger s3UploadLogger,
-                                      @NotNull final Supplier<PresignedUrlsProviderClient> presignedUrlsProviderClientSupplier) {
-    return s3Configuration.isUsePresignedUrls()
-           ? new S3SignedUrlFileUploader(s3Configuration, s3UploadLogger, presignedUrlsProviderClientSupplier)
-           : new S3RegularFileUploader(s3Configuration, s3UploadLogger);
   }
 
   @NotNull
