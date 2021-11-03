@@ -18,13 +18,14 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -56,7 +57,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
   @NotNull
   @Override
-  public Collection<FileUploadInfo> upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) {
+  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
@@ -80,9 +81,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
-      return normalizedObjectPaths.entrySet()
-                                  .stream()
-                                  .map(objectKeyToFileWithArtifactPath -> {
+      normalizedObjectPaths.entrySet()
+                           .stream()
+                           .map(objectKeyToFileWithArtifactPath -> {
                                     try {
                                       return forkJoinPool.submit(() -> retrier
                                         .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
@@ -101,21 +102,23 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                       return null;
                                     }
                                   })
-                                  .filter(Objects::nonNull)
-                                  .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
-                                    logPublishingError(e);
-                                    if (isPublishingInterruptedException(e)) {
-                                      shutdownPool(forkJoinPool);
-                                    } else {
-                                      ExceptionUtil.rethrowAsRuntimeException(e);
-                                    }
-                                  }))
-                                  .filter(Objects::nonNull)
-                                  .collect(Collectors.toList());
+                           .filter(Objects::nonNull)
+                           .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
+                             logPublishingError(e);
+                             if (isPublishingInterruptedException(e)) {
+                               shutdownPool(forkJoinPool);
+                             } else {
+                               ExceptionUtil.rethrowAsRuntimeException(e);
+                             }
+                           }))
+                           .filter(Objects::nonNull)
+                           .forEach(uploadInfo -> {
+                             uploadInfoConsumer.accept(uploadInfo);
+                           });
     } catch (Throwable th) {
       if (isPublishingInterruptedException(th)) {
         LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
-        return Collections.emptyList();
+        return;
       } else {
         if (th instanceof FileUploadFailedException) {
           throw th;
