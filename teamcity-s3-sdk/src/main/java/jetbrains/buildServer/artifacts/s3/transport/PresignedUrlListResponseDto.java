@@ -33,7 +33,7 @@ public class PresignedUrlListResponseDto {
 
   @NotNull
   public static PresignedUrlListResponseDto createV2(@NotNull final List<PresignedUrlDto> presignedUrls) {
-    return new PresignedUrlListResponseDto(presignedUrls, false);
+    return new PresignedUrlListResponseDto(presignedUrls, true);
   }
 
   public boolean isVersion2() {
