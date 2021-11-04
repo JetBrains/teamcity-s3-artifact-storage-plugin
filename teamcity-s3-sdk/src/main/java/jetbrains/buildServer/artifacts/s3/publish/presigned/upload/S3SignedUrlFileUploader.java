@@ -55,7 +55,6 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     myPresignedUrlsProviderClient = presignedUrlsProviderClient;
   }
 
-  @NotNull
   @Override
   public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
@@ -82,7 +81,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
       normalizedObjectPaths.entrySet()
-                           .stream()
+                           .parallelStream()
                            .map(objectKeyToFileWithArtifactPath -> {
                                     try {
                                       return forkJoinPool.submit(() -> retrier
@@ -118,7 +117,6 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     } catch (Throwable th) {
       if (isPublishingInterruptedException(th)) {
         LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
-        return;
       } else {
         if (th instanceof FileUploadFailedException) {
           throw th;
