@@ -43,7 +43,6 @@ import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
@@ -57,9 +56,11 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private final AgentArtifactHelper myHelper;
   private final BuildAgentConfiguration myBuildAgentConfiguration;
 
+  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<>();
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
+  private S3FileUploaderFactory myUploaderFactory;
   @NotNull
   private final ExtensionHolder myExtensionHolder;
 
@@ -69,16 +70,19 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
                               @NotNull final CurrentBuildTracker tracker,
                               @NotNull final BuildAgentConfiguration buildAgentConfiguration,
                               @NotNull final PresignedUrlsProviderClientFactory presignedUrlsProviderClient,
+                              @NotNull final S3FileUploaderFactory uploaderFactory,
                               @NotNull final ExtensionHolder extensionHolder) {
     myHelper = helper;
     myTracker = tracker;
     myBuildAgentConfiguration = buildAgentConfiguration;
     myPresignedUrlsProviderClientFactory = presignedUrlsProviderClient;
+    myUploaderFactory = uploaderFactory;
     myExtensionHolder = extensionHolder;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
         myFileUploader = null;
+        myArtifacts.clear();
       }
     });
   }
@@ -92,7 +96,6 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   public int publishFilesWithDigests(@NotNull Map<File, String> map, @Nullable Consumer<ArtifactDigestInfo> digestConsumer) throws ArtifactPublishingFailedException {
     final Map<File, String> filteredMap = CollectionsUtil.filterMapByValues(map, s -> myHelper.isEnabled(this, s));
 
-    final List<ArtifactDataInstance> artifactInfos = new ArrayList<>();
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final S3FileUploader fileUploader = getFileUploader(build);
@@ -105,7 +108,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
             return interruptReason.getUserDescription();
           }
         }, fileUploadInfo -> {
-          artifactInfos.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
+          myArtifacts.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
           if (digestConsumer != null) {
             File uploadFile = new File(fileUploadInfo.getAbsolutePath());
             digestConsumer.accept(new ArtifactDigestInfo(uploadFile, filteredMap.get(uploadFile), fileUploadInfo.getDigest()));
@@ -114,7 +117,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
-      publishArtifactsList(build, artifactInfos);
+      publishArtifactsList(build);
     }
 
     return filteredMap.size();
@@ -131,11 +134,11 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
     return S3_STORAGE_TYPE;
   }
 
-  private void publishArtifactsList(@NotNull final AgentRunningBuild build, @NotNull final List<ArtifactDataInstance> artifactData) {
-    if (!artifactData.isEmpty()) {
+  private void publishArtifactsList(@NotNull final AgentRunningBuild build) {
+    if (!myArtifacts.isEmpty()) {
       final String pathPrefix = getPathPrefix(build);
       try {
-        myHelper.publishArtifactList(artifactData, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
+        myHelper.publishArtifactList(myArtifacts, CollectionsUtil.asMap(S3_PATH_PREFIX_ATTR, pathPrefix));
       } catch (IOException e) {
         build.getBuildLogger().error(ERROR_PUBLISHING_ARTIFACTS_LIST + ": " + e.getMessage());
         LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(build), e);
@@ -163,9 +166,9 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
-      myFileUploader = S3FileUploader.create(s3Configuration,
-                                             CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()),
-                                             () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
+      myFileUploader = myUploaderFactory.create(s3Configuration,
+                                                CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(build.getBuildLogger()), new S3Log4jUploadLogger()),
+                                                () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
     }
     return myFileUploader;
   }
