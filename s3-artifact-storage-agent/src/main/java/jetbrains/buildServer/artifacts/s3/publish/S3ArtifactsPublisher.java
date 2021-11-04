@@ -43,6 +43,7 @@ import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
@@ -60,7 +61,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
-  private S3FileUploaderFactory myUploaderFactory;
+  private final S3FileUploaderFactory myUploaderFactory;
   @NotNull
   private final ExtensionHolder myExtensionHolder;
 
