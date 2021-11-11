@@ -1,15 +1,10 @@
 apply plugin: 'maven-publish'
 
-ext {
-  spaceRepositoryUser = findProperty('space.repository.user')
-  spaceRepositoryPassword = findProperty('space.repository.password')
-}
-
 dependencies {
   compile "org.jetbrains.teamcity:common-api:${teamcityVersion}"
   compile 'commons-httpclient:commons-httpclient:3.1'
   compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
-  compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
+  compile("org.jetbrains.teamcity:aws-core-common:${awsCoreVersion}") {
     changing = true
   }
 
@@ -33,8 +28,8 @@ publishing {
     maven {
       name = "spacePackages"
       credentials {
-        username = spaceRepositoryUser
-        password = spaceRepositoryPassword
+        username = spaceUsername
+        password = spacePassword
       }
       url = 'https://packages.jetbrains.team/maven/p/tc/maven'
     }
