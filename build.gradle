@@ -41,7 +41,6 @@ allprojects {
         password = spacePassword
       }
     }
-    mavenLocal()
     maven { url "https://download.jetbrains.com/teamcity-repository" }
     maven { url "https://repository.jetbrains.com/all" }
     mavenCentral()
