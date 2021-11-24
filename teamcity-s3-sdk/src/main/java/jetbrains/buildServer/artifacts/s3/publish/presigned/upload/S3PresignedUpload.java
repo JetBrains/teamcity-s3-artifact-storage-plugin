@@ -5,11 +5,10 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
@@ -18,6 +17,7 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
+import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
 import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
@@ -151,20 +151,38 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
           final long contentLength = Math.min(myChunkSizeInBytes, myFile.length() - myChunkSizeInBytes * partIndex);
           myRemainingBytes.getAndAdd(-contentLength);
           final long start = partIndex * myChunkSizeInBytes;
-          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(presignedUrlPartDto.getUrl(), myFile, start, contentLength));
-          myProgressListener.onPartUploadSuccess();
+          final String url = presignedUrlPartDto.getUrl();
+          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, myFile, start, contentLength));
+          myProgressListener.onPartUploadSuccess(stripQuery(url));
           myEtags[partIndex] = etag;
         } catch (Exception e) {
           myProgressListener.onPartUploadFailed(e);
           ExceptionUtil.rethrowAsRuntimeException(e);
         }
       });
-      myProgressListener.onFileUploadSuccess();
+      final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
+      String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
+      myProgressListener.onFileUploadSuccess(strippedUrl);
       return DigestUtil.multipartDigest(getEtags());
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e);
       throw e;
+    }
+  }
+
+  @NotNull
+  private String stripQuery(@NotNull String url) {
+    try {
+      URI uri = new URI(url);
+      return new URI(uri.getScheme(),
+                     uri.getAuthority(),
+                     uri.getPath(),
+                     null,
+                     uri.getFragment()).toString();
+    } catch (URISyntaxException e) {
+      LOGGER.debug("Encountered error while trying to parse url", e);
+      return "";
     }
   }
 
@@ -186,9 +204,10 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   private String regularUpload() {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      final String digest = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(myS3SignedUploadManager.getUrl(myObjectKey), myFile));
+      final String url = myS3SignedUploadManager.getUrl(myObjectKey);
+      final String digest = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile));
       myRemainingBytes.getAndAdd(-myFile.length());
-      myProgressListener.onFileUploadSuccess();
+      myProgressListener.onFileUploadSuccess(stripQuery(url));
       return digest;
     } catch (final Exception e) {
       myProgressListener.onFileUploadFailed(e);

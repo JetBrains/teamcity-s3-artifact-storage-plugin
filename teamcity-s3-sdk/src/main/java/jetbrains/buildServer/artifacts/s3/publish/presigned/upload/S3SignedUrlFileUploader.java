@@ -201,8 +201,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onPartUploadSuccess() {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " " + myUpload.getFinishedPercentage() + "%");
+    public void onPartUploadSuccess(@NotNull String uploadUrl) {
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " at " + myUpload.getFinishedPercentage() + "%");
     }
 
     @Override
@@ -212,8 +212,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onFileUploadSuccess() {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " finished");
+    public void onFileUploadSuccess(@NotNull String uploadUrl) {
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " is finished");
       myUploadManager.onUploadSuccess(myUpload);
     }
 

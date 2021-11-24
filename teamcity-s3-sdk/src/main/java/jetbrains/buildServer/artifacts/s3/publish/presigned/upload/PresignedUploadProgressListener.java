@@ -5,11 +5,11 @@ import org.jetbrains.annotations.NotNull;
 public interface PresignedUploadProgressListener {
   void onPartUploadFailed(@NotNull final Exception e);
 
-  void onPartUploadSuccess();
+  void onPartUploadSuccess(@NotNull String uploadUrl);
 
   void onFileUploadFailed(@NotNull final Exception e);
 
-  void onFileUploadSuccess();
+  void onFileUploadSuccess(@NotNull String uploadUrl);
 
   void beforeUploadStarted();
 
