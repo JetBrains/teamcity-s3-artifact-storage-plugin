@@ -137,7 +137,9 @@
       <th><label for="${cloudfrontDistributionSelect}">Distribution: <l:star/></label></th>
       <td>
         <div class="posRel">
-          <props:selectProperty name="${cloudfrontDistributionSelect}" id="${cloudfrontDistributionSelect}" className="longField"/>
+          <span class="non_serializable_form_elements_container">
+            <props:selectProperty name="${cloudfrontDistributionSelect}" id="${cloudfrontDistributionSelect}" className="longField"/>
+          </span>
           <i class="icon-refresh" title="Reload distributions" id="distributions-refresh"></i>
           <i class="icon-magic" title="Create new CloudFront distribution" id="${params.cloudFrontCreateDistribution}"></i>
           <forms:saving id="${cloudFrontDistributionCreationLoader}"/>
@@ -152,7 +154,7 @@
     <tr class="noBorder">
       <th><label for="${cloudfrontKeyPairSelect}">Public key: <l:star/></label></th>
       <td>
-        <div class="posRel">
+        <div class="non_serializable_form_elements_container posRel">
           <props:selectProperty name="${cloudfrontKeyPairSelect}" id="${cloudfrontKeyPairSelect}" className="longField"/>
           <i class="icon-refresh" title="Reload public keys" id="publicKeys-refresh"></i>
         </div>
