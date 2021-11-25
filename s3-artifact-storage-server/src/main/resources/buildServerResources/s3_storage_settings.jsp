@@ -128,7 +128,7 @@
     <tr class="noBorder">
       <th><label for="${params.cloudFrontEnabled}">Use CloudFront to transport artifacts: </label></th>
       <td>
-        <props:checkboxProperty name="${params.cloudFrontEnabled}" id="${params.cloudFrontEnabled}" value="${propertiesBean.properties[params.cloudFrontEnabled]}"/>
+        <props:checkboxProperty name="${params.cloudFrontEnabled}" id="${params.cloudFrontEnabled}"/>
         <bs:help file="CloudFrontSettings"/>
       </td>
     </tr>
