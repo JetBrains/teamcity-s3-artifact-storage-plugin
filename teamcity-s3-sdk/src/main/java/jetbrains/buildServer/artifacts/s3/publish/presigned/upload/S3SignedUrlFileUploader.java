@@ -80,6 +80,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
+
+      myLogger.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
       return normalizedObjectPaths.entrySet()
                                   .stream()
                                   .map(objectKeyToFileWithArtifactPath -> {
@@ -220,11 +222,13 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
+      myS3UploadLogger.debug("Started uploading " + myUpload.description());
     }
 
     @Override
-    public void beforePartUploadStarted() {
+    public void beforePartUploadStarted(int partNumber) {
       checkInterrupted();
+      myS3UploadLogger.debug(String.format("Started uploading part #%d of %s", partNumber, myUpload.description()));
     }
 
     private void checkInterrupted() {

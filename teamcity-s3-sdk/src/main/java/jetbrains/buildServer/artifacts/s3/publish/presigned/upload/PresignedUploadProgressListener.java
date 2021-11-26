@@ -13,7 +13,7 @@ public interface PresignedUploadProgressListener {
 
   void beforeUploadStarted();
 
-  void beforePartUploadStarted();
+  void beforePartUploadStarted(int partNumber);
 
   void setUpload(@NotNull S3PresignedUpload upload);
 }

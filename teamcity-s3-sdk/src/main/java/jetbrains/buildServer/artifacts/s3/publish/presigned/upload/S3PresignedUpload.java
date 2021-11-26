@@ -145,7 +145,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myProgressListener.beforeUploadStarted();
     try {
       multipartUploadUrls.getPresignedUrlParts().forEach(presignedUrlPartDto -> {
-        myProgressListener.beforePartUploadStarted();
+        myProgressListener.beforePartUploadStarted(presignedUrlPartDto.getPartNumber());
         try {
           final int partIndex = presignedUrlPartDto.getPartNumber() - 1;
           final long contentLength = Math.min(myChunkSizeInBytes, myFile.length() - myChunkSizeInBytes * partIndex);
