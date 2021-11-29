@@ -50,7 +50,11 @@ public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
   public String getUrl(@NotNull final String s3ObjectKey) {
     PresignedUrlDto presignedUrlDto = myCache.getValue().get(s3ObjectKey);
-    if (presignedUrlDto == null || presignedUrlDto.isMultipart()) {
+    if (presignedUrlDto == null) {
+      LOGGER.info(() -> "Presigned url for object key '" + s3ObjectKey + "' wasn't found in cached result from server, cache: '" + myCache.getValue().toString() + "'");
+      throw new IllegalArgumentException("Specified object key not found in cached response from server");
+    }
+    if (presignedUrlDto.isMultipart()) {
       throw new IllegalArgumentException("Specified object key requested as a multipart upload, while regular upload expected");
     } else {
       if (presignedUrlDto.getPresignedUrlParts().size() != 1) {

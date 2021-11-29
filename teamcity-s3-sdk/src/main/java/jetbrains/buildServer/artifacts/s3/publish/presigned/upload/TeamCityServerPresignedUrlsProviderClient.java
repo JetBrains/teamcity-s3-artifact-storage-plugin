@@ -103,7 +103,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private PresignedUrlDto fetchPresignedUrlDto(@NotNull final String objectKey, @NotNull final StringRequestEntity requestEntity) throws IOException {
     final PostMethod post = postTemplate();
     post.setRequestEntity(requestEntity);
-    post.setRequestHeader("Accept", "application/xml");
+    post.setRequestHeader("Content-Type", "application/xml; charset=" + StandardCharsets.UTF_8.name());
     final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
     final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
     return presignedUrlListResponseDto.getPresignedUrls()
@@ -137,6 +137,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " started");
     final PostMethod post = postTemplate();
     post.setParameter(OBJECT_KEY, objectKey);
+    post.setParameter(OBJECT_KEY + "_BASE64", Base64.getEncoder().encodeToString(objectKey.getBytes(StandardCharsets.UTF_8)));
     post.setParameter(FINISH_UPLOAD, uploadId);
     post.setParameter(UPLOAD_SUCCESSFUL, String.valueOf(isSuccessful));
     if (isSuccessful && etags != null) {
@@ -185,6 +186,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   private PostMethod postTemplate() {
     final PostMethod post = new PostMethod(myPresignedUrlsPostUrl);
     post.addRequestHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent());
+    post.setRequestHeader("Accept", "application/xml");
+    post.setRequestHeader("Accept-Charset", StandardCharsets.UTF_8.name());
+    addAdditionalHeaders(post);
     post.setDoAuthentication(true);
     return post;
   }
@@ -199,6 +203,26 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     if (myShutdown.get()) {
       LOGGER.warn("TeamCity presigned urls provider client already shut down");
       throw new ClientAlreadyShutdownException("TeamCity presigned urls provider client already shut down");
+    }
+  }
+
+  private void addAdditionalHeaders(HttpMethod request) {
+    HashMap<String, String> headerToProviderMap = new HashMap<>();
+    ArtifactTransportAdditionalHeadersProvider.Configuration configuration = () -> request.getName();
+    for (ArtifactTransportAdditionalHeadersProvider extension : myAdditionalHeadersProviders) {
+      List<ArtifactTransportAdditionalHeadersProvider.Header> headers = extension.getHeaders(configuration);
+      String extensionName = extension.getClass().getName();
+      for (ArtifactTransportAdditionalHeadersProvider.Header header : headers) {
+        String existingExtensionsName = headerToProviderMap.get(header.getName().toUpperCase());
+        if (existingExtensionsName == null) {
+          request.addRequestHeader(header.getName(), header.getValue());
+          headerToProviderMap.put(header.getName().toUpperCase(), extensionName);
+        } else {
+          String headerName = header.getName();
+          String message = String.format("Multiple extensions(%s, %s) provide the same additional header '%s'", existingExtensionsName, extensionName, headerName);
+          LOGGER.warn(message);
+        }
+      }
     }
   }
 
