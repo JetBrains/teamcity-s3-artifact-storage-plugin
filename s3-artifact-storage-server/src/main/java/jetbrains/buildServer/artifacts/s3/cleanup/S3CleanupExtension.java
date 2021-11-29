@@ -47,7 +47,9 @@ import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
+import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.positioning.PositionAware;
@@ -55,9 +57,6 @@ import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
-import static jetbrains.buildServer.util.NamedThreadFactory.executeWithNewThreadName;
-import static jetbrains.buildServer.util.Util.doUnderContextClassLoader;
-import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 
 public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
@@ -73,14 +72,14 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   @NotNull
   private final ExecutorService myExecutorService;
   @NotNull
-  private final List<CleanupListener> myCleanupListeners = new CopyOnWriteArrayList<>();
+  private final List<CleanupListener> myCleanupListeners = new CopyOnWriteArrayList<>(); // is filled from tests only
 
   public S3CleanupExtension(
-    @NotNull final ServerArtifactHelper helper,
-    @NotNull final ServerArtifactStorageSettingsProvider settingsProvider,
-    @NotNull final ServerPaths serverPaths,
-    @NotNull final ProjectManager projectManager,
-    @NotNull final ExecutorServices executorServices) {
+    @NotNull ServerArtifactHelper helper,
+    @NotNull ServerArtifactStorageSettingsProvider settingsProvider,
+    @NotNull ServerPaths serverPaths,
+    @NotNull ProjectManager projectManager,
+    @NotNull ExecutorServices executorServices) {
     myHelper = helper;
     mySettingsProvider = settingsProvider;
     myServerPaths = serverPaths;
@@ -100,15 +99,14 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
       cleanupContext.getCleanupState().throwIfInterrupted();
 
       try {
-        final ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
+        ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
         if (artifactsInfo == null) {
           continue;
         }
-        final String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
+        String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
         if (pathPrefix == null) {
           continue;
         }
-
         List<String> pathsToDelete = ArtifactPathsEvaluator.getPathsToDelete((BuildCleanupContextEx)cleanupContext, build, artifactsInfo);
         if (pathsToDelete.isEmpty()) {
           continue;
@@ -130,51 +128,52 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
 
   private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete)
     throws IOException, InvalidSettingsException {
-    final Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
-    final String bucketName = S3Util.getBucketName(params);
+    Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
+    String bucketName = S3Util.getBucketName(params);
 
     SProject project = myProjectManager.findProjectById(build.getProjectId());
 
     Map<String, String> projectParameters = project != null ? project.getParameters() : Collections.emptyMap();
 
-    final Retrier retrier = defaultRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
+    Retrier retrier = Retrier.defaultRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
 
     retrier.registerListener(new AbstractRetrierEventListener() {
       @Override
       public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-        myCleanupListeners.forEach(l -> l.onError(e, true));
+        myCleanupListeners.forEach(listener -> listener.onError(e, true));
       }
     });
 
     S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
-      final String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
+      String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
-      final AtomicInteger succeededNum = new AtomicInteger();
-      final AtomicInteger errorNum = new AtomicInteger();
+      AtomicInteger succeededNum = new AtomicInteger();
+      AtomicInteger errorNum = new AtomicInteger();
 
-      final int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
-      final List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
-      final AtomicInteger currentChunk = new AtomicInteger();
+      int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
+      List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
+      AtomicInteger currentChunk = new AtomicInteger();
       partitions.forEach(part -> {
         try {
-          final Future<Integer> submit = myExecutorService.submit(
-            () -> retrier.execute(() -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size()))));
-          succeededNum.addAndGet(submit.get());
-          part.forEach(key -> myCleanupListeners.forEach(l -> l.onSuccess(key)));
+          Future<Integer> future = myExecutorService.submit(
+            () -> retrier.execute(
+              () -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size()))));
+          succeededNum.addAndGet(future.get());
+          part.forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
         } catch (MultiObjectDeleteException e) {
           succeededNum.addAndGet(e.getDeletedObjects().size());
 
           if (!e.getDeletedObjects().isEmpty()) {
-            myCleanupListeners.forEach(l -> e.getDeletedObjects().forEach(obj -> l.onSuccess(obj.getKey())));
+            myCleanupListeners.forEach(listener -> e.getDeletedObjects().forEach(obj -> listener.onSuccess(obj.getKey())));
           }
 
-          final List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
+          List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
           errors.forEach(error -> {
-            final String key = error.getKey();
+            String key = error.getKey();
             if (key.startsWith(pathPrefix)) {
               CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
               pathsToDelete.remove(key.substring(pathPrefix.length()));
-              myCleanupListeners.forEach(l -> l.onError(e, false));
+              myCleanupListeners.forEach(listener -> listener.onError(e, false));
             }
           });
           errorNum.addAndGet(errors.size());
@@ -193,11 +192,11 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
             CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + part, cause);
           }
           errorNum.addAndGet(part.size());
-          myCleanupListeners.forEach(l -> l.onError(e, false));
+          myCleanupListeners.forEach(listener -> listener.onError(e, false));
         } catch (InterruptedException e) {
           CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + part, e);
           errorNum.addAndGet(part.size());
-          myCleanupListeners.forEach(l -> l.onError(e, false));
+          myCleanupListeners.forEach(listener -> listener.onError(e, false));
         }
       });
 
@@ -215,32 +214,28 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   }
 
   @NotNull
-  private String progressMessage(@NotNull final SFinishedBuild build,
-                                 @NotNull final List<String> pathsToDelete,
-                                 @NotNull final AtomicInteger succeededNum,
-                                 @NotNull final AtomicInteger currentChunkNumber,
-                                 final int size,
-                                 final int chunkSize) {
-    return "Cleaning artifacts of Build " + LogUtil.describe(build) + ": " +
-           "S3Client deleting chunk #" + currentChunkNumber.incrementAndGet() + "/" + size + " of " + chunkSize + "/" + (pathsToDelete.size() - succeededNum.get()) + " objects";
+  private String progressMessage(@NotNull SFinishedBuild build, @NotNull List<String> pathsToDelete, @NotNull AtomicInteger succeededNum,
+                                 @NotNull AtomicInteger currentChunkNumber, int size, int chunkSize) {
+    return String.format(
+      "Cleaning artifacts of Build %s: S3Client deleting chunk #%d/%d of %d/%d objects",
+      LogUtil.describe(build), currentChunkNumber.incrementAndGet(), size, chunkSize, pathsToDelete.size() - succeededNum.get());
   }
 
   @NotNull
-  private Integer deleteChunk(@NotNull final String pathPrefix,
-                              @NotNull final String bucketName,
-                              @NotNull final AmazonS3 client,
-                              @NotNull final List<String> part,
-                              @NotNull final Supplier<String> info) throws Exception {
-    final List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
-    final DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
-    return executeWithNewThreadName(info.get(),
-                                    () -> doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
-                                      final String keys = CLEANUP.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
-                                      CLEANUP.debug(() -> "Starting to remove " + keys + " from S3 bucket " + deleteObjectsRequest.getBucketName());
-                                      final List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
-                                      CLEANUP.debug(() -> "Finished to remove " + keys + " from S3 bucket " + deleteObjectsRequest.getBucketName());
-                                      return deletedObjects.size();
-                                    }));
+  private Integer deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull AmazonS3 client, @NotNull List<String> part, @NotNull Supplier<String> info)
+    throws Exception {
+    List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
+    DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
+    return NamedThreadFactory.executeWithNewThreadName(info.get(),
+      () -> Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
+        List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
+        if (CLEANUP.isDebugEnabled()) {
+          String keys = deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining());
+          CLEANUP.debug(String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
+          CLEANUP.debug(String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
+        }
+        return deletedObjects.size();
+      }));
   }
 
   @NotNull
@@ -259,4 +254,5 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
   void registerListener(@NotNull CleanupListener listener) {
     myCleanupListeners.add(listener);
   }
+
 }
