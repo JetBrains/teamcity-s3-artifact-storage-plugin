@@ -59,6 +59,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.servlet.ModelAndView;
 
+import static java.util.Base64.getDecoder;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ERROR_SOURCE_HEADER_NAME;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
@@ -93,14 +94,15 @@ public class S3PreSignedUrlController extends BaseController {
     try {
       final Pair<RequestType, CloudFrontSettings> request = parseRequest(httpServletRequest);
 
+      httpServletResponse.setContentType("application/xml; charset=" + StandardCharsets.UTF_8.name());
       if (request.getFirst() == RequestType.FINISH_MULTIPART_UPLOAD) {
         finishMultipartUpload(httpServletRequest, request.getSecond());
+        httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       } else {
         final String response = providePresignedUrls(httpServletRequest, request.getSecond());
-        httpServletResponse.setCharacterEncoding(StandardCharsets.UTF_8.displayName());
+        httpServletResponse.setStatus(HttpServletResponse.SC_OK);
         httpServletResponse.getWriter().append(response);
       }
-      httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       return null;
     } catch (final Exception e) {
       logError(httpServletRequest, e);
@@ -238,7 +240,8 @@ public class S3PreSignedUrlController extends BaseController {
 
   private void finishMultipartUpload(@NotNull final HttpServletRequest httpServletRequest,
                                      @NotNull final CloudFrontSettings settings) throws Exception {
-    final String objectKey = httpServletRequest.getParameter(OBJECT_KEY);
+    final String objectKeyBase64 = new String(getDecoder().decode(StringUtil.emptyIfNull(httpServletRequest.getParameter(OBJECT_KEY + "_BASE64"))), StandardCharsets.UTF_8);
+    final String objectKey = StringUtil.isNotEmpty(objectKeyBase64) ? objectKeyBase64 : httpServletRequest.getParameter(OBJECT_KEY + "_BASE64");
     if (StringUtil.isEmpty(objectKey)) {
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, OBJECT_KEY + " should be present");
     }
