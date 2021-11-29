@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -266,7 +267,11 @@ public final class S3Util {
 
   @NotNull
   public static CannedAccessControlList getAcl(@NotNull final Map<String, String> configuration) {
-    return CannedAccessControlList.valueOf(configuration.getOrDefault(S3_ACL, CannedAccessControlList.Private.name()));
+    final String acl = configuration.getOrDefault(S3_ACL, CannedAccessControlList.Private.name());
+    return Arrays.stream(CannedAccessControlList.values())
+                 .filter(v -> v.toString().equals(acl) || v.name().equals(acl))
+                 .findFirst()
+                 .orElseThrow(() -> new IllegalArgumentException("Non-existent ACL provided: " + acl));
   }
 
   private static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {

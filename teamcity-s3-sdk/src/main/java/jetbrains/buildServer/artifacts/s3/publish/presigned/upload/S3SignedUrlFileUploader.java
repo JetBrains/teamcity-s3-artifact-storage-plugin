@@ -18,6 +18,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -56,7 +57,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @Override
-  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer) {
+  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
@@ -80,9 +81,11 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
-      normalizedObjectPaths.entrySet()
-                           .parallelStream()
-                           .map(objectKeyToFileWithArtifactPath -> {
+
+      myLogger.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
+      return normalizedObjectPaths.entrySet()
+                                  .parallelStream()
+                                  .map(objectKeyToFileWithArtifactPath -> {
                                     try {
                                       return forkJoinPool.submit(() -> retrier
                                         .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
@@ -202,8 +205,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onPartUploadSuccess() {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " " + myUpload.getFinishedPercentage() + "%");
+    public void onPartUploadSuccess(@NotNull String uploadUrl) {
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " at " + myUpload.getFinishedPercentage() + "%");
     }
 
     @Override
@@ -213,19 +216,21 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onFileUploadSuccess() {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " finished");
+    public void onFileUploadSuccess(@NotNull String uploadUrl) {
+      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " is finished");
       myUploadManager.onUploadSuccess(myUpload);
     }
 
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
+      myS3UploadLogger.debug("Started uploading " + myUpload.description());
     }
 
     @Override
-    public void beforePartUploadStarted() {
+    public void beforePartUploadStarted(int partNumber) {
       checkInterrupted();
+      myS3UploadLogger.debug(String.format("Started uploading part #%d of %s", partNumber, myUpload.description()));
     }
 
     private void checkInterrupted() {

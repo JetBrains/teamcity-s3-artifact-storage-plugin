@@ -118,7 +118,9 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
+      build.getBuildLogger().debug("Uploading artifacts list to server");
       publishArtifactsList(build);
+      build.getBuildLogger().debug("Uploaded artifacts list to server");
     }
 
     return filteredMap.size();
