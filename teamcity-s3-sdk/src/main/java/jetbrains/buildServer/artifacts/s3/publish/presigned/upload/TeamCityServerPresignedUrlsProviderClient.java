@@ -6,10 +6,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
@@ -188,7 +185,6 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     post.addRequestHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent());
     post.setRequestHeader("Accept", "application/xml");
     post.setRequestHeader("Accept-Charset", StandardCharsets.UTF_8.name());
-    addAdditionalHeaders(post);
     post.setDoAuthentication(true);
     return post;
   }
@@ -203,26 +199,6 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     if (myShutdown.get()) {
       LOGGER.warn("TeamCity presigned urls provider client already shut down");
       throw new ClientAlreadyShutdownException("TeamCity presigned urls provider client already shut down");
-    }
-  }
-
-  private void addAdditionalHeaders(HttpMethod request) {
-    HashMap<String, String> headerToProviderMap = new HashMap<>();
-    ArtifactTransportAdditionalHeadersProvider.Configuration configuration = () -> request.getName();
-    for (ArtifactTransportAdditionalHeadersProvider extension : myAdditionalHeadersProviders) {
-      List<ArtifactTransportAdditionalHeadersProvider.Header> headers = extension.getHeaders(configuration);
-      String extensionName = extension.getClass().getName();
-      for (ArtifactTransportAdditionalHeadersProvider.Header header : headers) {
-        String existingExtensionsName = headerToProviderMap.get(header.getName().toUpperCase());
-        if (existingExtensionsName == null) {
-          request.addRequestHeader(header.getName(), header.getValue());
-          headerToProviderMap.put(header.getName().toUpperCase(), extensionName);
-        } else {
-          String headerName = header.getName();
-          String message = String.format("Multiple extensions(%s, %s) provide the same additional header '%s'", existingExtensionsName, extensionName, headerName);
-          LOGGER.warn(message);
-        }
-      }
     }
   }
 
