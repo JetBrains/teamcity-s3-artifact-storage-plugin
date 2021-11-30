@@ -241,7 +241,7 @@ public class S3PreSignedUrlController extends BaseController {
   private void finishMultipartUpload(@NotNull final HttpServletRequest httpServletRequest,
                                      @NotNull final CloudFrontSettings settings) throws Exception {
     final String objectKeyBase64 = new String(getDecoder().decode(StringUtil.emptyIfNull(httpServletRequest.getParameter(OBJECT_KEY + "_BASE64"))), StandardCharsets.UTF_8);
-    final String objectKey = StringUtil.isNotEmpty(objectKeyBase64) ? objectKeyBase64 : httpServletRequest.getParameter(OBJECT_KEY + "_BASE64");
+    final String objectKey = StringUtil.isNotEmpty(objectKeyBase64) ? objectKeyBase64 : httpServletRequest.getParameter(OBJECT_KEY);
     if (StringUtil.isEmpty(objectKey)) {
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, OBJECT_KEY + " should be present");
     }
