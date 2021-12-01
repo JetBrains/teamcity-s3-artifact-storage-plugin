@@ -18,7 +18,6 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +26,7 @@ import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -57,7 +57,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @Override
-  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) {
+  public void upload(@NotNull Map<File, String> filesToUpload,
+                     @NotNull Supplier<String> interrupter,
+                     Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
@@ -83,27 +85,27 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                                normalizedObjectPaths.keySet())) {
 
       myLogger.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
-      return normalizedObjectPaths.entrySet()
-                                  .parallelStream()
-                                  .map(objectKeyToFileWithArtifactPath -> {
-                                    try {
-                                      return forkJoinPool.submit(() -> retrier
-                                        .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
-                                                                          objectKeyToFileWithArtifactPath.getKey(),
-                                                                          objectKeyToFileWithArtifactPath.getValue().getFile(),
-                                                                          myS3Configuration.getAdvancedConfiguration(),
-                                                                          uploadManager,
-                                                                          lowLevelS3Client,
-                                                                          new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
-                                    } catch (RejectedExecutionException e) {
-                                      if (isPoolTerminating(forkJoinPool)) {
-                                        LOGGER.debug("Artifact publishing rejected by pool shutdown");
-                                      } else {
-                                        LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
-                                      }
-                                      return null;
-                                    }
-                                  })
+      normalizedObjectPaths.entrySet()
+                           .parallelStream()
+                           .map(objectKeyToFileWithArtifactPath -> {
+                             try {
+                               return forkJoinPool.submit(() -> retrier
+                                 .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
+                                                                   objectKeyToFileWithArtifactPath.getKey(),
+                                                                   objectKeyToFileWithArtifactPath.getValue().getFile(),
+                                                                   myS3Configuration.getAdvancedConfiguration(),
+                                                                   uploadManager,
+                                                                   lowLevelS3Client,
+                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
+                             } catch (RejectedExecutionException e) {
+                               if (isPoolTerminating(forkJoinPool)) {
+                                 LOGGER.debug("Artifact publishing rejected by pool shutdown");
+                               } else {
+                                 LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
+                               }
+                               return null;
+                             }
+                           })
                            .filter(Objects::nonNull)
                            .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
                              logPublishingError(e);
@@ -115,7 +117,11 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                            }))
                            .filter(Objects::nonNull)
                            .forEach(uploadInfo -> {
-                             uploadInfoConsumer.accept(uploadInfo);
+                             try {
+                               uploadInfoConsumer.accept(uploadInfo);
+                             } catch (Throwable t) {
+                               LOGGER.warnAndDebugDetails("Failed to send artifact upload information to consumer", t);
+                             }
                            });
     } catch (Throwable th) {
       if (isPublishingInterruptedException(th)) {

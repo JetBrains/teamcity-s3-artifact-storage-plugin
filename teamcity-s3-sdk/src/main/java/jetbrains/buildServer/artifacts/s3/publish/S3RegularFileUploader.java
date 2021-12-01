@@ -55,7 +55,6 @@ public class S3RegularFileUploader extends S3FileUploader {
     super(s3Configuration, logger);
   }
 
-  @NotNull
   @Override
   public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer)
     throws InvalidSettingsException {

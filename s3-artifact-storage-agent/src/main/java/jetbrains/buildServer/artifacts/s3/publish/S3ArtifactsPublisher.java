@@ -112,7 +112,11 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
           myArtifacts.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
           if (digestConsumer != null) {
             File uploadFile = new File(fileUploadInfo.getAbsolutePath());
-            digestConsumer.accept(new ArtifactDigestInfo(uploadFile, filteredMap.get(uploadFile), fileUploadInfo.getDigest()));
+            try {
+              digestConsumer.accept(new ArtifactDigestInfo(uploadFile, filteredMap.get(uploadFile), fileUploadInfo.getDigest()));
+            } catch (Throwable t) {
+              LOG.warnAndDebugDetails("Failed to send artifact upload information to digest consumer", t);
+            }
           }
         });
       } catch (RecoverableException e) {

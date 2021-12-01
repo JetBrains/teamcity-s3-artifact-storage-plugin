@@ -56,7 +56,6 @@ public abstract class S3FileUploader {
       .withShutdownClient();
   }
 
-  @NotNull
   public abstract void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer)
     throws InvalidSettingsException;
 }
