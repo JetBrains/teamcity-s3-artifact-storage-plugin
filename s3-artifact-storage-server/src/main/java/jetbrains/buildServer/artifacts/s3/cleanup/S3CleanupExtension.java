@@ -228,12 +228,10 @@ public class S3CleanupExtension implements CleanupExtension, PositionAware {
     DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
     return NamedThreadFactory.executeWithNewThreadName(info.get(),
       () -> Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
+        String keys = CLEANUP.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
+        CLEANUP.debug(() -> String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
         List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
-        if (CLEANUP.isDebugEnabled()) {
-          String keys = deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining());
-          CLEANUP.debug(String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-          CLEANUP.debug(String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-        }
+        CLEANUP.debug(() -> String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
         return deletedObjects.size();
       }));
   }
