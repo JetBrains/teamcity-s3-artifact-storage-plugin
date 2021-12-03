@@ -40,10 +40,7 @@ import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
-import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
-import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
-import jetbrains.buildServer.serverSide.cleanup.CleanupExtension;
-import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
+import jetbrains.buildServer.serverSide.cleanup.*;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
@@ -58,7 +55,7 @@ import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 
-public class S3CleanupExtension implements CleanupExtension, PositionAware {
+public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware {
 
   private static final String EXCEPTION_MESSAGE = "Got an exception while removing artifacts: ";
 
