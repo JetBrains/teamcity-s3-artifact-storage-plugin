@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -46,8 +47,10 @@ import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUrlFileUploader.class.getName());
+  public static final int MAX_VERBOSE_UPLOAD_LOGS = 10;
   @NotNull
   private final Supplier<PresignedUrlsProviderClient> myPresignedUrlsProviderClient;
+  private final AtomicInteger logCounter = new AtomicInteger(0);
 
   public S3SignedUrlFileUploader(@NotNull final S3Configuration s3Configuration,
                                  @NotNull final S3UploadLogger s3UploadLogger,
@@ -190,14 +193,16 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     private final S3SignedUploadManager myUploadManager;
     @NotNull
     private final Supplier<String> myInterrupter;
+    private final AtomicInteger myLogCounter;
     private S3PresignedUpload myUpload;
 
     private PresignedUploadProgressListenerImpl(@NotNull final S3UploadLogger uploadLogger,
                                                 @NotNull final S3SignedUploadManager uploadManager,
-                                                @NotNull final Supplier<String> interrupter) {
+                                                @NotNull final Supplier<String> interrupter, AtomicInteger logCounter) {
       myS3UploadLogger = uploadLogger;
       myUploadManager = uploadManager;
       myInterrupter = interrupter;
+      myLogCounter = logCounter;
     }
 
     @Override
@@ -212,7 +217,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onPartUploadSuccess(@NotNull String uploadUrl) {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " at " + myUpload.getFinishedPercentage() + "%");
+      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
+        myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " at " + myUpload.getFinishedPercentage() + "%");
+      }
     }
 
     @Override
@@ -223,20 +230,26 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onFileUploadSuccess(@NotNull String uploadUrl) {
-      myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " is finished");
+      if (myLogCounter.incrementAndGet() < MAX_VERBOSE_UPLOAD_LOGS) {
+        myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " is finished");
+      }
       myUploadManager.onUploadSuccess(myUpload);
     }
 
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
-      myS3UploadLogger.debug("Started uploading " + myUpload.description());
+      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
+        myS3UploadLogger.debug("Started uploading " + myUpload.description());
+      }
     }
 
     @Override
     public void beforePartUploadStarted(int partNumber) {
       checkInterrupted();
-      myS3UploadLogger.debug(String.format("Started uploading part #%d of %s", partNumber, myUpload.description()));
+      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
+        myS3UploadLogger.debug(String.format("Started uploading part #%d of %s", partNumber, myUpload.description()));
+      }
     }
 
     private void checkInterrupted() {

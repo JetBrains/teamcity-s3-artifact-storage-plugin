@@ -100,8 +100,8 @@ public class S3PreSignedUrlController extends BaseController {
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       } else {
         final String response = providePresignedUrls(httpServletRequest, request.getSecond());
-        httpServletResponse.setStatus(HttpServletResponse.SC_OK);
         httpServletResponse.getWriter().append(response);
+        httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       }
       return null;
     } catch (final Exception e) {
