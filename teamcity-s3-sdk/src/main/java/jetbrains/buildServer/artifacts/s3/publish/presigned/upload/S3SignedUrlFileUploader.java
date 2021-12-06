@@ -99,7 +99,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                    myS3Configuration.getAdvancedConfiguration(),
                                                                    uploadManager,
                                                                    lowLevelS3Client,
-                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
+                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, logCounter))));
                              } catch (RejectedExecutionException e) {
                                if (isPoolTerminating(forkJoinPool)) {
                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
