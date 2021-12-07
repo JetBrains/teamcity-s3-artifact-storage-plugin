@@ -28,6 +28,7 @@ import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -40,7 +41,10 @@ import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
-import jetbrains.buildServer.serverSide.cleanup.*;
+import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
+import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
+import jetbrains.buildServer.serverSide.cleanup.BuildsCleanupExtension;
+import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
@@ -49,13 +53,11 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
-import jetbrains.buildServer.util.positioning.PositionAware;
-import jetbrains.buildServer.util.positioning.PositionConstraint;
 import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 
-public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware {
+public class S3CleanupExtension implements BuildsCleanupExtension {
 
   private static final String EXCEPTION_MESSAGE = "Got an exception while removing artifacts: ";
 
@@ -70,6 +72,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware
   private final ExecutorService myExecutorService;
   @NotNull
   private final List<CleanupListener> myCleanupListeners = new CopyOnWriteArrayList<>(); // is filled from tests only
+  private volatile List<BuildStorageInfo> myBuildStorageInfos;
 
   public S3CleanupExtension(
     @NotNull ServerArtifactHelper helper,
@@ -91,28 +94,51 @@ public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware
   }
 
   @Override
-  public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) throws CleanupInterruptedException {
-    for (SFinishedBuild build : cleanupContext.getBuilds()) {
-      cleanupContext.getCleanupState().throwIfInterrupted();
-
+  public void prepareBuildsData(@NotNull BuildCleanupContext cleanupContext) {
+    myBuildStorageInfos = cleanupContext.getBuilds().stream().map(build -> {
       try {
         ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
         if (artifactsInfo == null) {
-          continue;
+          return null;
         }
         String pathPrefix = S3Util.getPathPrefix(artifactsInfo);
         if (pathPrefix == null) {
-          continue;
+          return null;
         }
         List<String> pathsToDelete = ArtifactPathsEvaluator.getPathsToDelete((BuildCleanupContextEx)cleanupContext, build, artifactsInfo);
         if (pathsToDelete.isEmpty()) {
-          continue;
+          return null;
         }
-
-        doClean(cleanupContext, build, pathPrefix, pathsToDelete);
-      } catch (InvalidSettingsException e) {
+        Map<String, String> storageSettings = mySettingsProvider.getStorageSettings(build);
+        Map<String, String> invalids = S3Util.validateParameters(storageSettings, false);
+        if (!invalids.isEmpty()) {
+          CLEANUP.warn("Failed to remove S3 artifacts: " + StringUtil.join("\n", invalids.values()));
+          cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
+          return null;
+        }
+        return new BuildStorageInfo(build, pathPrefix, pathsToDelete, storageSettings);
+      } catch (IOException e) {
+        CLEANUP.warn("Failed to get S3 artifacts list: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to get S3 artifacts list due to IO error.");
+        return null;
+      } catch (RuntimeException e) {
         CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
-        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
+        return null;
+      }
+    }).filter(Objects::nonNull).collect(Collectors.toList());
+  }
+
+  @Override
+  public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) throws CleanupInterruptedException {
+    if (myBuildStorageInfos == null) {
+      return;
+    }
+    for (BuildStorageInfo buildStorageInfo : myBuildStorageInfos) {
+      cleanupContext.getCleanupState().throwIfInterrupted();
+      SFinishedBuild build = buildStorageInfo.myBuild;
+      try {
+        doClean(cleanupContext, build, buildStorageInfo.myPathPrefix, buildStorageInfo.myPathsToDelete, buildStorageInfo.myStorageSettings);
       } catch (IOException e) {
         CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
@@ -123,10 +149,10 @@ public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware
     }
   }
 
-  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete)
-    throws IOException, InvalidSettingsException {
-    Map<String, String> params = S3Util.validateParameters(mySettingsProvider.getStorageSettings(build));
-    String bucketName = S3Util.getBucketName(params);
+  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete,
+                       @NotNull Map<String, String> storageSettings) throws IOException, InvalidSettingsException {
+    String bucketName = S3Util.getBucketName(storageSettings);
+    assert bucketName != null;
 
     SProject project = myProjectManager.findProjectById(build.getProjectId());
 
@@ -141,7 +167,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware
       }
     });
 
-    S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, params), client -> {
+    S3Util.withS3ClientShuttingDownImmediately(ParamUtil.putSslValues(myServerPaths, storageSettings), client -> {
       String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
 
       AtomicInteger succeededNum = new AtomicInteger();
@@ -233,21 +259,30 @@ public class S3CleanupExtension implements BuildsCleanupExtension, PositionAware
       }));
   }
 
-  @NotNull
-  @Override
-  public PositionConstraint getConstraint() {
-    return PositionConstraint.first();
-  }
-
-  @NotNull
-  @Override
-  public String getOrderId() {
-    return S3Constants.S3_STORAGE_TYPE;
-  }
-
   @VisibleForTesting
   void registerListener(@NotNull CleanupListener listener) {
     myCleanupListeners.add(listener);
+  }
+
+  private static class BuildStorageInfo {
+    @NotNull
+    final SFinishedBuild myBuild;
+    @NotNull
+    final String myPathPrefix;
+    @NotNull
+    final List<String> myPathsToDelete;
+    @NotNull
+    final Map<String, String> myStorageSettings;
+
+    BuildStorageInfo(@NotNull SFinishedBuild build,
+                     @NotNull String pathPrefix,
+                     @NotNull List<String> pathsToDelete,
+                     @NotNull Map<String, String> storageSettings) {
+      myBuild = build;
+      myPathPrefix = pathPrefix;
+      myPathsToDelete = pathsToDelete;
+      myStorageSettings = storageSettings;
+    }
   }
 
 }
