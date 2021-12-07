@@ -5,12 +5,15 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
@@ -73,7 +76,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
-                       .registerListener(new AbortingListener(UnknownHostException.class) {
+                       .registerListener(new AbortingListener(SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
                          @Override
                          public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                            if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
