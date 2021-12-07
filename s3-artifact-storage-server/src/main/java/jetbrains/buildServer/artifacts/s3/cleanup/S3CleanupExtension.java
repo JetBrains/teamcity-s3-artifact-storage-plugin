@@ -134,18 +134,26 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     if (myBuildStorageInfos == null) {
       return;
     }
-    for (BuildStorageInfo buildStorageInfo : myBuildStorageInfos) {
-      cleanupContext.getCleanupState().throwIfInterrupted();
-      SFinishedBuild build = buildStorageInfo.myBuild;
-      try {
-        doClean(cleanupContext, build, buildStorageInfo.myPathPrefix, buildStorageInfo.myPathsToDelete, buildStorageInfo.myStorageSettings);
-      } catch (IOException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
-        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
-      } catch (RuntimeException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
-        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
+    try {
+      for (BuildStorageInfo buildStorageInfo : myBuildStorageInfos) {
+        cleanupContext.getCleanupState().throwIfInterrupted();
+        cleanupBuildsDataImpl(cleanupContext, buildStorageInfo);
       }
+    } finally {
+      myBuildStorageInfos = null;
+    }
+  }
+
+  private void cleanupBuildsDataImpl(@NotNull BuildCleanupContext cleanupContext, @NotNull BuildStorageInfo buildStorageInfo) {
+    SFinishedBuild build = buildStorageInfo.myBuild;
+    try {
+      doClean(cleanupContext, build, buildStorageInfo.myPathPrefix, buildStorageInfo.myPathsToDelete, buildStorageInfo.myStorageSettings);
+    } catch (IOException e) {
+      CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+      cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
+    } catch (RuntimeException e) {
+      CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+      cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
     }
   }
 
