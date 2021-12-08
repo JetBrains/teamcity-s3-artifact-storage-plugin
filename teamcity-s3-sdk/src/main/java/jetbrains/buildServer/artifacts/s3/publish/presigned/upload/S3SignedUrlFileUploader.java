@@ -89,7 +89,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
       myLogger.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
       normalizedObjectPaths.entrySet()
-                           .parallelStream()
+                           .stream()
                            .map(objectKeyToFileWithArtifactPath -> {
                              try {
                                return forkJoinPool.submit(() -> retrier
