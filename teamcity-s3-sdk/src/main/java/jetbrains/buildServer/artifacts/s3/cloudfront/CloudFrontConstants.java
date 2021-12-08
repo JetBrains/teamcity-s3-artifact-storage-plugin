@@ -23,6 +23,6 @@ public class CloudFrontConstants {
   public static final String S3_CLOUDFRONT_PRINCIPAL_TEMPLATE = "arn:aws:iam::cloudfront:user/CloudFront Origin Access Identity %s";
 
   public static boolean isEnabled() {
-    return TeamCityProperties.getBoolean(S3_ENABLE_CLOUDFRONT_INTEGRATION);
+    return TeamCityProperties.getBooleanOrTrue(S3_ENABLE_CLOUDFRONT_INTEGRATION);
   }
 }
