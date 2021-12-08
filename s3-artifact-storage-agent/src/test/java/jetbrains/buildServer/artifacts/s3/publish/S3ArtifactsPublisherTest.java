@@ -2,21 +2,18 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.ExtensionHolder;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
-import jetbrains.buildServer.artifacts.s3.S3Configuration;
-import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
-import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClientFactory;
 import jetbrains.buildServer.util.EventDispatcher;
-import org.jetbrains.annotations.NotNull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -69,16 +66,9 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
     EventDispatcher<AgentLifeCycleListener> dispatcher = EventDispatcher.create(AgentLifeCycleListener.class);
 
     S3FileUploaderFactory uploaderFactory = Mockito.mock(S3FileUploaderFactory.class);
-    final S3Configuration s3Configuration = Mockito.mock(S3Configuration.class);
-    final S3UploadLogger s3UploadLogger = Mockito.mock(S3UploadLogger.class);
-    S3FileUploader uploader = new S3FileUploader(s3Configuration, s3UploadLogger) {
-      @Override
-      public void upload(@NotNull Map<File, String> filesToUpload,
-                         @NotNull Supplier<String> interrupter,
-                         Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
-        uploadInfos1.forEach(i -> uploadInfoConsumer.accept(i));
-      }
-    };
+    S3FileUploader uploader = Mockito.mock(S3FileUploader.class);
+
+    when(uploader.upload(any(), any())).thenReturn(uploadInfos1);
 
     when(uploaderFactory.create(any(), any(), any())).thenReturn(uploader);
 
@@ -93,15 +83,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
     List<ArtifactDataInstance> value1 = new ArrayList<>(argumentCaptor.getValue());
     assertEquals("First publishing run should have 1 artifact in the list", value1.size(), 1);
 
-    S3FileUploader uploader2 = new S3FileUploader(s3Configuration, s3UploadLogger) {
-      @Override
-      public void upload(@NotNull Map<File, String> filesToUpload,
-                         @NotNull Supplier<String> interrupter,
-                         Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
-        uploadInfos2.forEach(i -> uploadInfoConsumer.accept(i));
-      }
-    };
-    when(uploaderFactory.create(any(), any(), any())).thenReturn(uploader2);
+    when(uploader.upload(any(), any())).thenReturn(uploadInfos2);
 
     publisher.publishFiles(artifacts2);
 

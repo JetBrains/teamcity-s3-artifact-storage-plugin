@@ -23,13 +23,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import jetbrains.buildServer.ExtensionHolder;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
-import jetbrains.buildServer.agent.artifacts.ArtifactDigestInfo;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
+import jetbrains.buildServer.artifacts.ArtifactFileInfo;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
+import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
@@ -43,7 +43,6 @@ import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
@@ -61,7 +60,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
-  private final S3FileUploaderFactory myUploaderFactory;
+  private S3FileUploaderFactory myUploaderFactory;
   @NotNull
   private final ExtensionHolder myExtensionHolder;
 
@@ -90,34 +89,29 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   @Override
   public int publishFiles(@NotNull final Map<File, String> map) throws ArtifactPublishingFailedException {
-    return publishFilesWithDigests(map, null);
+    return publishFilesWithDigests(map).size();
   }
 
   @Override
-  public int publishFilesWithDigests(@NotNull Map<File, String> map, @Nullable Consumer<ArtifactDigestInfo> digestConsumer) throws ArtifactPublishingFailedException {
+  public Collection<ArtifactFileInfo> publishFilesWithDigests(@NotNull Map<File, String> map) throws ArtifactPublishingFailedException {
     final Map<File, String> filteredMap = CollectionsUtil.filterMapByValues(map, s -> myHelper.isEnabled(this, s));
 
+    final List<ArtifactFileInfo> fileInfos = new ArrayList<>();
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final S3FileUploader fileUploader = getFileUploader(build);
       try {
-        fileUploader.upload(filteredMap, () -> {
+        final Collection<FileUploadInfo> upload = fileUploader.upload(filteredMap, () -> {
           final BuildInterruptReason interruptReason = build.getInterruptReason();
           if (interruptReason == null) {
             return null;
           } else {
             return interruptReason.getUserDescription();
           }
-        }, fileUploadInfo -> {
+        });
+        upload.forEach(fileUploadInfo -> {
           myArtifacts.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
-          if (digestConsumer != null) {
-            File uploadFile = new File(fileUploadInfo.getAbsolutePath());
-            try {
-              digestConsumer.accept(new ArtifactDigestInfo(uploadFile, filteredMap.get(uploadFile), fileUploadInfo.getDigest()));
-            } catch (Throwable t) {
-              LOG.warnAndDebugDetails("Failed to send artifact upload information to digest consumer", t);
-            }
-          }
+          fileInfos.add(new ArtifactFileInfo(new File(fileUploadInfo.getAbsolutePath()), "", fileUploadInfo.getSize(), fileUploadInfo.getDigest()));
         });
       } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
@@ -127,7 +121,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       build.getBuildLogger().debug("Uploaded artifacts list to server");
     }
 
-    return filteredMap.size();
+    return fileInfos;
   }
 
   @Override
