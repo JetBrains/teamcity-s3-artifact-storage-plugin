@@ -26,10 +26,12 @@ import com.amazonaws.services.s3.transfer.internal.S3ProgressListener;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
-import java.util.*;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
@@ -53,20 +55,19 @@ public class S3RegularFileUploader extends S3FileUploader {
     super(s3Configuration, logger);
   }
 
-  @NotNull
   @Override
-  public Collection<FileUploadInfo> upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter) throws InvalidSettingsException {
+  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer)
+    throws InvalidSettingsException {
     final String bucketName = myS3Configuration.getBucketName();
 
     try {
       prepareDestination(bucketName, myS3Configuration.getSettingsMap());
-      final List<FileUploadInfo> artifacts = new ArrayList<>();
       LOG.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
       S3Util.withTransferManagerCorrectingRegion(myS3Configuration.getSettingsMap(), transferManager ->
         filesToUpload.entrySet()
                      .stream()
-                     .map(entry -> createRequest(myS3Configuration.getPathPrefix(), bucketName, artifacts, new Pair<>(entry.getValue(), entry.getKey())))
+                     .map(entry -> createRequest(myS3Configuration.getPathPrefix(), bucketName, uploadInfoConsumer, new Pair<>(entry.getValue(), entry.getKey())))
                      .filter(Objects::nonNull)
                      .map(request -> doUpload(transferManager, request))
                      .collect(Collectors.toList()), myS3Configuration.getAdvancedConfiguration()).forEach(upload -> {
@@ -77,7 +78,6 @@ public class S3RegularFileUploader extends S3FileUploader {
           myLogger.info("Got error while waiting for async artifact upload " + e.getMessage());
         }
       });
-      return artifacts;
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       final String details = awsException.getDetails();
@@ -125,7 +125,7 @@ public class S3RegularFileUploader extends S3FileUploader {
   @Nullable
   private PutObjectRequest createRequest(@NotNull final String pathPrefix,
                                          @NotNull final String bucketName,
-                                         @NotNull final List<FileUploadInfo> artifacts,
+                                         @NotNull final Consumer<FileUploadInfo> uploadConsumer,
                                          @NotNull final Pair<String, File> fileWithPath) {
     final File file = fileWithPath.getSecond();
     if (!file.exists()) {
@@ -135,7 +135,7 @@ public class S3RegularFileUploader extends S3FileUploader {
     final String artifactPath = S3Util.normalizeArtifactPath(fileWithPath.getFirst(), file);
     final String objectKey = pathPrefix + artifactPath;
 
-    artifacts.add(new FileUploadInfo(artifactPath, file.getAbsolutePath(), file.length(), null));
+    uploadConsumer.accept(new FileUploadInfo(artifactPath, file.getAbsolutePath(), file.length(), null));
 
     final ObjectMetadata metadata = new ObjectMetadata();
     metadata.setContentType(S3Util.getContentType(file));
