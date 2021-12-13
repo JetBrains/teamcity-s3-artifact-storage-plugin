@@ -48,6 +48,7 @@ public class S3Constants {
   public static final String S3_NUMBER_OF_THREADS = "teamcity.internal.storage.s3.upload.numberOfThreads";
   public static final String S3_ENABLE_CONSISTENCY_CHECK = "teamcity.internal.storage.s3.upload.enableConsistencyCheck";
   public static final String S3_ACL = "storage.s3.acl";
+  public static final String S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER = "teamcity.internal.storage.s3.url.request.keys.header.max.number";
 
   public static final String S3_PATH_PREFIX_SETTING = "storage.s3.bucket.prefix";
 
@@ -58,6 +59,7 @@ public class S3Constants {
   public static final String ERROR_SOURCE_HEADER_NAME = "X-SIGNED-URL-PROVIDER-ERROR-SOURCE";
 
   public static final String S3_REGION_HEADER_NAME = "s3-region";
+  public static final String S3_ARTIFACT_KEYS_HEADER_NAME = "s3-url-request-artifact-keys";
 
   public static final String S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS = "teamcity.internal.storage.s3.metadata.request.timeout.sec";
 

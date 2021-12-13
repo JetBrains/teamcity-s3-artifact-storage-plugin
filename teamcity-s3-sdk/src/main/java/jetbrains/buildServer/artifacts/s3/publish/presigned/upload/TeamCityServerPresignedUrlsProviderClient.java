@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
 import jetbrains.buildServer.artifacts.s3.publish.errors.S3ResponseErrorHandler;
@@ -17,6 +18,7 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.HttpClient;
@@ -29,11 +31,13 @@ import org.apache.http.entity.ContentType;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsProviderClient {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(TeamCityServerPresignedUrlsProviderClient.class);
+  public static final int DEFAULT_ARTIFACT_KEYS_MAX_NUMBER = 10;
   @NotNull
   private final String myPresignedUrlsPostUrl;
   @NotNull
@@ -72,6 +76,8 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys, null));
+      objectKeys.subList(0, TeamCityProperties.getInteger(S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER, DEFAULT_ARTIFACT_KEYS_MAX_NUMBER))
+                .forEach(objectKey -> post.addRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKey));
       final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
       return deserializeResponseV1(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
@@ -107,6 +113,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     final PostMethod post = postTemplate();
     post.setRequestEntity(requestEntity);
     post.setRequestHeader("Content-Type", "application/xml; charset=" + StandardCharsets.UTF_8.name());
+    post.setRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKey);
     final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
     final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
     return presignedUrlListResponseDto.getPresignedUrls()
