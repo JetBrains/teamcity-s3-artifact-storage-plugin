@@ -76,7 +76,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     try {
       final PostMethod post = postTemplate();
       post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys, null));
-      objectKeys.subList(0, TeamCityProperties.getInteger(S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER, DEFAULT_ARTIFACT_KEYS_MAX_NUMBER))
+      int maxHeaders = TeamCityProperties.getInteger(S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER, DEFAULT_ARTIFACT_KEYS_MAX_NUMBER);
+      maxHeaders = Math.min(maxHeaders, objectKeys.size());
+      objectKeys.subList(0, maxHeaders)
                 .forEach(objectKey -> post.addRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKey));
       final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
       return deserializeResponseV1(responseBody).getPresignedUrls();
