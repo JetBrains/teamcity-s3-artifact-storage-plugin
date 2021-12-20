@@ -7,6 +7,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
@@ -131,10 +132,12 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
 
     AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
 
+    final AtomicBoolean listenerCalled = new AtomicBoolean(false);
     cleanupExtension.registerListener(new AbstractCleanupListener() {
       @Override
       public void onError(Exception exception, boolean isRecoverable) {
         if (exception instanceof AmazonS3Exception && isRecoverable) {
+          listenerCalled.set(true);
           s3.createBucket(BUCKET_NAME);
           s3.putObject(BUCKET_NAME, artifactPath, expectedContents);
         }
@@ -145,11 +148,15 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     contextMock.stubs().method("onBuildCleanupError").will(throwException(new RuntimeException("Build cleanup error")));
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
 
+    cleanupExtension.prepareBuildsData(context);
     cleanupExtension.cleanupBuildsData(context);
 
     assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactPath));
+    assertTrue(listenerCalled.get());
 
-    s3.deleteBucket(BUCKET_NAME);
+    if (s3.doesBucketExistV2(BUCKET_NAME)) {
+      s3.deleteBucket(BUCKET_NAME);
+    }
   }
 
 
@@ -187,6 +194,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
 
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
 
+    cleanupExtension.prepareBuildsData(context);
     cleanupExtension.cleanupBuildsData(context);
     assertEquals("Should try deleting object for 6 times", 6, tryCount.get());
   }
