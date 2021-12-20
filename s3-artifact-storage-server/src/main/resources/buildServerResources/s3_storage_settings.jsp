@@ -32,7 +32,7 @@
 <c:set var="bucketNameSelect" value="bucketNameSelect"/>
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 
-<c:set var="cloudfrontFeatureOn" value="${intprop:getBoolean('teamcity.s3.use.cloudfront.enabled')}"/>
+<c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
 <c:set var="cloudFrontDistributionEmptyOption" value="--Select distribution --"/>
 <c:set var="cloudFrontKeyPairEmptyOption" value="-- Select key pair --"/>
 <c:set var="cloudfrontDistributionSelect" value="cloudfrontDistributionSelect"/>
