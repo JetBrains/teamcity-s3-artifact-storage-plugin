@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -47,10 +46,8 @@ import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUrlFileUploader.class.getName());
-  public static final int MAX_VERBOSE_UPLOAD_LOGS = 10;
   @NotNull
   private final Supplier<PresignedUrlsProviderClient> myPresignedUrlsProviderClient;
-  private final AtomicInteger logCounter = new AtomicInteger(0);
 
   public S3SignedUrlFileUploader(@NotNull final S3Configuration s3Configuration,
                                  @NotNull final S3UploadLogger s3UploadLogger,
@@ -87,9 +84,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                                myS3Configuration.getAdvancedConfiguration(),
                                                                                normalizedObjectPaths.keySet())) {
 
-      myLogger.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
+      LOGGER.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
       normalizedObjectPaths.entrySet()
-                           .stream()
+                           .parallelStream()
                            .map(objectKeyToFileWithArtifactPath -> {
                              try {
                                return forkJoinPool.submit(() -> retrier
@@ -99,7 +96,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                    myS3Configuration.getAdvancedConfiguration(),
                                                                    uploadManager,
                                                                    lowLevelS3Client,
-                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, logCounter))));
+                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
                              } catch (RejectedExecutionException e) {
                                if (isPoolTerminating(forkJoinPool)) {
                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
@@ -193,16 +190,14 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     private final S3SignedUploadManager myUploadManager;
     @NotNull
     private final Supplier<String> myInterrupter;
-    private final AtomicInteger myLogCounter;
     private S3PresignedUpload myUpload;
 
     private PresignedUploadProgressListenerImpl(@NotNull final S3UploadLogger uploadLogger,
                                                 @NotNull final S3SignedUploadManager uploadManager,
-                                                @NotNull final Supplier<String> interrupter, AtomicInteger logCounter) {
+                                                @NotNull final Supplier<String> interrupter) {
       myS3UploadLogger = uploadLogger;
       myUploadManager = uploadManager;
       myInterrupter = interrupter;
-      myLogCounter = logCounter;
     }
 
     @Override
@@ -212,44 +207,36 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onPartUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error: " + e.getMessage());
+      myS3UploadLogger.partUploadFailed(myUpload.description(), e.getMessage());
     }
 
     @Override
     public void onPartUploadSuccess(@NotNull String uploadUrl) {
-      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
-        myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " at " + myUpload.getFinishedPercentage() + "%");
-      }
+      myS3UploadLogger.partUploadFinished(myUpload.description(), uploadUrl, myUpload.getFinishedPercentage());
     }
 
     @Override
     public void onFileUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + e.getMessage());
+      myS3UploadLogger.uploadFailed(myUpload.description(), e.getMessage());
       myUploadManager.onUploadFailed(myUpload);
     }
 
     @Override
     public void onFileUploadSuccess(@NotNull String uploadUrl) {
-      if (myLogCounter.incrementAndGet() < MAX_VERBOSE_UPLOAD_LOGS) {
-        myS3UploadLogger.debug("Artifact upload " + myUpload.description() + " to " + uploadUrl + " is finished");
-      }
+      myS3UploadLogger.uploadFinished(myUpload.description(), uploadUrl);
       myUploadManager.onUploadSuccess(myUpload);
     }
 
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
-      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
-        myS3UploadLogger.debug("Started uploading " + myUpload.description());
-      }
+      myS3UploadLogger.uploadStarted(myUpload.description());
     }
 
     @Override
     public void beforePartUploadStarted(int partNumber) {
       checkInterrupted();
-      if (myLogCounter.get() < MAX_VERBOSE_UPLOAD_LOGS) {
-        myS3UploadLogger.debug(String.format("Started uploading part #%d of %s", partNumber, myUpload.description()));
-      }
+      myS3UploadLogger.partUploadStarted(myUpload.description(), partNumber);
     }
 
     private void checkInterrupted() {
