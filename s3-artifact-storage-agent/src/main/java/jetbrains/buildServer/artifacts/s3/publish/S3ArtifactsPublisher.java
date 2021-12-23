@@ -20,10 +20,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.util.text.DateFormatUtil;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 import jetbrains.buildServer.ExtensionHolder;
 import jetbrains.buildServer.agent.*;
@@ -60,7 +57,8 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private final AgentArtifactHelper myHelper;
   private final BuildAgentConfiguration myBuildAgentConfiguration;
 
-  private final List<ArtifactDataInstance> myArtifacts = new ArrayList<>();
+  private final List<ArtifactDataInstance> myArtifacts = Collections.synchronizedList(new ArrayList<>());
+
   private S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
