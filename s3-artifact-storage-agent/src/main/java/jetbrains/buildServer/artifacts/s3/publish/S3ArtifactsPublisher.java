@@ -17,9 +17,10 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.util.text.DateFormatUtil;
 import java.io.File;
 import java.io.IOException;
+import java.text.MessageFormat;
+import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
 import jetbrains.buildServer.ExtensionHolder;
@@ -52,6 +53,9 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private static final Logger LOG = Logger.getInstance(S3ArtifactsPublisher.class.getName());
   private static final String ERROR_PUBLISHING_ARTIFACTS_LIST = "Error publishing artifacts list";
   public static final int MAX_UPLOAD_LOG_MESSAGES = 10;
+
+  public static final String MILLIS_FORMAT = "{0,choice, 0#zero milliseconds|1#one millisecond|2#{0,number} milliseconds}";
+  public static final String SECONDS_FORMAT = "{0,choice, 0#zero seconds|1#one second|2#{0,number} seconds}";
 
   private final CurrentBuildTracker myTracker;
   private final AgentArtifactHelper myHelper;
@@ -126,33 +130,45 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
       publishArtifactsList(build);
-      if (statisticsLogger.size() > MAX_UPLOAD_LOG_MESSAGES) {
+      final Collection<StatisticsLogger.UploadStatistics> statistics = statisticsLogger.getAllRecords();
+      if (statistics.size() > MAX_UPLOAD_LOG_MESSAGES) {
         final StatisticsLogger.SummaryStatistics stats = statisticsLogger.getSummaryStatistics();
         logger.debug(
           String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for first %d files",
                         stats.getFileCount(),
-                        DateFormatUtil.formatDuration(stats.getTotalDuration().toMillis()),
-                        DateFormatUtil.formatDuration(stats.getAverageDuration().toMillis()),
+                        formatDuration(stats.getTotalDuration()),
+                        formatDuration(stats.getAverageDuration()),
                         stats.getErrors().size(),
                         MAX_UPLOAD_LOG_MESSAGES
           ));
-        logStatisticsForEach(logger, new ArrayList<>(statisticsLogger.getAllRecords()).subList(0, MAX_UPLOAD_LOG_MESSAGES));
+        logStatisticsForEach(logger, new ArrayList<>(statistics).subList(0, MAX_UPLOAD_LOG_MESSAGES));
       } else {
-        logStatisticsForEach(logger, statisticsLogger.getAllRecords());
+        logStatisticsForEach(logger, statistics);
       }
     }
 
     return filteredMap.size();
   }
 
-  private void logStatisticsForEach(@NotNull FlowLogger logger, Collection<StatisticsLogger.UploadStatistics> statistics) {
+  private void logStatisticsForEach(@NotNull FlowLogger logger, @NotNull Collection<StatisticsLogger.UploadStatistics> statistics) {
     for (StatisticsLogger.UploadStatistics stat : statistics) {
       logger.debug(String.format("Uploaded %s. Total upload time: %s. Number of errors: %d",
                                  stat.getObjectKey(),
-                                 DateFormatUtil.formatDuration(stat.getDuration().toMillis()),
+                                 formatDuration(stat.getDuration()),
                                  stat.getErrors().size()
       ));
     }
+  }
+
+  @NotNull
+  private static String formatDuration(@NotNull Duration duration) {
+    String format;
+    if (duration.getSeconds() < 1) {
+      format = MessageFormat.format(MILLIS_FORMAT, duration.toMillis());
+    } else {
+      format = MessageFormat.format(SECONDS_FORMAT, duration.getSeconds());
+    }
+    return format;
   }
 
   @Override
