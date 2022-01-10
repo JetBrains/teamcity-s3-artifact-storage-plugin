@@ -27,5 +27,6 @@
     <orderEntry type="library" name="aws-sdk-services" level="project" />
     <orderEntry type="library" name="commons-httpclient" level="project" />
     <orderEntry type="library" name="jackson" level="project" />
+    <orderEntry type="library" scope="TEST" name="org.mockito:mockito-core" level="project" />
   </component>
 </module>

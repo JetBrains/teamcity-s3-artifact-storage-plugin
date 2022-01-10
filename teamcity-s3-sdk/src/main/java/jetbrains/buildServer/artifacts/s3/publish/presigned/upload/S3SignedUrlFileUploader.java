@@ -18,12 +18,15 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinTask;
-import java.util.concurrent.RejectedExecutionException;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -33,13 +36,12 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.S3FileUploader;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableForkJoinPoolAdapter;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableFixedThreadPoolExecutor;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
 
@@ -48,18 +50,19 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   private static final Logger LOGGER = Logger.getInstance(S3SignedUrlFileUploader.class.getName());
   @NotNull
   private final Supplier<PresignedUrlsProviderClient> myPresignedUrlsProviderClient;
+  private final S3PresignedUploadFactory myUploadFactory;
 
   public S3SignedUrlFileUploader(@NotNull final S3Configuration s3Configuration,
                                  @NotNull final S3UploadLogger s3UploadLogger,
-                                 @NotNull final Supplier<PresignedUrlsProviderClient> presignedUrlsProviderClient) {
+                                 @NotNull final Supplier<PresignedUrlsProviderClient> presignedUrlsProviderClient,
+                                 @NotNull final S3PresignedUploadFactory uploadFactory) {
     super(s3Configuration, s3UploadLogger);
     myPresignedUrlsProviderClient = presignedUrlsProviderClient;
+    myUploadFactory = uploadFactory;
   }
 
   @Override
-  public void upload(@NotNull Map<File, String> filesToUpload,
-                     @NotNull Supplier<String> interrupter,
-                     Consumer<FileUploadInfo> uploadInfoConsumer) {
+  public void upload(@NotNull Map<File, String> filesToUpload, @NotNull Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
@@ -76,68 +79,67 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       normalizedObjectPaths.put(objectKey, FileWithArtifactPath.create(artifactPath, file));
     }
 
-    final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
+    final jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration advancedConfiguration = myS3Configuration.getAdvancedConfiguration();
+    final Retrier retrier = defaultRetrier(advancedConfiguration.getRetriesNum(), advancedConfiguration.getRetryDelay(), LOGGER);
 
-    try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
+    try (final CloseableFixedThreadPoolExecutor executor = new CloseableFixedThreadPoolExecutor(advancedConfiguration.getNThreads(), "S3 Artifact upload",
+                                                                                                true);
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration);
-         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
-                                                                               myS3Configuration.getAdvancedConfiguration(),
-                                                                               normalizedObjectPaths.keySet())) {
+         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(), advancedConfiguration, normalizedObjectPaths.keySet())) {
 
       LOGGER.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
-      normalizedObjectPaths.entrySet()
-                           .stream()
-                           .map(objectKeyToFileWithArtifactPath -> {
-                             try {
-                               return forkJoinPool.submit(() -> retrier
-                                 .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
-                                                                   objectKeyToFileWithArtifactPath.getKey(),
-                                                                   objectKeyToFileWithArtifactPath.getValue().getFile(),
-                                                                   myS3Configuration.getAdvancedConfiguration(),
-                                                                   uploadManager,
-                                                                   lowLevelS3Client,
-                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
-                             } catch (RejectedExecutionException e) {
-                               if (isPoolTerminating(forkJoinPool)) {
-                                 LOGGER.debug("Artifact publishing rejected by pool shutdown");
-                               } else {
-                                 LOGGER.warnAndDebugDetails("Artifact publishing rejected by pool", e);
-                               }
-                               return null;
-                             }
-                           })
-                           .filter(Objects::nonNull)
-                           .map((ForkJoinTask<FileUploadInfo> future) -> waitForCompletion(future, e -> {
-                             logPublishingError(e);
-                             if (isPublishingInterruptedException(e)) {
-                               shutdownPool(forkJoinPool);
-                             } else {
-                               ExceptionUtil.rethrowAsRuntimeException(e);
-                             }
-                           }))
-                           .filter(Objects::nonNull)
-                           .forEach(uploadInfo -> {
-                             try {
-                               uploadInfoConsumer.accept(uploadInfo);
-                             } catch (Throwable t) {
-                               LOGGER.warnAndDebugDetails("Failed to send artifact upload information to consumer", t);
-                             }
-                           });
-    } catch (Throwable th) {
+
+      final List<CompletableFuture<Void>> futures = new ArrayList<>();
+      final PresignedUploadProgressListenerImpl progressListener = new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter);
+
+      for (Map.Entry<String, FileWithArtifactPath> objectKeyToFileWithArtifactPath : normalizedObjectPaths.entrySet()) {
+        final String artifactPath = objectKeyToFileWithArtifactPath.getValue().getArtifactPath();
+        final String key = objectKeyToFileWithArtifactPath.getKey();
+        final File file = objectKeyToFileWithArtifactPath.getValue().getFile();
+
+        final Callable<FileUploadInfo> upload = myUploadFactory.create(artifactPath, key, file, advancedConfiguration, uploadManager, lowLevelS3Client, progressListener);
+
+        futures.add(CompletableFuture.supplyAsync(() -> retrier.execute(upload), executor).handleAsync(handleUploadResult(uploadInfoConsumer, executor)));
+      }
+      CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+    } catch (Throwable e) {
+      Throwable th = e instanceof ExecutionException ? e.getCause() : e;
       if (isPublishingInterruptedException(th)) {
         LOGGER.info("Publishing is interrupted " + th.getMessage(), th);
+      } else if (th instanceof FileUploadFailedException) {
+        throw (FileUploadFailedException)th;
       } else {
-        if (th instanceof FileUploadFailedException) {
-          throw th;
-        }
         LOGGER.warnAndDebugDetails("Got error while uploading artifacts " + th.getMessage(), th);
         throw new FileUploadFailedException(th.getMessage(), false, th);
       }
     }
   }
 
-  private boolean isPoolTerminating(CloseableForkJoinPoolAdapter forkJoinPool) {
-    return forkJoinPool.isShutdown() || forkJoinPool.isTerminated() || forkJoinPool.isTerminating();
+  @NotNull
+  private BiFunction<FileUploadInfo, Throwable, Void> handleUploadResult(Consumer<FileUploadInfo> uploadInfoConsumer,
+                                                                         CloseableFixedThreadPoolExecutor executor) {
+    return (uploadInfo, e) -> {
+      if (e != null) {
+        Throwable th = e instanceof CompletionException ? e.getCause() : e;
+        logPublishingError(th);
+        if (isPublishingInterruptedException(th)) {
+          shutdownExecutor(executor);
+        } else {
+          ExceptionUtil.rethrowAsRuntimeException(th);
+        }
+      } else {
+        try {
+          uploadInfoConsumer.accept(uploadInfo);
+        } catch (Throwable t) {
+          LOGGER.warnAndDebugDetails("Failed to send artifact upload information to consumer", t);
+        }
+      }
+      return null;
+    };
+  }
+
+  private boolean isExecutorTerminating(CloseableFixedThreadPoolExecutor executor) {
+    return executor.isShutdown() || executor.isTerminated() || executor.isTerminating();
   }
 
   private void logPublishingError(@NotNull final Throwable e) {
@@ -158,23 +160,10 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     return ExceptionUtil.getCause(e, InterruptedException.class) != null || ExceptionUtil.getCause(e, PublishingInterruptedException.class) != null;
   }
 
-  private void shutdownPool(@NotNull final CloseableForkJoinPoolAdapter pool) {
-    if (!isPoolTerminating(pool)) {
+  private void shutdownExecutor(@NotNull final CloseableFixedThreadPoolExecutor executor) {
+    if (!isExecutorTerminating(executor)) {
       LOGGER.debug("Shutting down artifact publishing pool");
-      pool.shutdownNow();
-    }
-  }
-
-  @Nullable
-  private FileUploadInfo waitForCompletion(@NotNull final ForkJoinTask<FileUploadInfo> future, @NotNull final Consumer<Throwable> onError) {
-    try {
-      return future.get();
-    } catch (final ExecutionException e) {
-      onError.accept(e.getCause());
-      return null;
-    } catch (Throwable e) {
-      onError.accept(e);
-      return null;
+      executor.shutdownNow();
     }
   }
 

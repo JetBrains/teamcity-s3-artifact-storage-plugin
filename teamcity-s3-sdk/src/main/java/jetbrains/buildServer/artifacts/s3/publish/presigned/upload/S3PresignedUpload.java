@@ -57,13 +57,13 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @Nullable
   private String[] myEtags;
 
-  private S3PresignedUpload(@NotNull final String artifactPath,
-                            @NotNull final String objectKey,
-                            @NotNull final File file,
-                            @NotNull final S3Util.S3AdvancedConfiguration configuration,
-                            @NotNull final S3SignedUploadManager s3SignedUploadManager,
-                            @NotNull final LowLevelS3Client lowLevelS3Client,
-                            @NotNull final PresignedUploadProgressListener progressListener) {
+  S3PresignedUpload(@NotNull final String artifactPath,
+                    @NotNull final String objectKey,
+                    @NotNull final File file,
+                    @NotNull final S3Util.S3AdvancedConfiguration configuration,
+                    @NotNull final S3SignedUploadManager s3SignedUploadManager,
+                    @NotNull final LowLevelS3Client lowLevelS3Client,
+                    @NotNull final PresignedUploadProgressListener progressListener) {
     myArtifactPath = artifactPath;
     myObjectKey = objectKey;
     myFile = file;
@@ -91,19 +91,6 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                          }
                        })
                        .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
-  }
-
-  @NotNull
-  public static S3PresignedUpload create(@NotNull final String artifactPath,
-                                         @NotNull final String objectKey,
-                                         @NotNull final File file,
-                                         @NotNull final S3Util.S3AdvancedConfiguration configuration,
-                                         @NotNull final S3SignedUploadManager s3SignedUploadManager,
-                                         @NotNull final LowLevelS3Client lowLevelS3Client,
-                                         @NotNull final PresignedUploadProgressListener progressListener) {
-    final S3PresignedUpload s3PresignedUpload = new S3PresignedUpload(artifactPath, objectKey, file, configuration, s3SignedUploadManager, lowLevelS3Client, progressListener);
-    progressListener.setUpload(s3PresignedUpload);
-    return s3PresignedUpload;
   }
 
   @Override
