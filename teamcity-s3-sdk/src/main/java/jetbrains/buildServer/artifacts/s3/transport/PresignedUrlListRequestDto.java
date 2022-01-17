@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.transport;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -25,22 +26,19 @@ public class PresignedUrlListRequestDto {
   }
 
   @NotNull
-  public static PresignedUrlListRequestDto forObjectKeysWithMethod(@NotNull final Collection<String> objectKeys, @NotNull final String httpMethod) {
-    return new PresignedUrlListRequestDto(objectKeys.stream()
-                                                    .map(objectKey -> new PresignedUrlRequestDto(objectKey, httpMethod))
-                                                    .collect(Collectors.toList()),
-                                          true);
+  public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @NotNull String digest) {
+    return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, Collections.singletonList(digest))), true);
   }
 
   @NotNull
-  public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey, final int nParts) {
-    final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, nParts);
+  public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey, @NotNull final List<String> digests) {
+    final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, digests);
     return new PresignedUrlListRequestDto(Collections.singleton(request), true);
   }
 
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeys(@NotNull final Collection<String> objectKeys) {
-    return new PresignedUrlListRequestDto(objectKeys.stream().map(objectKey -> PresignedUrlRequestDto.from(objectKey, 1)).collect(Collectors.toSet()), false);
+    return new PresignedUrlListRequestDto(objectKeys.stream().map(objectKey -> PresignedUrlRequestDto.from(objectKey)).collect(Collectors.toSet()), false);
   }
 
   public Collection<PresignedUrlRequestDto> getPresignedUrlRequests() {

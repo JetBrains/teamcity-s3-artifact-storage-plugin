@@ -2,7 +2,7 @@
 <suite name="S3 Agent Tests">
   <test name="S3 agent tests">
     <classes>
-      <class name="jetbrains.buildServer.artifacts.s3.publish.presigned.util.RepeatableFilePartRequestEntityTest"/>
+      <class name="jetbrains.buildServer.artifacts.s3.publish.presigned.util.S3MultipartUploadFileSplitterTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisherTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.publish.logger.StatisticsLoggerTest"/>
     </classes>

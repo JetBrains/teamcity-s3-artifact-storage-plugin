@@ -11,13 +11,13 @@ import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUrlsProviderClient extends AutoCloseable {
   @NotNull
-  PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String httpMethod);
+  PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String digest);
 
   @NotNull
   Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull List<String> objectKey);
 
   @NotNull
-  PresignedUrlDto getMultipartPresignedUrl(@NotNull String objectKey, int nParts);
+  PresignedUrlDto getMultipartPresignedUrl(@NotNull String objectKey, @NotNull List<String> digests);
 
   void completeMultipartUpload(@NotNull MultipartUploadCompleteRequestDto multipartUploadComplete);
 

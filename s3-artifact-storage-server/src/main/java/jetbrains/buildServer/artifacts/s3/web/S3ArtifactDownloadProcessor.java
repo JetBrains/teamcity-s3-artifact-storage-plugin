@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.ExtensionsProvider;
@@ -31,8 +33,10 @@ import jetbrains.buildServer.filestorage.cloudfront.CloudFrontEnabledPresignedUr
 import jetbrains.buildServer.filestorage.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.filestorage.cloudfront.RequestMetadata;
 import jetbrains.buildServer.serverSide.BuildPromotion;
+import jetbrains.buildServer.serverSide.ProjectManagerEx;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
+import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import jetbrains.buildServer.ssh.ServerSshKeyManager;
 import jetbrains.buildServer.web.ContentSecurityPolicyConfig;
 import jetbrains.buildServer.web.openapi.artifacts.ArtifactDownloadProcessor;
@@ -53,13 +57,16 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private final CloudFrontEnabledPresignedUrlProvider myPreSignedUrlProvider;
   private final ExtensionsProvider myExtensionsProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
+  private ProjectManagerEx myProjectManager;
 
   public S3ArtifactDownloadProcessor(@NotNull CloudFrontEnabledPresignedUrlProvider preSignedUrlProvider,
                                      @NotNull ExtensionsProvider extensionsProvider,
-                                     @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig) {
+                                     @NotNull ContentSecurityPolicyConfig contentSecurityPolicyConfig,
+                                     @NotNull ProjectManagerEx projectManager) {
     myPreSignedUrlProvider = preSignedUrlProvider;
     myExtensionsProvider = extensionsProvider;
     myContentSecurityPolicyConfig = contentSecurityPolicyConfig;
+    myProjectManager = projectManager;
   }
 
   @NotNull
@@ -78,10 +85,17 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
+    Map<String, String> allSettings = new HashMap<>();
+    final ProjectEx project = myProjectManager.findProjectById(buildPromotion.getProjectId());
+    if (project != null) {
+      allSettings.putAll(project.getParameters());
+    }
+    allSettings.putAll(storedBuildArtifactInfo.getStorageSettings());
+
     final String objectKey = pathPrefix + artifactData.getPath();
     String requestRegion = httpServletRequest.getHeader(S3Constants.S3_REGION_HEADER_NAME);
     String userAgent = WebUtil.getUserAgent(httpServletRequest);
-    CloudFrontSettings settings = myPreSignedUrlProvider.settings(storedBuildArtifactInfo.getStorageSettings(), RequestMetadata.from(requestRegion, userAgent));
+    CloudFrontSettings settings = myPreSignedUrlProvider.settings(allSettings, RequestMetadata.from(requestRegion, userAgent));
 
     String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
 

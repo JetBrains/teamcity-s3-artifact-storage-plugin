@@ -13,10 +13,11 @@ public interface CloudFrontEnabledPresignedUrlProvider {
                              @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
-  String generateUploadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
+  String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
   String generateUploadUrlForPart(@NotNull String objectKey,
+                                  @Nullable String digest,
                                   int nPart,
                                   @NotNull String uploadId,
                                   @NotNull CloudFrontSettings settings) throws IOException;

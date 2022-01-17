@@ -31,10 +31,10 @@ public interface S3PresignedUrlProvider {
   String generateDownloadUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
 
   @NotNull
-  String generateUploadUrl(@NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
+  String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull S3Settings settings) throws IOException;
 
   @NotNull
-  String generateUploadUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull S3Settings settings) throws IOException;
+  String generateUploadUrlForPart(@NotNull String objectKey, @Nullable String digest, int nPart, @NotNull String uploadId, @NotNull S3Settings settings) throws IOException;
 
   void finishMultipartUpload(@NotNull String uploadId, @NotNull String objectKey, @NotNull S3Settings settings, @Nullable String[] etags, boolean isSuccessful) throws IOException;
 

@@ -17,7 +17,6 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.AmazonServiceException;
-import com.amazonaws.HttpMethod;
 import com.amazonaws.SdkBaseException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.intellij.openapi.diagnostic.Logger;
@@ -25,6 +24,8 @@ import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,8 +45,10 @@ import jetbrains.buildServer.filestorage.cloudfront.CloudFrontEnabledPresignedUr
 import jetbrains.buildServer.filestorage.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.filestorage.cloudfront.RequestMetadata;
 import jetbrains.buildServer.http.SimpleCredentials;
+import jetbrains.buildServer.serverSide.ProjectManagerEx;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
+import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -76,14 +79,18 @@ public class S3PreSignedUrlController extends BaseController {
   private final CloudFrontEnabledPresignedUrlProvider myPreSignedManager;
   @NotNull
   private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
+  @NotNull
+  private final ProjectManagerEx myProjectManager;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsManagerEx runningBuildsManager,
                                   @NotNull CloudFrontEnabledPresignedUrlProvider preSignedManager,
-                                  @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider) {
+                                  @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider,
+                                  @NotNull ProjectManagerEx projectManager) {
     myRunningBuildsManager = runningBuildsManager;
     myPreSignedManager = preSignedManager;
     myStorageSettingsProvider = storageSettingsProvider;
+    myProjectManager = projectManager;
     web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
   }
 
@@ -183,7 +190,15 @@ public class S3PreSignedUrlController extends BaseController {
     }
     String requestRegion = request.getHeader(S3Constants.S3_REGION_HEADER_NAME);
     String userAgent = WebUtil.getUserAgent(request);
-    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings, RequestMetadata.from(requestRegion, userAgent)));
+
+    Map<String, String> allSettings = new HashMap<>();
+    final ProjectEx project = myProjectManager.findProjectById(runningBuild.getProjectId());
+    if (project != null) {
+      allSettings.putAll(project.getParameters());
+    }
+    allSettings.putAll(storageSettings);
+
+    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(allSettings, RequestMetadata.from(requestRegion, userAgent)));
   }
 
   @NotNull
@@ -200,22 +215,36 @@ public class S3PreSignedUrlController extends BaseController {
                                  @NotNull final CloudFrontSettings settings) {
     final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
-        if (request.getNumberOfParts() > 1) {
+        if (request.getDigests() != null && request.getDigests().size() > 1) {
+          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          final List<PresignedUrlPartDto> presignedUrls = new ArrayList<>();
+          for (int i = 0; i < request.getDigests().size(); i++) {
+            final String digest = request.getDigests().get(i);
+            int partNumber = i + 1;
+            try {
+              final String url = myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), digest, partNumber, uploadId, settings);
+              presignedUrls.add(new PresignedUrlPartDto(url, partNumber));
+            } catch (IOException e) {
+              LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
+              throw new RuntimeException(e);
+            }
+          }
+          return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
+        } else if (request.getNumberOfParts() > 1) {
           final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
           final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
             try {
-              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), partNumber, uploadId, settings), partNumber);
+              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);
             } catch (IOException e) {
               LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
               throw new RuntimeException(e);
             }
           }).collect(Collectors.toList());
           return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
-        } else if (request.getHttpMethod() != null) {
-          return PresignedUrlDto.singlePart(request.getObjectKey(),
-                                            myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings));
+        } else if (request.getDigests() != null && request.getDigests().size() == 1) {
+          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
         } else {
-          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
+          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
         }
       } catch (Exception e) {
         LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url: " + e.getMessage(), e);
@@ -230,7 +259,7 @@ public class S3PreSignedUrlController extends BaseController {
                                  @NotNull final CloudFrontSettings settings) {
     return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.getPresignedUrlRequests().stream().map(request -> {
       try {
-        return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), settings));
+        return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
       } catch (IOException e) {
         LOG.infoAndDebugDetails("Got exception while generating presigned URL: " + e.getMessage(), e);
         throw new RuntimeException(e);

@@ -9,17 +9,17 @@ import jetbrains.buildServer.agent.IOUtil;
 import org.testng.annotations.Test;
 
 @Test
-public class RepeatableFilePartRequestEntityTest extends BaseTestCase {
-  public void testWriteRequest() throws IOException {
+public class S3MultipartUploadFileSplitterTest extends BaseTestCase {
+  public void testSplitFile() throws IOException {
     final File file = new File(getClass().getClassLoader().getResource("artifacts/file.zip").getFile());
     final File out = Files.createTempFile("tmp", "zip").toFile();
 
     try (final FileOutputStream os = new FileOutputStream(out)) {
       final long length = file.length();
-      final long part = length / 3;
-      for (int i = 0; i < 3; i++) {
-        final long contentLength = Math.min(part, file.length() - part * i);
-        new RepeatableFilePartRequestEntity(file, i * part, contentLength).writeRequest(os);
+
+      final S3MultipartUploadFileSplitter splitter = new S3MultipartUploadFileSplitter(length / 3);
+      for (byte[] p : splitter.getFileParts(file, 3).first) {
+        os.write(p);
       }
     }
 

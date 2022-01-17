@@ -51,27 +51,29 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   @NotNull
   @Override
   public String generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(httpMethod, objectKey, null, null, settings);
+    return generateUrl(httpMethod, objectKey, null, null, null, settings);
   }
 
   @NotNull
   @Override
-  public String generateUploadUrl(@NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, null, null, settings);
+  public String generateUploadUrl(@NotNull final String objectKey, @Nullable final String digest, @NotNull final S3Settings settings) throws IOException {
+    return generateUrl(HttpMethod.PUT, objectKey, digest, null, null, settings);
   }
 
   @NotNull
   @Override
   public String generateUploadUrlForPart(@NotNull final String objectKey,
+                                         @Nullable String digest,
                                          final int nPart,
                                          @NotNull final String uploadId,
                                          @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, nPart, uploadId, settings);
+    return generateUrl(HttpMethod.PUT, objectKey, digest, nPart, uploadId, settings);
   }
 
   @NotNull
   private String generateUrl(@NotNull final HttpMethod httpMethod,
                              @NotNull final String objectKey,
+                             @Nullable String digest,
                              @Nullable final Integer nPart,
                              @Nullable final String uploadId,
                              @NotNull final S3Settings settings) throws IOException {
@@ -83,6 +85,9 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       }
       if (uploadId != null) {
         request.addRequestParameter("uploadId", uploadId);
+      }
+      if (S3Util.isConsistencyCheckEnabled(settings.toRawSettings()) && digest != null) {
+        request.setContentMd5(digest);
       }
 
       if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {

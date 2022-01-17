@@ -40,7 +40,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public String generateUploadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException {
+  public String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull CloudFrontSettings settings) throws IOException {
     String preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
@@ -48,7 +48,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     }
 
     if (preSignedUrl == null) {
-      preSignedUrl = myS3Provider.generateUploadUrl(objectKey, settings);
+      preSignedUrl = myS3Provider.generateUploadUrl(objectKey, digest, settings);
     }
     return preSignedUrl;
   }
@@ -56,6 +56,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
   @Override
   @NotNull
   public String generateUploadUrlForPart(@NotNull String objectKey,
+                                         @Nullable String digest,
                                          int nPart,
                                          @NotNull String uploadId,
                                          @NotNull CloudFrontSettings settings) throws IOException {
@@ -66,7 +67,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     }
 
     if (preSignedUrl == null) {
-      preSignedUrl = myS3Provider.generateUploadUrlForPart(objectKey, nPart, uploadId, settings);
+      preSignedUrl = myS3Provider.generateUploadUrlForPart(objectKey, digest, nPart, uploadId, settings);
     }
     return preSignedUrl;
   }
