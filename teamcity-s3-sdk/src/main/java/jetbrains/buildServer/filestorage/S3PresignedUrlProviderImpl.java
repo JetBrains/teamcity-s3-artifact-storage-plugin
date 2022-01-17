@@ -86,7 +86,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       if (uploadId != null) {
         request.addRequestParameter("uploadId", uploadId);
       }
-      if (S3Util.isConsistencyCheckEnabled(settings.toRawSettings()) && digest != null) {
+      if (S3Util.isConsistencyCheckEnabled(settings.getProjectSettings()) && digest != null) {
         request.setContentMd5(digest);
       }
 
@@ -162,19 +162,22 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   }
 
   @NotNull
-  public S3Settings settings(@NotNull final Map<String, String> rawSettings) {
+  public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     if (S3Util.getBucketName(rawSettings) == null) {
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
-    return new S3SettingsImpl(rawSettings);
+    return new S3SettingsImpl(rawSettings, projectSettings);
   }
 
   private static class S3SettingsImpl implements S3Settings {
     @NotNull
     private final Map<String, String> mySettings;
+    @NotNull
+    private final Map<String, String> myProjectSettings;
 
-    private S3SettingsImpl(@NotNull final Map<String, String> params) {
+    private S3SettingsImpl(@NotNull final Map<String, String> params, @NotNull Map<String, String> projectSettings) {
       mySettings = params;
+      myProjectSettings = projectSettings;
     }
 
     @NotNull
@@ -197,6 +200,12 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @NotNull
     public Map<String, String> toRawSettings() {
       return new HashMap<>(mySettings);
+    }
+
+    @Override
+    @NotNull
+    public Map<String, String> getProjectSettings() {
+      return new HashMap<>(myProjectSettings);
     }
   }
 }

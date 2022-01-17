@@ -42,6 +42,6 @@ public interface S3PresignedUrlProvider {
   String startMultipartUpload(@NotNull String objectKey, @NotNull S3Settings settings) throws Exception;
 
   @NotNull
-  S3Settings settings(@NotNull Map<String, String> rawSettings);
+  S3Settings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings);
 
 }

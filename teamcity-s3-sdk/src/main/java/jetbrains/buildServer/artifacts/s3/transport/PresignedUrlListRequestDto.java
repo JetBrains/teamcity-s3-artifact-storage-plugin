@@ -9,6 +9,7 @@ import javax.xml.bind.annotation.XmlAccessorType;
 import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 @XmlRootElement(name = "presignedUrlListRequest")
 @XmlAccessorType(XmlAccessType.PROPERTY)
@@ -26,7 +27,7 @@ public class PresignedUrlListRequestDto {
   }
 
   @NotNull
-  public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @NotNull String digest) {
+  public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @Nullable String digest) {
     return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, Collections.singletonList(digest))), true);
   }
 

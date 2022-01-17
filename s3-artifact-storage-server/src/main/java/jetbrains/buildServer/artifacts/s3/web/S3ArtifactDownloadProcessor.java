@@ -57,7 +57,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
   private final CloudFrontEnabledPresignedUrlProvider myPreSignedUrlProvider;
   private final ExtensionsProvider myExtensionsProvider;
   private final ContentSecurityPolicyConfig myContentSecurityPolicyConfig;
-  private ProjectManagerEx myProjectManager;
+  private final ProjectManagerEx myProjectManager;
 
   public S3ArtifactDownloadProcessor(@NotNull CloudFrontEnabledPresignedUrlProvider preSignedUrlProvider,
                                      @NotNull ExtensionsProvider extensionsProvider,
@@ -85,17 +85,17 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
 
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
-    Map<String, String> allSettings = new HashMap<>();
+    Map<String, String> projectParameters = new HashMap<>();
     final ProjectEx project = myProjectManager.findProjectById(buildPromotion.getProjectId());
     if (project != null) {
-      allSettings.putAll(project.getParameters());
+      projectParameters.putAll(project.getParameters());
     }
-    allSettings.putAll(storedBuildArtifactInfo.getStorageSettings());
+    final Map<String, String> storageSettings = storedBuildArtifactInfo.getStorageSettings();
 
     final String objectKey = pathPrefix + artifactData.getPath();
     String requestRegion = httpServletRequest.getHeader(S3Constants.S3_REGION_HEADER_NAME);
     String userAgent = WebUtil.getUserAgent(httpServletRequest);
-    CloudFrontSettings settings = myPreSignedUrlProvider.settings(allSettings, RequestMetadata.from(requestRegion, userAgent));
+    CloudFrontSettings settings = myPreSignedUrlProvider.settings(storageSettings, projectParameters, RequestMetadata.from(requestRegion, userAgent));
 
     String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
 

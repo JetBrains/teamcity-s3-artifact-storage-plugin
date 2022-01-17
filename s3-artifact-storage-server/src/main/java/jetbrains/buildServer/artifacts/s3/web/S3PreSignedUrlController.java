@@ -192,14 +192,13 @@ public class S3PreSignedUrlController extends BaseController {
     String requestRegion = request.getHeader(S3Constants.S3_REGION_HEADER_NAME);
     String userAgent = WebUtil.getUserAgent(request);
 
-    Map<String, String> allSettings = new HashMap<>();
+    Map<String, String> projectParameters = new HashMap<>();
     final ProjectEx project = myProjectManager.findProjectById(runningBuild.getProjectId());
     if (project != null) {
-      allSettings.putAll(project.getParameters());
+      projectParameters.putAll(project.getParameters());
     }
-    allSettings.putAll(storageSettings);
 
-    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(allSettings, RequestMetadata.from(requestRegion, userAgent)));
+    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings, projectParameters, RequestMetadata.from(requestRegion, userAgent)));
   }
 
   @NotNull

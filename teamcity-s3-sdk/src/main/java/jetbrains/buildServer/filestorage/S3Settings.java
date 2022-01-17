@@ -14,4 +14,7 @@ public interface S3Settings {
   CannedAccessControlList getAcl();
 
   Map<String, String> toRawSettings();
+
+  @NotNull
+  Map<String, String> getProjectSettings();
 }

@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
-
 import java.io.*;
 import java.net.SocketException;
 import java.net.URI;
@@ -201,20 +200,27 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   private String regularUpload() throws IOException {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
-    try (final InputStream in = Files.newInputStream(myFile.toPath())) {
-      final byte[] digest = DigestUtils.md5(in);
-      final String encodedDigest = Base64.getEncoder().encodeToString(digest);
-      final String url = myS3SignedUploadManager.getUrl(myObjectKey, encodedDigest);
+    try {
+      String digest = myCheckConsistency ? getDigest(myFile) : null;
+      final String url = myS3SignedUploadManager.getUrl(myObjectKey, digest);
       if (url == null) {
         throw new IOException("Could not fetch presigned URL from server");
       }
-      myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, encodedDigest));
+      String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest));
       myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess(stripQuery(url));
-      return encodedDigest;
+      return etag;
     } catch (final Exception e) {
       myProgressListener.onFileUploadFailed(e);
       throw e;
+    }
+  }
+
+  @NotNull
+  private String getDigest(@NotNull File file) throws IOException {
+    try (final InputStream in = Files.newInputStream(file.toPath())) {
+      byte[] digest = DigestUtils.md5(in);
+      return Base64.getEncoder().encodeToString(digest);
     }
   }
 

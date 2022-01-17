@@ -64,9 +64,9 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public S3Settings settings(@NotNull final Map<String, String> rawSettings) {
+  public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     final Map<String, String> sslSettings = ParamUtil.putSslValues(myServerPaths, rawSettings);
     final Map<String, String> correctedSettings = S3RegionCorrector.correctRegion(S3Util.getBucketName(sslSettings), sslSettings);
-    return myDelegate.settings(correctedSettings);
+    return myDelegate.settings(correctedSettings, projectSettings);
   }
 }

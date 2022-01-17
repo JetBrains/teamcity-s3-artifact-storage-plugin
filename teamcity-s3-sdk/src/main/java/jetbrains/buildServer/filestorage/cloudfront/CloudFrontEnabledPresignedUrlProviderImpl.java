@@ -89,15 +89,15 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull RequestMetadata metadata) {
-    S3Settings s3Settings = myS3Provider.settings(rawSettings);
+  public CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata metadata) {
+    S3Settings s3Settings = myS3Provider.settings(rawSettings, projectSettings);
 
     Map<String, String> rawS3Settings = s3Settings.toRawSettings();
     if (S3Util.getBucketName(rawS3Settings) == null) {
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
 
-    return new CloudFrontSettingsImpl(rawS3Settings, metadata);
+    return new CloudFrontSettingsImpl(rawS3Settings, projectSettings, metadata);
   }
 
   private boolean shouldUseCloudFront(CloudFrontSettings settings) {

@@ -12,10 +12,13 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   @NotNull
   private final Map<String, String> mySettings;
   @NotNull
+  private final Map<String, String> myProjectSettings;
+  @NotNull
   private final RequestMetadata myRequestMetadata;
 
-  CloudFrontSettingsImpl(@NotNull final Map<String, String> params, @NotNull RequestMetadata requestMetadata) {
-    mySettings = params;
+  CloudFrontSettingsImpl(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata requestMetadata) {
+    mySettings = rawSettings;
+    myProjectSettings = projectSettings;
     myRequestMetadata = requestMetadata;
   }
 
@@ -80,5 +83,10 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   @Override
   public CannedAccessControlList getAcl() {
     return S3Util.getAcl(mySettings);
+  }
+
+  @NotNull
+  public Map<String, String> getProjectSettings() {
+    return new HashMap<>(myProjectSettings);
   }
 }

@@ -89,7 +89,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  public PresignedUrlDto getUrl(@NotNull final String objectKey, @NotNull final String digest) {
+  public PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable String digest) {
     validateClient();
     try {
       return fetchPresignedUrlDto(objectKey, s3ObjectKeyRequestEntity(objectKey, digest));
@@ -191,7 +191,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @NotNull String digest) {
+  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @Nullable String digest) {
     try {
       return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyWithDigest(objectKey, digest)));
     } catch (UnsupportedEncodingException e) {

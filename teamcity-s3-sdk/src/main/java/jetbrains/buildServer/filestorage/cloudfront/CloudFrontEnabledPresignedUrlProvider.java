@@ -32,5 +32,5 @@ public interface CloudFrontEnabledPresignedUrlProvider {
   String startMultipartUpload(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws Exception;
 
   @NotNull
-  CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull RequestMetadata metadata);
+  CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata metadata);
 }

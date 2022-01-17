@@ -102,7 +102,7 @@ public class S3SignedUploadManager implements AutoCloseable {
   }
 
   @Nullable
-  public String getUrl(@NotNull final String objectKey, @NotNull final String digest) {
+  public String getUrl(@NotNull final String objectKey, @Nullable final String digest) {
     final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getUrl(objectKey, digest));
     if (presignedUrl.getPresignedUrlParts().isEmpty()) {
       LOGGER.warn("Fetching URL with digest failed");
