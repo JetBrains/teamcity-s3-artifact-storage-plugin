@@ -17,61 +17,63 @@ public class PresignedUrlRequestDto {
   private List<String> digests;
   private String objectKey;
   private int numberOfParts;
+  @Nullable
+  private String httpMethod;
 
   @Used("serialization")
   public PresignedUrlRequestDto() {
   }
 
-  public PresignedUrlRequestDto(@NotNull final String objectKey) {
-    this(objectKey, 1);
+  private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts, @Nullable String httpMethod) {
+    this(objectKey, numberOfParts, null, httpMethod);
   }
 
-  private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts) {
+  private PresignedUrlRequestDto(@NotNull final String objectKey, @NotNull List<String> digests, @Nullable String httpMethod) {
+    this(objectKey, digests.size(), digests, httpMethod);
+  }
+
+  public PresignedUrlRequestDto(String objectKey, int numberOfParts, @Nullable List<String> digests, @Nullable String httpMethod) {
+    this.digests = digests;
     this.objectKey = objectKey;
     this.numberOfParts = numberOfParts;
-    this.digests = null;
-  }
-
-  private PresignedUrlRequestDto(@NotNull final String objectKey, @NotNull List<String> digests) {
-    this.objectKey = objectKey;
-    this.digests = digests;
+    this.httpMethod = httpMethod;
   }
 
   @NotNull
   public static PresignedUrlRequestDto from(@NotNull final Map.Entry<String, Integer> mapEntry) {
-    return from(mapEntry.getKey(), mapEntry.getValue() != null ? mapEntry.getValue() : 1);
+    return from(mapEntry.getKey(), mapEntry.getValue() != null ? mapEntry.getValue() : 1, null);
   }
 
   @NotNull
   public static PresignedUrlRequestDto from(@NotNull final Pair<String, Integer> pair) {
-    return from(pair.getFirst(), pair.getSecond() != null ? pair.getSecond() : 1);
+    return from(pair.getFirst(), pair.getSecond() != null ? pair.getSecond() : 1, null);
   }
 
 
   @NotNull
   public static PresignedUrlRequestDto from(@NotNull final String objectKey) {
-    return from(objectKey, 1);
+    return from(objectKey, 1, null);
   }
 
   @NotNull
-  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts) {
-    return from(objectKey, numberOfParts, null);
+  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable String httpMethod) {
+    return from(objectKey, numberOfParts, httpMethod, null);
   }
 
   @NotNull
   public static PresignedUrlRequestDto from(@NotNull final String objectKey, @NotNull List<String> digests) {
-    return from(objectKey, digests.size(), digests);
+    return from(objectKey, digests.size(), null, digests);
   }
 
   @NotNull
-  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable List<String> digests) {
+  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable String httpMethod, @Nullable List<String> digests) {
     if (numberOfParts < 1) {
       throw new IllegalArgumentException("Number of parts cannot be < 1");
     }
     if (digests == null) {
-      return new PresignedUrlRequestDto(objectKey, numberOfParts);
+      return new PresignedUrlRequestDto(objectKey, numberOfParts, httpMethod);
     } else {
-      return new PresignedUrlRequestDto(objectKey, digests);
+      return new PresignedUrlRequestDto(objectKey, digests, httpMethod);
     }
   }
 
@@ -98,5 +100,10 @@ public class PresignedUrlRequestDto {
 
   public void setDigests(@Nullable List<String> digests) {
     this.digests = digests;
+  }
+
+  @Nullable
+  public String getHttpMethod() {
+    return httpMethod;
   }
 }

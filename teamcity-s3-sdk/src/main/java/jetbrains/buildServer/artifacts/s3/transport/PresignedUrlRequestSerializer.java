@@ -182,6 +182,11 @@ public class PresignedUrlRequestSerializer {
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;
         final Attribute nPartsAttr = objectKeyEl.getAttribute(NUMBER_OF_PARTS);
+        final Attribute httpMethodAttr = objectKeyEl.getAttribute(HTTP_METHOD);
+
+        final int numberOfParts = nPartsAttr != null ? nPartsAttr.getIntValue() : 1;
+        final String httpMethod = httpMethodAttr != null ? httpMethodAttr.getValue() : null;
+
         final String text = objectKeyEl.getText().trim();
         if (isVersion2) {
           final Iterator iterator = objectKeyEl.getChildren(DIGEST).iterator();
@@ -190,10 +195,13 @@ public class PresignedUrlRequestSerializer {
             final Element element = (Element)iterator.next();
             digests.add(element.getValue());
           }
-          result.add(PresignedUrlRequestDto.from(text, digests));
+          if (!digests.isEmpty()) {
+            result.add(PresignedUrlRequestDto.from(text, digests));
+          } else {
+            result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
+          }
         } else {
-          final int numberOfParts = nPartsAttr != null ? nPartsAttr.getIntValue() : 1;
-          result.add(PresignedUrlRequestDto.from(text, numberOfParts));
+          result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
         }
       }
       return new PresignedUrlListRequestDto(result, isVersion2);
