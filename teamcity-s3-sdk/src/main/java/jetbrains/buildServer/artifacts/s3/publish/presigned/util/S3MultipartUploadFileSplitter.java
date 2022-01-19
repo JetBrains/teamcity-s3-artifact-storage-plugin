@@ -19,13 +19,16 @@ public class S3MultipartUploadFileSplitter {
   }
 
   @NotNull
-  public List<FilePart> getFileParts(@NotNull File file, int nParts) throws IOException {
+  public List<FilePart> getFileParts(@NotNull File file, int nParts, boolean calculateDigests) throws IOException {
     final List<FilePart> results = new ArrayList<>();
     for (int partIndex = 0; partIndex < nParts; partIndex++) {
-      final long contentLength = Math.min(myChunkSizeInBytes, file.length() - myChunkSizeInBytes * partIndex);
       final long start = partIndex * myChunkSizeInBytes;
-      final byte[] bytes = getFilePart(file, start, contentLength);
-      final String encodedDigest = Base64.getEncoder().encodeToString(DigestUtils.md5(bytes));
+      final long contentLength = Math.min(myChunkSizeInBytes, file.length() - myChunkSizeInBytes * partIndex);
+      String encodedDigest = null;
+      if (calculateDigests) {
+        final byte[] bytes = getFilePart(file, start, contentLength);
+        encodedDigest = Base64.getEncoder().encodeToString(DigestUtils.md5(bytes));
+      }
       results.add(new FilePart(start, contentLength, partIndex + 1, encodedDigest));
     }
     return results;

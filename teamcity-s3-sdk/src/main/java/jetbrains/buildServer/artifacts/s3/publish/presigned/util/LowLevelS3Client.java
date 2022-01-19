@@ -20,6 +20,7 @@ import org.apache.commons.httpclient.HttpMethodBase;
 import org.apache.commons.httpclient.methods.*;
 import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class LowLevelS3Client implements AutoCloseable {
   @NotNull
@@ -45,13 +46,13 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  public String uploadFile(@NotNull final String url, @NotNull final File file, String digest) throws IOException {
+  public String uploadFile(@NotNull final String url, @NotNull final File file, @Nullable String digest) throws IOException {
     EntityEnclosingMethod request = put(url, new FileRequestEntity(file, S3Util.getContentType(file)), digest, myAdditionalHeaders);
     return parseEtags(request);
   }
 
   @NotNull
-  public String uploadFilePart(@NotNull final String url, @NotNull final File file, final byte[] filePart, final String digest) throws IOException {
+  public String uploadFilePart(@NotNull final String url, @NotNull final File file, final byte[] filePart, @Nullable final String digest) throws IOException {
     final EntityEnclosingMethod request = put(url, new ByteArrayRequestEntity(filePart, S3Util.getContentType(file)), digest, Collections.emptyMap());
     return parseEtags(request);
   }
@@ -67,13 +68,13 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity, String digest, @NotNull final Map<String, String> headers)
+  private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity, @Nullable String digest, @NotNull final Map<String, String> headers)
     throws IOException {
     final EntityEnclosingMethod request = putRequest(url);
     request.setRequestEntity(requestEntity);
     headers.forEach((name, value) -> request.setRequestHeader(name, value));
     request.setRequestHeader("Accept", "application/xml");
-    if (myCheckConsistency) {
+    if (myCheckConsistency && digest != null) {
       request.setRequestHeader("Content-MD5", digest);
     }
     HttpClientUtil.executeAndReleaseConnection(myHttpClient, request, myErrorHandler);

@@ -54,6 +54,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   private final Retrier myRetrier;
   private final S3MultipartUploadFileSplitter myFileSplitter;
+  private final boolean myCheckConsistency;
+
   @Nullable
   private String[] myEtags;
 
@@ -73,22 +75,24 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold();
     myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
+    myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
-                       .registerListener(new AbortingListener(SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
-                         @Override
-                         public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-                           if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
-                             throw new AbortRetriesException(e);
-                           }
-                           if (e instanceof HttpClientUtil.HttpErrorCodeException) {
-                             if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
-                               return;
+                       .registerListener(
+                         new AbortingListener(SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
+                           @Override
+                           public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+                             if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
+                               throw new AbortRetriesException(e);
                              }
+                             if (e instanceof HttpClientUtil.HttpErrorCodeException) {
+                               if (!((HttpClientUtil.HttpErrorCodeException)e).isRecoverable()) {
+                                 return;
+                               }
+                             }
+                             super.onFailure(callable, retry, e);
                            }
-                           super.onFailure(callable, retry, e);
-                         }
-                       })
+                         })
                        .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
 
     myFileSplitter = new S3MultipartUploadFileSplitter(myChunkSizeInBytes);
@@ -147,8 +151,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
     myProgressListener.beforeUploadStarted();
     try {
-      final List<FilePart> fileParts = myFileSplitter.getFileParts(myFile, nParts);
-      final List<String> digests = fileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
+      final List<FilePart> fileParts = myFileSplitter.getFileParts(myFile, nParts, myCheckConsistency);
+      List<String> digests = fileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
       final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, digests);
 
       multipartUploadUrls.getPresignedUrlParts().forEach(presignedUrlPartDto -> {

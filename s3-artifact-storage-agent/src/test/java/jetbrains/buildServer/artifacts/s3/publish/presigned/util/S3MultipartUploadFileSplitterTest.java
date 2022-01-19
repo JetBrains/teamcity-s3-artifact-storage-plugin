@@ -10,7 +10,7 @@ import org.testng.annotations.Test;
 
 @Test
 public class S3MultipartUploadFileSplitterTest extends BaseTestCase {
-  public void testSplitFile() throws IOException {
+  public void splitFileWithDigests() throws IOException {
     final File file = new File(getClass().getClassLoader().getResource("artifacts/file.zip").getFile());
     final File out = Files.createTempFile("tmp", "zip").toFile();
 
@@ -18,7 +18,24 @@ public class S3MultipartUploadFileSplitterTest extends BaseTestCase {
       final long length = file.length();
 
       final S3MultipartUploadFileSplitter splitter = new S3MultipartUploadFileSplitter(length / 3);
-      for (FilePart p : splitter.getFileParts(file, 3)) {
+      for (FilePart p : splitter.getFileParts(file, 3, true)) {
+        os.write(splitter.read(file, p));
+      }
+    }
+
+    assertEquals(IOUtil.readLines(file), IOUtil.readLines(out));
+  }
+
+
+  public void splitFileWithoutDigests() throws IOException {
+    final File file = new File(getClass().getClassLoader().getResource("artifacts/file.zip").getFile());
+    final File out = Files.createTempFile("tmp", "zip").toFile();
+
+    try (final FileOutputStream os = new FileOutputStream(out)) {
+      final long length = file.length();
+
+      final S3MultipartUploadFileSplitter splitter = new S3MultipartUploadFileSplitter(length / 3);
+      for (FilePart p : splitter.getFileParts(file, 3, false)) {
         os.write(splitter.read(file, p));
       }
     }
