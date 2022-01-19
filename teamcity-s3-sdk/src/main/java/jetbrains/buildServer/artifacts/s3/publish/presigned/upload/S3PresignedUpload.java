@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -14,13 +13,11 @@ import java.nio.file.Files;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
-import jetbrains.buildServer.artifacts.s3.publish.presigned.util.S3MultipartUploadFileSplitter;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.util.*;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
 import jetbrains.buildServer.util.ExceptionUtil;
@@ -150,21 +147,20 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
     myProgressListener.beforeUploadStarted();
     try {
-      final Pair<List<byte[]>, List<String>> split = myFileSplitter.getFileParts(myFile, nParts);
-      final List<byte[]> fileParts = split.first;
-      final List<String> digests = split.second;
-
+      final List<FilePart> fileParts = myFileSplitter.getFileParts(myFile, nParts);
+      final List<String> digests = fileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
       final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, digests);
 
       multipartUploadUrls.getPresignedUrlParts().forEach(presignedUrlPartDto -> {
         myProgressListener.beforePartUploadStarted(presignedUrlPartDto.getPartNumber());
         try {
           final int partIndex = presignedUrlPartDto.getPartNumber() - 1;
-          final byte[] filePart = fileParts.get(partIndex);
-          final String digest = digests.get(partIndex);
+          final FilePart filePart = fileParts.get(partIndex);
+          final byte[] bytes = myFileSplitter.read(myFile, filePart);
+          final String digest = filePart.getDigest();
           final String url = presignedUrlPartDto.getUrl();
-          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, myFile, filePart, digest));
-          myRemainingBytes.getAndAdd(-filePart.length);
+          final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, myFile, bytes, digest));
+          myRemainingBytes.getAndAdd(-filePart.getLength());
           myProgressListener.onPartUploadSuccess(stripQuery(url));
           myEtags[partIndex] = etag;
         } catch (Exception e) {

@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
-import com.intellij.openapi.util.Pair;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -20,20 +19,24 @@ public class S3MultipartUploadFileSplitter {
   }
 
   @NotNull
-  public Pair<List<byte[]>, List<String>> getFileParts(@NotNull File file, int nParts) throws IOException {
-    final List<byte[]> parts = new ArrayList<>();
-    final List<String> digests = new ArrayList<>();
+  public List<FilePart> getFileParts(@NotNull File file, int nParts) throws IOException {
+    final List<FilePart> results = new ArrayList<>();
     for (int partIndex = 0; partIndex < nParts; partIndex++) {
       final long contentLength = Math.min(myChunkSizeInBytes, file.length() - myChunkSizeInBytes * partIndex);
       final long start = partIndex * myChunkSizeInBytes;
       final byte[] bytes = getFilePart(file, start, contentLength);
       final String encodedDigest = Base64.getEncoder().encodeToString(DigestUtils.md5(bytes));
-      parts.add(bytes);
-      digests.add(encodedDigest);
+      results.add(new FilePart(start, contentLength, partIndex + 1, encodedDigest));
     }
-    return Pair.create(parts, digests);
+    return results;
   }
 
+  @NotNull
+  public byte[] read(@NotNull File file, @NotNull FilePart part) throws IOException {
+    return getFilePart(file, part.getStart(), part.getLength());
+  }
+
+  @NotNull
   private byte[] getFilePart(@NotNull File file, long start, long length) throws IOException {
     long remaining = length;
     final byte[] buffer = new byte[(int)Math.min(OUR_CHUNK_SIZE, remaining)];
