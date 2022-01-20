@@ -17,7 +17,10 @@ import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethodBase;
-import org.apache.commons.httpclient.methods.*;
+import org.apache.commons.httpclient.methods.EntityEnclosingMethod;
+import org.apache.commons.httpclient.methods.FileRequestEntity;
+import org.apache.commons.httpclient.methods.PutMethod;
+import org.apache.commons.httpclient.methods.RequestEntity;
 import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -52,8 +55,8 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  public String uploadFilePart(@NotNull final String url, @NotNull final File file, final byte[] filePart, @Nullable final String digest) throws IOException {
-    final EntityEnclosingMethod request = put(url, new ByteArrayRequestEntity(filePart, S3Util.getContentType(file)), digest, Collections.emptyMap());
+  public String uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart, @Nullable final String digest) throws IOException {
+    final EntityEnclosingMethod request = put(url, new RepeatableFilePartRequestEntity(filePart), digest, Collections.emptyMap());
     return parseEtags(request);
   }
 

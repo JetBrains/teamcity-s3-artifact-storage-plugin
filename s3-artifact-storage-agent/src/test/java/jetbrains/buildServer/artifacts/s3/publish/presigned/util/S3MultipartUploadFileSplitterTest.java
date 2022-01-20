@@ -19,7 +19,7 @@ public class S3MultipartUploadFileSplitterTest extends BaseTestCase {
 
       final S3MultipartUploadFileSplitter splitter = new S3MultipartUploadFileSplitter(length / 3);
       for (FilePart p : splitter.getFileParts(file, 3, true)) {
-        os.write(splitter.read(file, p));
+        p.write(os);
       }
     }
 
@@ -36,7 +36,7 @@ public class S3MultipartUploadFileSplitterTest extends BaseTestCase {
 
       final S3MultipartUploadFileSplitter splitter = new S3MultipartUploadFileSplitter(length / 3);
       for (FilePart p : splitter.getFileParts(file, 3, false)) {
-        os.write(splitter.read(file, p));
+        p.write(os);
       }
     }
 
