@@ -63,7 +63,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   private final List<ArtifactDataInstance> myArtifacts = Collections.synchronizedList(new ArrayList<>());
 
-  private S3FileUploader myFileUploader;
+  private volatile S3FileUploader myFileUploader;
   @NotNull
   private final PresignedUrlsProviderClientFactory myPresignedUrlsProviderClientFactory;
   private final S3FileUploaderFactory myUploaderFactory;
