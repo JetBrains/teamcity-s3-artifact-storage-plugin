@@ -33,17 +33,18 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public String generateUploadUrl(@NotNull String objectKey, @NotNull S3Settings settings) throws IOException {
-    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrl(objectKey, settings));
+  public String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull S3Settings settings) throws IOException {
+    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrl(objectKey, digest, settings));
   }
 
   @NotNull
   @Override
   public String generateUploadUrlForPart(@NotNull String objectKey,
+                                         @Nullable String digest,
                                          int nPart,
                                          @NotNull String uploadId,
                                          @NotNull S3Settings settings) throws IOException {
-    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrlForPart(objectKey, nPart, uploadId, settings));
+    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrlForPart(objectKey, digest, nPart, uploadId, settings));
   }
 
   @Override
@@ -63,9 +64,9 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public S3Settings settings(@NotNull final Map<String, String> rawSettings) {
+  public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     final Map<String, String> sslSettings = ParamUtil.putSslValues(myServerPaths, rawSettings);
     final Map<String, String> correctedSettings = S3RegionCorrector.correctRegion(S3Util.getBucketName(sslSettings), sslSettings);
-    return myDelegate.settings(correctedSettings);
+    return myDelegate.settings(correctedSettings, projectSettings);
   }
 }

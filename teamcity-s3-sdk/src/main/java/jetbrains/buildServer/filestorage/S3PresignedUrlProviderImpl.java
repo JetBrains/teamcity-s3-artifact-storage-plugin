@@ -51,27 +51,29 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   @NotNull
   @Override
   public String generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(httpMethod, objectKey, null, null, settings);
+    return generateUrl(httpMethod, objectKey, null, null, null, settings);
   }
 
   @NotNull
   @Override
-  public String generateUploadUrl(@NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, null, null, settings);
+  public String generateUploadUrl(@NotNull final String objectKey, @Nullable final String digest, @NotNull final S3Settings settings) throws IOException {
+    return generateUrl(HttpMethod.PUT, objectKey, digest, null, null, settings);
   }
 
   @NotNull
   @Override
   public String generateUploadUrlForPart(@NotNull final String objectKey,
+                                         @Nullable String digest,
                                          final int nPart,
                                          @NotNull final String uploadId,
                                          @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, nPart, uploadId, settings);
+    return generateUrl(HttpMethod.PUT, objectKey, digest, nPart, uploadId, settings);
   }
 
   @NotNull
   private String generateUrl(@NotNull final HttpMethod httpMethod,
                              @NotNull final String objectKey,
+                             @Nullable String digest,
                              @Nullable final Integer nPart,
                              @Nullable final String uploadId,
                              @NotNull final S3Settings settings) throws IOException {
@@ -83,6 +85,9 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       }
       if (uploadId != null) {
         request.addRequestParameter("uploadId", uploadId);
+      }
+      if (S3Util.isConsistencyCheckEnabled(settings.getProjectSettings()) && digest != null) {
+        request.setContentMd5(digest);
       }
 
       if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
@@ -161,19 +166,22 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   }
 
   @NotNull
-  public S3Settings settings(@NotNull final Map<String, String> rawSettings) {
+  public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     if (S3Util.getBucketName(rawSettings) == null) {
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
-    return new S3SettingsImpl(rawSettings);
+    return new S3SettingsImpl(rawSettings, projectSettings);
   }
 
   private static class S3SettingsImpl implements S3Settings {
     @NotNull
     private final Map<String, String> mySettings;
+    @NotNull
+    private final Map<String, String> myProjectSettings;
 
-    private S3SettingsImpl(@NotNull final Map<String, String> params) {
+    private S3SettingsImpl(@NotNull final Map<String, String> params, @NotNull Map<String, String> projectSettings) {
       mySettings = params;
+      myProjectSettings = projectSettings;
     }
 
     @NotNull
@@ -190,6 +198,12 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @NotNull
     public Map<String, String> toRawSettings() {
       return new HashMap<>(mySettings);
+    }
+
+    @Override
+    @NotNull
+    public Map<String, String> getProjectSettings() {
+      return new HashMap<>(myProjectSettings);
     }
   }
 }

@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.serialization;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -39,6 +40,7 @@ public final class S3XmlSerializerFactory {
       return XmlMapper.builder()
                       .defaultUseWrapper(false)
                       .addModule(new JaxbAnnotationModule())
+                      .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                       .configure(SerializationFeature.WRAP_ROOT_VALUE, false)
                       .configure(SerializationFeature.INDENT_OUTPUT, false)
                       .configure(MapperFeature.USE_ANNOTATIONS, true).build();

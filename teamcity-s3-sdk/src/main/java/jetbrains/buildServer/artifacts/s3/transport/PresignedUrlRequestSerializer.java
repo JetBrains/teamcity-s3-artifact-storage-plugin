@@ -58,6 +58,8 @@ public class PresignedUrlRequestSerializer {
   @NotNull
   private static final String NUMBER_OF_PARTS = "s3-number-of-parts";
   @NotNull
+  private static final String DIGEST = "s3-file-digest";
+  @NotNull
   private static final String HTTP_METHOD = "s3-http-method";
 
   @SuppressWarnings("unchecked")
@@ -158,10 +160,12 @@ public class PresignedUrlRequestSerializer {
     }
     request.getPresignedUrlRequests().stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
       final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.getObjectKey());
-      if (s3ObjectKey.getHttpMethod() != null) {
-        element.setAttribute(HTTP_METHOD, String.valueOf(s3ObjectKey.getHttpMethod()));
+      element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getDigests() != null ? s3ObjectKey.getDigests().size() : s3ObjectKey.getNumberOfParts()));
+      if (s3ObjectKey.getDigests() != null) {
+        for (String digest : s3ObjectKey.getDigests()) {
+          XmlUtil.addTextChild(element, DIGEST, digest);
+        }
       }
-      element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getNumberOfParts()));
     });
     return XmlUtil.toString(document);
   }
@@ -174,6 +178,7 @@ public class PresignedUrlRequestSerializer {
         throw new IllegalArgumentException("Expected document name to be '" + OBJECT_KEYS + "' but got '" + document.getName() + "'");
       }
       final Collection<PresignedUrlRequestDto> result = new HashSet<>();
+      final boolean isVersion2 = document.getAttribute(PRE_SIGN_V2) != null;
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;
         final Attribute nPartsAttr = objectKeyEl.getAttribute(NUMBER_OF_PARTS);
@@ -181,9 +186,25 @@ public class PresignedUrlRequestSerializer {
 
         final int numberOfParts = nPartsAttr != null ? nPartsAttr.getIntValue() : 1;
         final String httpMethod = httpMethodAttr != null ? httpMethodAttr.getValue() : null;
-        result.add(PresignedUrlRequestDto.from(objectKeyEl.getValue(), numberOfParts, httpMethod));
+
+        final String text = objectKeyEl.getText().trim();
+        if (isVersion2) {
+          final Iterator iterator = objectKeyEl.getChildren(DIGEST).iterator();
+          final List<String> digests = new ArrayList<>();
+          while (iterator.hasNext()) {
+            final Element element = (Element)iterator.next();
+            digests.add(element.getValue());
+          }
+          if (!digests.isEmpty()) {
+            result.add(PresignedUrlRequestDto.from(text, digests));
+          } else {
+            result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
+          }
+        } else {
+          result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
+        }
       }
-      return new PresignedUrlListRequestDto(result, document.getAttribute(PRE_SIGN_V2) != null);
+      return new PresignedUrlListRequestDto(result, isVersion2);
     } catch (Exception e) {
       LOGGER.warnAndDebugDetails("Got exception while parsing XML", e);
       throw new IllegalArgumentException("Request is not a valid XML");

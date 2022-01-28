@@ -8,7 +8,6 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
 import jetbrains.buildServer.filestorage.S3Settings;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,7 +40,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public String generateUploadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException {
+  public String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull CloudFrontSettings settings) throws IOException {
     String preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
@@ -49,7 +48,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     }
 
     if (preSignedUrl == null) {
-      preSignedUrl = myS3Provider.generateUploadUrl(objectKey, settings);
+      preSignedUrl = myS3Provider.generateUploadUrl(objectKey, digest, settings);
     }
     return preSignedUrl;
   }
@@ -57,6 +56,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
   @Override
   @NotNull
   public String generateUploadUrlForPart(@NotNull String objectKey,
+                                         @Nullable String digest,
                                          int nPart,
                                          @NotNull String uploadId,
                                          @NotNull CloudFrontSettings settings) throws IOException {
@@ -67,7 +67,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     }
 
     if (preSignedUrl == null) {
-      preSignedUrl = myS3Provider.generateUploadUrlForPart(objectKey, nPart, uploadId, settings);
+      preSignedUrl = myS3Provider.generateUploadUrlForPart(objectKey, digest, nPart, uploadId, settings);
     }
     return preSignedUrl;
   }
@@ -89,19 +89,19 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull RequestMetadata metadata) {
-    S3Settings s3Settings = myS3Provider.settings(rawSettings);
+  public CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata metadata) {
+    S3Settings s3Settings = myS3Provider.settings(rawSettings, projectSettings);
 
     Map<String, String> rawS3Settings = s3Settings.toRawSettings();
     if (S3Util.getBucketName(rawS3Settings) == null) {
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
 
-    return new CloudFrontSettingsImpl(rawS3Settings, metadata);
+    return new CloudFrontSettingsImpl(rawS3Settings, projectSettings, metadata);
   }
 
   private boolean shouldUseCloudFront(CloudFrontSettings settings) {
-    if (TeamCityProperties.getBoolean(CloudFrontConstants.S3_ENABLE_CLOUDFRONT_INTEGRATION) && settings.getCloudFrontEnabled()) {
+    if (CloudFrontConstants.isEnabled() && settings.getCloudFrontEnabled()) {
       String requestRegion = settings.getRequestRegion();
       String bucketRegion = settings.getBucketRegion();
       String userAgent = settings.getRequestUserAgent();

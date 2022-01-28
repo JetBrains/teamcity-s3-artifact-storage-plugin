@@ -13,10 +13,11 @@ public interface CloudFrontEnabledPresignedUrlProvider {
                              @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
-  String generateUploadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
+  String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
   String generateUploadUrlForPart(@NotNull String objectKey,
+                                  @Nullable String digest,
                                   int nPart,
                                   @NotNull String uploadId,
                                   @NotNull CloudFrontSettings settings) throws IOException;
@@ -31,5 +32,5 @@ public interface CloudFrontEnabledPresignedUrlProvider {
   String startMultipartUpload(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws Exception;
 
   @NotNull
-  CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull RequestMetadata metadata);
+  CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata metadata);
 }

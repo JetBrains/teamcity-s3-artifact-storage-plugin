@@ -10,4 +10,7 @@ public interface S3Settings {
   int getUrlTtlSeconds();
 
   Map<String, String> toRawSettings();
+
+  @NotNull
+  Map<String, String> getProjectSettings();
 }

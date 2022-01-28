@@ -8,7 +8,7 @@ import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import jetbrains.buildServer.artifacts.s3.transport.AmazonS3ErrorDto;
 import org.jetbrains.annotations.NotNull;
 
-public class S3ResponseErrorHandler implements HttpResponseErrorHandler {
+public class S3ServerResponseErrorHandler implements HttpResponseErrorHandler {
   @Override
   public boolean canHandle(@NotNull ResponseAdapter responseWrapper) {
     return S3Constants.ErrorSource.S3.name().equals(responseWrapper.getHeader(S3Constants.ERROR_SOURCE_HEADER_NAME));
