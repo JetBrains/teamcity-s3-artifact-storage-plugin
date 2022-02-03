@@ -122,7 +122,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
             try {
               digestConsumer.accept(new ArtifactDigestInfo(uploadFile, filteredMap.get(uploadFile), fileUploadInfo.getDigest()));
             } catch (Throwable t) {
-              LOG.warnAndDebugDetails("Failed to send artifact upload information to digest consumer", t);
+              LOG.warn("Failed to send artifact upload information to digest consumer", t);
             }
           }
         });
