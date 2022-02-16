@@ -38,6 +38,8 @@ import jetbrains.buildServer.artifacts.s3.publish.logger.StatisticsLogger;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClientFactory;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityConnectionConfiguration;
 import jetbrains.buildServer.log.LogUtil;
+import jetbrains.buildServer.serverSide.BuildTypeOptions;
+import jetbrains.buildServer.serverSide.PublishArtifactCondition;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
@@ -109,11 +111,10 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       final S3FileUploader fileUploader = getFileUploader(build, logger, statisticsLogger);
       try {
         fileUploader.upload(filteredMap, () -> {
-          final BuildInterruptReason interruptReason = build.getInterruptReason();
-          if (interruptReason == null) {
-            return null;
+          if (isPublishingStopped(build) && build.getInterruptReason() != null) {
+            return build.getInterruptReason().getUserDescription();
           } else {
-            return interruptReason.getUserDescription();
+            return null;
           }
         }, fileUploadInfo -> {
           myArtifacts.add(ArtifactDataInstance.create(fileUploadInfo.getArtifactPath(), fileUploadInfo.getSize()));
@@ -192,6 +193,16 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
         LOG.warnAndDebugDetails(ERROR_PUBLISHING_ARTIFACTS_LIST + "for build " + LogUtil.describe(build), e);
       }
     }
+  }
+
+  private boolean isPublishingStopped(@NotNull final AgentRunningBuild build) {
+    if (build.isInAlwaysExecutingStage()) return false;
+    if (build.getBuildTypeOptionValue(BuildTypeOptions.BT_ARTIFACT_PUBLISH_CONDITION) == PublishArtifactCondition.ALWAYS) {
+      return false;
+    }
+
+    BuildInterruptReason reason = build.getInterruptReason();
+    return reason != null && reason != BuildInterruptReason.EXECUTION_TIMEOUT;
   }
 
   @NotNull
