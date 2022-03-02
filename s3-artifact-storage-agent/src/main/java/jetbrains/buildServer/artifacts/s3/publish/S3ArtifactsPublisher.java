@@ -107,10 +107,10 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
     if (!filteredMap.isEmpty()) {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
-      final StatisticsLogger statisticsLogger = new StatisticsLogger();
-      final S3FileUploader fileUploader = getFileUploader(build, logger, statisticsLogger);
+      final S3FileUploader fileUploader = getFileUploader(build, logger);
+      Collection<UploadStatistics> statistics;
       try {
-        fileUploader.upload(filteredMap, () -> {
+        statistics = fileUploader.upload(filteredMap, () -> {
           if (isPublishingStopped(build) && build.getInterruptReason() != null) {
             return build.getInterruptReason().getUserDescription();
           } else {
@@ -131,28 +131,43 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
       publishArtifactsList(build);
-      final Collection<StatisticsLogger.UploadStatistics> statistics = statisticsLogger.getAllRecords();
-      if (statistics.size() > MAX_UPLOAD_LOG_MESSAGES) {
-        final StatisticsLogger.SummaryStatistics stats = statisticsLogger.getSummaryStatistics();
-        logger.debug(
-          String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for first %d files",
-                        stats.getFileCount(),
-                        formatDuration(stats.getTotalDuration()),
-                        formatDuration(stats.getAverageDuration()),
-                        stats.getErrors().size(),
-                        MAX_UPLOAD_LOG_MESSAGES
-          ));
-        logStatisticsForEach(logger, new ArrayList<>(statistics).subList(0, MAX_UPLOAD_LOG_MESSAGES));
-      } else {
-        logStatisticsForEach(logger, statistics);
+      if (statistics != null) {
+        if (statistics.size() > MAX_UPLOAD_LOG_MESSAGES) {
+          final StatisticsLogger.SummaryStatistics stats = getSummaryStatistics(statistics);
+          logger.debug(
+            String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for first %d files",
+                          stats.getFileCount(),
+                          formatDuration(stats.getTotalDuration()),
+                          formatDuration(stats.getAverageDuration()),
+                          stats.getErrors().size(),
+                          MAX_UPLOAD_LOG_MESSAGES
+            ));
+          logStatisticsForEach(logger, new ArrayList<>(statistics).subList(0, MAX_UPLOAD_LOG_MESSAGES));
+        } else {
+          logStatisticsForEach(logger, statistics);
+        }
       }
     }
 
     return filteredMap.size();
   }
 
-  private void logStatisticsForEach(@NotNull FlowLogger logger, @NotNull Collection<StatisticsLogger.UploadStatistics> statistics) {
-    for (StatisticsLogger.UploadStatistics stat : statistics) {
+  @NotNull
+  public StatisticsLogger.SummaryStatistics getSummaryStatistics(@NotNull Collection<UploadStatistics> statistics) {
+    Duration totalDuration = Duration.ofMillis(0);
+    int fileCount = 0;
+    List<String> errors = new ArrayList<>();
+    for (UploadStatistics stat : statistics) {
+      totalDuration = totalDuration.plus(stat.getDuration());
+      fileCount++;
+      errors.addAll(stat.getErrors());
+    }
+    final Duration averageDuration = totalDuration.dividedBy(fileCount);
+    return new StatisticsLogger.SummaryStatistics(totalDuration, averageDuration, fileCount, errors);
+  }
+
+  private void logStatisticsForEach(@NotNull FlowLogger logger, @NotNull Collection<UploadStatistics> statistics) {
+    for (UploadStatistics stat : statistics) {
       logger.debug(String.format("Uploaded %s. Total upload time: %s. Number of errors: %d",
                                  stat.getObjectKey(),
                                  formatDuration(stat.getDuration()),
@@ -219,14 +234,14 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   }
 
   @NotNull
-  private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build, FlowLogger flowLogger, StatisticsLogger statisticsLogger) {
+  private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build, FlowLogger flowLogger) {
     if (myFileUploader == null) {
       Collection<ArtifactTransportAdditionalHeadersProvider> headersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
       final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
       myFileUploader = myUploaderFactory.create(s3Configuration,
-                                                CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(flowLogger, statisticsLogger), new S3Log4jUploadLogger()),
+                                                CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(flowLogger), new S3Log4jUploadLogger()),
                                                 () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
     }
     return myFileUploader;

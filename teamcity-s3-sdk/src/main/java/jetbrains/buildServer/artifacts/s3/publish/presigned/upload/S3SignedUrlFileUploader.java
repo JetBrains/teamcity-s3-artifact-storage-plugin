@@ -18,6 +18,8 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
+import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -32,7 +34,9 @@ import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.S3FileUploader;
+import jetbrains.buildServer.artifacts.s3.publish.UploadStatistics;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
+import jetbrains.buildServer.artifacts.s3.publish.logger.StatisticsLogger;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableForkJoinPoolAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
@@ -57,9 +61,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
   }
 
   @Override
-  public void upload(@NotNull Map<File, String> filesToUpload,
-                     @NotNull Supplier<String> interrupter,
-                     Consumer<FileUploadInfo> uploadInfoConsumer) {
+  public Collection<UploadStatistics> upload(@NotNull Map<File, String> filesToUpload,
+                                             @NotNull Supplier<String> interrupter,
+                                             Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
@@ -75,6 +79,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       }
       normalizedObjectPaths.put(objectKey, FileWithArtifactPath.create(artifactPath, file));
     }
+
+    final StatisticsLogger statisticsLogger = new StatisticsLogger();
 
     final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
 
@@ -96,7 +102,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                                                    myS3Configuration.getAdvancedConfiguration(),
                                                                    uploadManager,
                                                                    lowLevelS3Client,
-                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter))));
+                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, statisticsLogger))));
                              } catch (RejectedExecutionException e) {
                                if (isPoolTerminating(forkJoinPool)) {
                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
@@ -134,6 +140,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
         throw new FileUploadFailedException(th.getMessage(), false, th);
       }
     }
+    return statisticsLogger.getAllRecords();
   }
 
   private boolean isPoolTerminating(CloseableForkJoinPoolAdapter forkJoinPool) {
@@ -190,14 +197,16 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     private final S3SignedUploadManager myUploadManager;
     @NotNull
     private final Supplier<String> myInterrupter;
+    private final StatisticsLogger myStatisticsLogger;
     private S3PresignedUpload myUpload;
 
     private PresignedUploadProgressListenerImpl(@NotNull final S3UploadLogger uploadLogger,
                                                 @NotNull final S3SignedUploadManager uploadManager,
-                                                @NotNull final Supplier<String> interrupter) {
+                                                @NotNull final Supplier<String> interrupter, @NotNull StatisticsLogger statisticsLogger) {
       myS3UploadLogger = uploadLogger;
       myUploadManager = uploadManager;
       myInterrupter = interrupter;
+      myStatisticsLogger = statisticsLogger;
     }
 
     @Override
@@ -207,36 +216,38 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     @Override
     public void onPartUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.partUploadFailed(myUpload.description(), e.getMessage());
+      myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error: " + e.getMessage());
+      myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
     }
 
     @Override
     public void onPartUploadSuccess(@NotNull String uploadUrl) {
-      myS3UploadLogger.partUploadFinished(myUpload.description(), uploadUrl, myUpload.getFinishedPercentage());
+      myStatisticsLogger.uploadFinished(myUpload.description(), Instant.now());
     }
 
     @Override
     public void onFileUploadFailed(@NotNull Exception e) {
-      myS3UploadLogger.uploadFailed(myUpload.description(), e.getMessage());
+      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + e.getMessage());
+      myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
       myUploadManager.onUploadFailed(myUpload);
     }
 
     @Override
     public void onFileUploadSuccess(@NotNull String uploadUrl) {
-      myS3UploadLogger.uploadFinished(myUpload.description(), uploadUrl);
+      myStatisticsLogger.uploadFinished(myUpload.description(), Instant.now());
       myUploadManager.onUploadSuccess(myUpload);
     }
 
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
-      myS3UploadLogger.uploadStarted(myUpload.description());
+      myStatisticsLogger.uploadStarted(myUpload.description(), Instant.now());
     }
 
     @Override
     public void beforePartUploadStarted(int partNumber) {
       checkInterrupted();
-      myS3UploadLogger.partUploadStarted(myUpload.description(), partNumber);
+      myStatisticsLogger.uploadStarted(myUpload.description(), Instant.now());
     }
 
     private void checkInterrupted() {

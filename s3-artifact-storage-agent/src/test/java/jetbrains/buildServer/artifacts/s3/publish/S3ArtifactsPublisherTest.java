@@ -75,10 +75,11 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
     final S3UploadLogger s3UploadLogger = Mockito.mock(S3UploadLogger.class);
     S3FileUploader uploader = new S3FileUploader(s3Configuration, s3UploadLogger) {
       @Override
-      public void upload(@NotNull Map<File, String> filesToUpload,
-                         @NotNull Supplier<String> interrupter,
-                         Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
+      public Collection<UploadStatistics> upload(@NotNull Map<File, String> filesToUpload,
+                                                 @NotNull Supplier<String> interrupter,
+                                                 Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
         uploadInfos1.forEach(i -> uploadInfoConsumer.accept(i));
+        return null;
       }
     };
 
@@ -97,10 +98,11 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
 
     S3FileUploader uploader2 = new S3FileUploader(s3Configuration, s3UploadLogger) {
       @Override
-      public void upload(@NotNull Map<File, String> filesToUpload,
-                         @NotNull Supplier<String> interrupter,
-                         Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
+      public Collection<UploadStatistics> upload(@NotNull Map<File, String> filesToUpload,
+                                                 @NotNull Supplier<String> interrupter,
+                                                 Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
         uploadInfos2.forEach(i -> uploadInfoConsumer.accept(i));
+        return null;
       }
     };
     when(uploaderFactory.create(any(), any(), any())).thenReturn(uploader2);
@@ -153,10 +155,11 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
 
     S3FileUploader uploader = new S3FileUploader(s3Configuration, s3UploadLogger) {
       @Override
-      public void upload(@NotNull Map<File, String> filesToUpload,
-                         @NotNull Supplier<String> interrupter,
-                         Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
+      public Collection<UploadStatistics> upload(@NotNull Map<File, String> filesToUpload,
+                                                 @NotNull Supplier<String> interrupter,
+                                                 Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
         uploadInfos.stream().parallel().forEach(i -> uploadInfoConsumer.accept(i));
+        return null;
       }
     };
 

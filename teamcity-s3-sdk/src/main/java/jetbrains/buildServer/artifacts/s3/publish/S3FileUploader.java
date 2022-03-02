@@ -17,6 +17,7 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -26,6 +27,7 @@ import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class S3FileUploader {
   @NotNull
@@ -56,6 +58,9 @@ public abstract class S3FileUploader {
       .withShutdownClient();
   }
 
-  public abstract void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer)
+  @Nullable
+  public abstract Collection<UploadStatistics> upload(@NotNull final Map<File, String> filesToUpload,
+                                                      @NotNull final Supplier<String> interrupter,
+                                                      Consumer<FileUploadInfo> uploadInfoConsumer)
     throws InvalidSettingsException;
 }

@@ -26,6 +26,7 @@ import com.amazonaws.services.s3.transfer.internal.S3ProgressListener;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,7 +57,10 @@ public class S3RegularFileUploader extends S3FileUploader {
   }
 
   @Override
-  public void upload(@NotNull final Map<File, String> filesToUpload, @NotNull final Supplier<String> interrupter, Consumer<FileUploadInfo> uploadInfoConsumer)
+  @Nullable
+  public Collection<UploadStatistics> upload(@NotNull final Map<File, String> filesToUpload,
+                                             @NotNull final Supplier<String> interrupter,
+                                             Consumer<FileUploadInfo> uploadInfoConsumer)
     throws InvalidSettingsException {
     final String bucketName = myS3Configuration.getBucketName();
 
@@ -90,6 +94,7 @@ public class S3RegularFileUploader extends S3FileUploader {
 
       throw new FileUploadFailedException(awsException.getMessage(), false, awsException);
     }
+    return null;
   }
 
   private Upload doUpload(@NotNull final com.amazonaws.services.s3.transfer.TransferManager transferManager,

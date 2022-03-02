@@ -2,8 +2,12 @@ package jetbrains.buildServer.artifacts.s3.publish.logger;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import jetbrains.buildServer.artifacts.s3.publish.UploadStatistics;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -86,25 +90,6 @@ public class StatisticsLogger {
   }
 
   /**
-   * Calculates summarized statistics for all records that are currently persisted
-   *
-   * @return summarized statistics for all records
-   */
-  @NotNull
-  public SummaryStatistics getSummaryStatistics() {
-    Duration totalDuration = Duration.ofMillis(0);
-    int fileCount = 0;
-    List<String> errors = new ArrayList<>();
-    for (UploadStatistics stat : myStatisticsMap.values()) {
-      totalDuration = totalDuration.plus(stat.getDuration());
-      fileCount++;
-      errors.addAll(stat.getErrors());
-    }
-    final Duration averageDuration = totalDuration.dividedBy(fileCount);
-    return new SummaryStatistics(totalDuration, averageDuration, fileCount, errors);
-  }
-
-  /**
    * Returns number of currently persisted statistic records
    *
    * @return number of records
@@ -114,93 +99,7 @@ public class StatisticsLogger {
   }
 
   private void putOrMerge(String objectKey, UploadStatistics statistics) {
-    final UploadStatistics oldStatistics = myStatisticsMap.get(objectKey);
-    if (oldStatistics != null) {
-      statistics = statistics.merge(oldStatistics);
-    }
-
-    myStatisticsMap.put(objectKey, statistics);
-  }
-
-  /**
-   * Upload statistics for specific object
-   * Provides information about upload start time, upload duration, list of upload errors and whether upload has been successful in the end
-   */
-  public static class UploadStatistics {
-    @NotNull
-    private final String myObjectKey;
-    @NotNull
-    private final Instant myStartTime;
-    @NotNull
-    private final Duration myDuration;
-    @NotNull
-    private final List<String> myErrors;
-
-    private final boolean mySuccessful;
-
-    public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime,
-                            @NotNull Duration duration) {
-      this(objectKey, startTime, duration, new ArrayList<>(), true);
-    }
-
-    public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime, @NotNull Duration duration, @NotNull List<String> errors) {
-      this(objectKey, startTime, duration, errors, false);
-    }
-
-    public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime, @NotNull Duration duration, @NotNull List<String> errors, boolean successful) {
-      myObjectKey = objectKey;
-      myStartTime = startTime;
-      myDuration = duration;
-      myErrors = errors;
-      mySuccessful = successful;
-    }
-
-    @NotNull
-    public String getObjectKey() {
-      return myObjectKey;
-    }
-
-    @NotNull
-    public Duration getDuration() {
-      return myDuration;
-    }
-
-    @NotNull
-    public List<String> getErrors() {
-      return myErrors;
-    }
-
-    public boolean hasErrors() {
-      return !myErrors.isEmpty();
-    }
-
-    /**
-     * Merges this statistics with statistics for another upload attempt for the same object
-     * keeps earliest start time, summarizes duration, and gathers all the errors
-     *
-     * @param other - statistics for other upload attempt
-     * @return - new statistics object that has information about both attempts
-     */
-    @NotNull
-    public UploadStatistics merge(@NotNull UploadStatistics other) {
-      if (!myObjectKey.equals(other.myObjectKey)) {
-        throw new IllegalArgumentException("Trying to merge statistics for different objects");
-      }
-      Duration duration = myDuration.plus(other.myDuration);
-
-      Instant startTime = myStartTime.isBefore(other.myStartTime) ? myStartTime : other.myStartTime;
-
-      final ArrayList<String> errors = new ArrayList<>();
-      errors.addAll(myErrors);
-      errors.addAll(other.myErrors);
-
-      boolean success = isSuccessful() || other.isSuccessful();
-      return new UploadStatistics(myObjectKey, startTime, duration, errors, success);
-    }
-
-    public boolean isSuccessful() {
-      return mySuccessful;
-    }
+    myStatisticsMap.compute(objectKey, (key, value) -> statistics.merge(value));
   }
 
   /**
