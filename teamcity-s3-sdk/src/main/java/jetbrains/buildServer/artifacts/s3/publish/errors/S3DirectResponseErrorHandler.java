@@ -23,7 +23,8 @@ public class S3DirectResponseErrorHandler implements HttpResponseErrorHandler {
       final S3ErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), S3ErrorDto.class);
       final AmazonServiceException exception = deserialize.toException();
       exception.setStatusCode(responseWrapper.getStatusCode());
-      return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), RetryUtils.isRetryableServiceException(exception));
+      final boolean isRecoverable = RetryUtils.isRetryableServiceException(exception) || RetryUtils.isThrottlingException(exception);
+      return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), isRecoverable);
     } else {
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, false);
     }
