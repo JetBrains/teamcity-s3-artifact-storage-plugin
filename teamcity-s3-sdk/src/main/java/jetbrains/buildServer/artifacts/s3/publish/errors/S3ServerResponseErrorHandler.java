@@ -23,7 +23,8 @@ public class S3ServerResponseErrorHandler implements HttpResponseErrorHandler {
     if (responseWrapper.getResponse() != null) {
       final AmazonServiceErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), AmazonServiceErrorDto.class);
       final AmazonServiceException exception = deserialize.toException();
-      return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), RetryUtils.isRetryableServiceException(exception));
+      final boolean isRecoverable = RetryUtils.isRetryableServiceException(exception) || RetryUtils.isThrottlingException(exception);
+      return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), isRecoverable);
     } else {
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, false);
     }

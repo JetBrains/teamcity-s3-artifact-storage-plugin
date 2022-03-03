@@ -4,10 +4,11 @@ import com.amazonaws.auth.PEM;
 import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner;
 import com.amazonaws.services.cloudfront.model.AmazonCloudFrontException;
-import com.amazonaws.services.cloudfront.model.Distribution;
 import com.amazonaws.services.cloudfront.model.GetDistributionRequest;
 import com.amazonaws.services.cloudfront.util.SignerUtils;
 import com.amazonaws.util.SdkHttpUtils;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.ByteArrayInputStream;
@@ -20,7 +21,10 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
@@ -28,12 +32,20 @@ import org.apache.http.client.utils.URIBuilder;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_DOMAIN_NAME_CACHE_EXPIRATION_HOURS;
+
 public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUrlProvider {
   @NotNull
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
 
   @NotNull
   private final TimeService myTimeService;
+
+  @NotNull
+  private final Cache<String, String> domainNameCache = CacheBuilder.newBuilder()
+                                                                    .expireAfterWrite(TeamCityProperties.getInteger(S3_CLOUDFRONT_DOMAIN_NAME_CACHE_EXPIRATION_HOURS, 1),
+                                                                                      TimeUnit.HOURS)
+                                                                    .build();
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
     myTimeService = timeService;
@@ -49,8 +61,7 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   @Nullable
   private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters) throws IOException {
     try {
-      Distribution distribution = getDistribution(settings);
-      String domain = distribution.getDomainName();
+      String domain = getDomainName(settings);
       String publicKeyId = settings.getCloudFrontPublicKeyId();
 
       String encodedObjectKey = SdkHttpUtils.urlEncode(objectKey, true);
@@ -96,15 +107,34 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     return generateUrl(objectKey, settings, additionalParameters);
   }
 
-  @NotNull
-  private Distribution getDistribution(@NotNull CloudFrontSettings settings) throws AmazonCloudFrontException {
+  @Nullable
+  private String getDomainName(@NotNull CloudFrontSettings settings) throws IOException {
     Map<String, String> params = ((CloudFrontSettingsImpl)settings).toRawSettings();
+    String selectedDistribution = S3Util.getCloudFrontDistribution(params);
+
+    String name = null;
+    try {
+      if (selectedDistribution != null) {
+        name = domainNameCache.get(selectedDistribution, () -> getDistribution(selectedDistribution, params));
+      }
+    } catch (ExecutionException e) {
+      Throwable cause = e;
+      if (e.getCause() != null) {
+        cause = e.getCause();
+      }
+      throw new IOException("Could not fetch distribution " + selectedDistribution + " from CloudFront", cause);
+    }
+    return name;
+  }
+
+  @Nullable
+  private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params) throws AmazonCloudFrontException {
     return AWSCommonParams.withAWSClients(params, clients -> {
       AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
-      String selectedDistribution = S3Util.getCloudFrontDistribution(params);
 
-      return cloudFrontClient.getDistribution(new GetDistributionRequest(selectedDistribution))
-                             .getDistribution();
+      return cloudFrontClient.getDistribution(new GetDistributionRequest(distributionName))
+                             .getDistribution()
+                             .getDomainName();
     });
   }
 
