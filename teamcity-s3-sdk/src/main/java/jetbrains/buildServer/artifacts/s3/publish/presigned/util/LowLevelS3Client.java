@@ -73,8 +73,6 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   private EntityEnclosingMethod put(@NotNull final String url, @NotNull final RequestEntity requestEntity, @Nullable String digest, @NotNull final Map<String, String> headers)
     throws IOException {
-    //TODO Remove after AWS throttling investigation is done
-    LOGGER.info("S3 Upload to " + url);
     final EntityEnclosingMethod request = putRequest(url);
     request.setRequestEntity(requestEntity);
     headers.forEach((name, value) -> request.setRequestHeader(name, value));
