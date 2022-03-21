@@ -105,7 +105,21 @@ public class S3PreSignedUrlController extends BaseController {
         finishMultipartUpload(httpServletRequest, request.getSecond());
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       } else {
-        final String response = providePresignedUrls(httpServletRequest, request.getSecond());
+        final CloudFrontSettings settings = request.getSecond();
+        final PresignedUrlListRequestDto urlsRequest = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
+
+        RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
+        Disposable threadName = NamedDaemonThreadFactory.patchThreadName("Generating " + urlsRequest.getPresignedUrlRequests().size() + " pre-signed URLs"
+                                                                         + (runningBuild != null ? " for a running build with id: " + runningBuild.getBuildId() : ""));
+        final String response;
+        try {
+          response = urlsRequest.isVersion2()
+                                  ? presignedUrlsV2(urlsRequest, settings)
+                                  : presignedUrlsV1(urlsRequest, settings);
+        } finally {
+          threadName.dispose();
+        }
+
         httpServletResponse.getWriter().append(response);
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       }
@@ -200,64 +214,50 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @NotNull
-  private String providePresignedUrls(@NotNull final HttpServletRequest httpServletRequest,
-                                      @NotNull final CloudFrontSettings settings) throws Exception {
-    final PresignedUrlListRequestDto request = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
-    return request.isVersion2()
-           ? presignedUrlsV2(request, settings)
-           : presignedUrlsV1(request, settings);
-  }
-
-  @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
                                  @NotNull final CloudFrontSettings settings) {
-    Disposable threadName = NamedDaemonThreadFactory.patchThreadName("Generating " + requestList.getPresignedUrlRequests().size() + " pre-signed URLs");
-    try {
-      final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
-        try {
-          if (request.getDigests() != null && request.getDigests().size() > 1) {
-            final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
-            final List<PresignedUrlPartDto> presignedUrls = new ArrayList<>();
-            for (int i = 0; i < request.getDigests().size(); i++) {
-              final String digest = request.getDigests().get(i);
-              int partNumber = i + 1;
-              try {
-                final String url = myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), digest, partNumber, uploadId, settings);
-                presignedUrls.add(new PresignedUrlPartDto(url, partNumber));
-              } catch (IOException e) {
-                LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
-                throw new RuntimeException(e);
-              }
+    final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
+      try {
+        if (request.getDigests() != null && request.getDigests().size() > 1) {
+          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          final List<PresignedUrlPartDto> presignedUrls = new ArrayList<>();
+          for (int i = 0; i < request.getDigests().size(); i++) {
+            final String digest = request.getDigests().get(i);
+            int partNumber = i + 1;
+            try {
+              final String url = myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), digest, partNumber, uploadId, settings);
+              presignedUrls.add(new PresignedUrlPartDto(url, partNumber));
+            } catch (IOException e) {
+              LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
+              throw new RuntimeException(e);
             }
-            return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
-          } else if (request.getNumberOfParts() > 1) {
-            final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
-            final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
-              try {
-                return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);
-              } catch (IOException e) {
-                LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
-                throw new RuntimeException(e);
-              }
-            }).collect(Collectors.toList());
-            return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
-          } else if (request.getDigests() != null && request.getDigests().size() == 1) {
-            return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
-          } else if (request.getHttpMethod() != null) {
-            return PresignedUrlDto.singlePart(request.getObjectKey(),
-                                              myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings));
-          } else {
-            return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
           }
-        } catch (Exception e) {
-          LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url: " + e.getMessage(), e);
-          throw new RuntimeException(e);
+          return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
+        } else if (request.getNumberOfParts() > 1) {
+          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
+            try {
+              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);
+            } catch (IOException e) {
+              LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
+              throw new RuntimeException(e);
+            }
+          }).collect(Collectors.toList());
+          return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
+        } else if (request.getDigests() != null && request.getDigests().size() == 1) {
+          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
+        } else if (request.getHttpMethod() != null) {
+          return PresignedUrlDto.singlePart(request.getObjectKey(),
+                                            myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings));
+        } else {
+          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
         }
-      }).collect(Collectors.toList());
-      return serializeResponseV2(PresignedUrlListResponseDto.createV2(responses));
-    } finally {
-      threadName.dispose();
-    }
+      } catch (Exception e) {
+        LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url: " + e.getMessage(), e);
+        throw new RuntimeException(e);
+      }
+    }).collect(Collectors.toList());
+    return serializeResponseV2(PresignedUrlListResponseDto.createV2(responses));
   }
 
   @NotNull
