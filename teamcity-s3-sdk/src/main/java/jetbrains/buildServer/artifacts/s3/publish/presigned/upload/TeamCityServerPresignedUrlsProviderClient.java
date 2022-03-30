@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
@@ -8,6 +9,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
@@ -71,17 +73,17 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   @NotNull
-  public Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull final List<String> objectKeys) {
+  public Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull final List<String> objectKeys, Map<String, String> digests) {
     validateClient();
     try {
       final PostMethod post = postTemplate();
-      post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys));
+      post.setRequestEntity(s3ObjectKeysRequestEntity(objectKeys, digests));
       int maxHeaders = TeamCityProperties.getInteger(S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER, DEFAULT_ARTIFACT_KEYS_HEADER_MAX_NUMBER);
       for (int i = 0; i < Math.min(maxHeaders, objectKeys.size()); i++) {
         post.addRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKeys.get(i));
       }
       final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
-      return deserializeResponseV1(responseBody).getPresignedUrls();
+      return deserializeResponseV2(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
@@ -181,9 +183,10 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  private StringRequestEntity s3ObjectKeysRequestEntity(@NotNull Collection<String> s3ObjectKeys) {
+  private StringRequestEntity s3ObjectKeysRequestEntity(@NotNull Collection<String> s3ObjectKeys, Map<String, String> digests) {
     try {
-      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV1(s3ObjectKeys));
+      final List<Pair<String, String>> keysWithDigests = s3ObjectKeys.stream().map(k -> Pair.create(k, digests.get(k))).collect(Collectors.toList());
+      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeysWithDigests(keysWithDigests)));
     } catch (UnsupportedEncodingException e) {
       LOGGER.warnAndDebugDetails("Unsupported encoding", e);
       throw new MisconfigurationException(e);

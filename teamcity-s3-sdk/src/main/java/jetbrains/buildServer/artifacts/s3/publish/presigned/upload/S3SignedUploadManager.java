@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.Lock;
@@ -17,7 +18,6 @@ import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
@@ -26,6 +26,8 @@ public class S3SignedUploadManager implements AutoCloseable {
   private final List<String> myS3ObjectKeys;
   @NotNull
   private final UptodateValue<Map<String, PresignedUrlDto>> myCache;
+  @NotNull
+  private final Map<String, String> myPrecalculatedDigests;
   private final int myMaxUrlChunkSize;
   @NotNull
   private final Lock myFetchLock = new ReentrantLock();
@@ -40,31 +42,31 @@ public class S3SignedUploadManager implements AutoCloseable {
 
   public S3SignedUploadManager(@NotNull final PresignedUrlsProviderClient presignedUrlsProviderClient,
                                @NotNull final S3Util.S3AdvancedConfiguration s3Config,
-                               @NotNull final Collection<String> s3ObjectKeys) {
+                               @NotNull final Collection<String> s3ObjectKeys,
+                               @NotNull Map<String, String> precalculatedDigests) {
     myPresignedUrlsProviderClient = presignedUrlsProviderClient;
     myS3ObjectKeys = new ArrayList<>(s3ObjectKeys);
+    myPrecalculatedDigests = precalculatedDigests;
     myMaxUrlChunkSize = s3Config.getPresignedUrlMaxChunkSize();
     myRetrier = Retrier.defaultRetrier(s3Config.getRetriesNum(), s3Config.getRetryDelay(), LOGGER);
     myCache = new UptodateValue<>(this::fetchPresignedUrlsFromProvider, s3Config.getUrlTtlSeconds() * 1000L);
   }
 
-
   @NotNull
-  public String getUrl(@NotNull final String s3ObjectKey) {
+  public Pair<String, String> getUrlWithDigest(@NotNull final String s3ObjectKey) {
     PresignedUrlDto presignedUrlDto = myCache.getValue().get(s3ObjectKey);
     if (presignedUrlDto == null) {
       LOGGER.info(() -> "Presigned url for object key '" + s3ObjectKey + "' wasn't found in cached result from server, cache: '" + myCache.getValue().toString() + "'");
       throw new IllegalArgumentException("Specified object key not found in cached response from server");
     }
-    if (presignedUrlDto.isMultipart()) {
-      throw new IllegalArgumentException("Specified object key requested as a multipart upload, while regular upload expected");
-    } else {
-      if (presignedUrlDto.getPresignedUrlParts().size() != 1) {
-        throw new IllegalArgumentException("Specified object key requested exactly [1] presigned url while ["
-                                           + presignedUrlDto.getPresignedUrlParts().size() + "] urls returned from provider");
-      }
-      return Objects.requireNonNull(CollectionsUtil.findFirst(presignedUrlDto.getPresignedUrlParts(), CollectionsUtil.acceptAllFilter())).getUrl();
+
+    if (presignedUrlDto.getPresignedUrlParts().size() != 1) {
+      throw new IllegalArgumentException("Specified object key requested exactly [1] presigned url while ["
+                                         + presignedUrlDto.getPresignedUrlParts().size() + "] urls returned from provider");
     }
+    final String url = Objects.requireNonNull(CollectionsUtil.findFirst(presignedUrlDto.getPresignedUrlParts(), CollectionsUtil.acceptAllFilter())).getUrl();
+    return Pair.create(url, myPrecalculatedDigests.get(s3ObjectKey));
+
   }
 
 
@@ -78,7 +80,7 @@ public class S3SignedUploadManager implements AutoCloseable {
           return CollectionsUtil.split(myS3ObjectKeys, (myS3ObjectKeys.size() / myMaxUrlChunkSize) + 1)
                                 .stream()
                                 .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " started"))
-                                .map(myRetrier.retryableMapper(myPresignedUrlsProviderClient::getRegularPresignedUrls))
+                                .map(myRetrier.retryableMapper(keys -> myPresignedUrlsProviderClient.getRegularPresignedUrls(keys, myPrecalculatedDigests)))
                                 .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " finished"))
                                 .flatMap(presignedUrlDto -> presignedUrlDto.stream())
                                 .collect(Collectors.toMap(o -> o.getObjectKey(), presignedUrlDto -> presignedUrlDto));
@@ -99,16 +101,6 @@ public class S3SignedUploadManager implements AutoCloseable {
     final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests));
     myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());
     return presignedUrl;
-  }
-
-  @Nullable
-  public String getUrl(@NotNull final String objectKey, @Nullable final String digest) {
-    final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getUrl(objectKey, digest));
-    if (presignedUrl.getPresignedUrlParts().isEmpty()) {
-      LOGGER.warn("Fetching URL with digest failed");
-      return null;
-    }
-    return presignedUrl.getPresignedUrlParts().iterator().next().getUrl();
   }
 
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {

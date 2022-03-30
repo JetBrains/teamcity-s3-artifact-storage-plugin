@@ -18,11 +18,11 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.time.Instant;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.RejectedExecutionException;
@@ -42,6 +42,7 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -66,6 +67,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                              Consumer<FileUploadInfo> uploadInfoConsumer) {
     LOGGER.debug(() -> "Publishing artifacts using S3 configuration " + myS3Configuration);
 
+    final boolean consistencyCheckEnabled = myS3Configuration.getAdvancedConfiguration().isConsistencyCheckEnabled();
+    final Map<String, String> precalculatedDigests = new HashMap<>();
+
     final Map<String, FileWithArtifactPath> normalizedObjectPaths = new HashMap<>();
     for (Map.Entry<File, String> entry : filesToUpload.entrySet()) {
       final File file = entry.getKey();
@@ -76,6 +80,13 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       if (existingMapping != null && !existingMapping.getFile().equals(file)) {
         myLogger.warn("Found clashing artifacts path: " + artifactPath + " leading to different files [" + existingMapping.getFile().getPath() + "," + file.getPath() + "].\n" +
                       "Only the last file will be uploaded to the specified artifact path.");
+      }
+      try {
+        if (consistencyCheckEnabled && !precalculatedDigests.containsKey(objectKey) && !isMultipartUpload(file)) {
+          precalculatedDigests.put(objectKey, getDigest(file));
+        }
+      } catch (IOException e) {
+        LOGGER.warnAndDebugDetails("Failed to calculate digest for " + file, e);
       }
       normalizedObjectPaths.put(objectKey, FileWithArtifactPath.create(artifactPath, file));
     }
@@ -88,7 +99,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration);
          final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
                                                                                myS3Configuration.getAdvancedConfiguration(),
-                                                                               normalizedObjectPaths.keySet())) {
+                                                                               normalizedObjectPaths.keySet(),
+                                                                               precalculatedDigests)) {
 
       LOGGER.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
       normalizedObjectPaths.entrySet()
@@ -99,6 +111,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                                  .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
                                                                    objectKeyToFileWithArtifactPath.getKey(),
                                                                    objectKeyToFileWithArtifactPath.getValue().getFile(),
+                                                                   isMultipartUpload(objectKeyToFileWithArtifactPath.getValue().getFile()),
                                                                    myS3Configuration.getAdvancedConfiguration(),
                                                                    uploadManager,
                                                                    lowLevelS3Client,
@@ -141,6 +154,21 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       }
     }
     return statisticsLogger.getAllRecords();
+  }
+
+  public boolean isMultipartUpload(File file) throws IOException {
+    final long threshold = myS3Configuration.getAdvancedConfiguration().getMultipartUploadThreshold();
+    final long chunkSize = myS3Configuration.getAdvancedConfiguration().getMinimumUploadPartSize();
+    final boolean isMultipartEnabled = myS3Configuration.getAdvancedConfiguration().isPresignedMultipartUploadEnabled();
+    return isMultipartEnabled && file.length() > threshold * 1.2 && file.length() > chunkSize;
+  }
+
+  @NotNull
+  private String getDigest(@NotNull File file) throws IOException {
+    try (final InputStream in = Files.newInputStream(file.toPath())) {
+      byte[] digest = DigestUtils.md5(in);
+      return Base64.getEncoder().encodeToString(digest);
+    }
   }
 
   private boolean isPoolTerminating(CloseableForkJoinPoolAdapter forkJoinPool) {

@@ -1,13 +1,19 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.io.*;
+import com.intellij.openapi.util.Pair;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -24,7 +30,6 @@ import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
 import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,6 +42,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   private final String myObjectKey;
   @NotNull
   private final File myFile;
+  private final boolean myMultipartUpload;
   @NotNull
   private final LowLevelS3Client myLowLevelS3Client;
   @NotNull
@@ -46,8 +52,6 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   private final AtomicLong myRemainingBytes = new AtomicLong();
   private final long myChunkSizeInBytes;
-  private final long myMultipartThresholdInBytes;
-  private final boolean myMultipartEnabled;
   @NotNull
   private final Retrier myRetrier;
   private final S3MultipartUploadFileSplitter myFileSplitter;
@@ -59,6 +63,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   private S3PresignedUpload(@NotNull final String artifactPath,
                             @NotNull final String objectKey,
                             @NotNull final File file,
+                            boolean multipartUpload,
                             @NotNull final S3Util.S3AdvancedConfiguration configuration,
                             @NotNull final S3SignedUploadManager s3SignedUploadManager,
                             @NotNull final LowLevelS3Client lowLevelS3Client,
@@ -66,11 +71,10 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myArtifactPath = artifactPath;
     myObjectKey = objectKey;
     myFile = file;
+    myMultipartUpload = multipartUpload;
     myS3SignedUploadManager = s3SignedUploadManager;
     myLowLevelS3Client = lowLevelS3Client;
     myChunkSizeInBytes = configuration.getMinimumUploadPartSize();
-    myMultipartThresholdInBytes = configuration.getMultipartUploadThreshold();
-    myMultipartEnabled = configuration.isPresignedMultipartUploadEnabled();
     myProgressListener = progressListener;
     myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
@@ -99,11 +103,13 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   public static S3PresignedUpload create(@NotNull final String artifactPath,
                                          @NotNull final String objectKey,
                                          @NotNull final File file,
+                                         boolean multipartUpload,
                                          @NotNull final S3Util.S3AdvancedConfiguration configuration,
                                          @NotNull final S3SignedUploadManager s3SignedUploadManager,
                                          @NotNull final LowLevelS3Client lowLevelS3Client,
                                          @NotNull final PresignedUploadProgressListener progressListener) {
-    final S3PresignedUpload s3PresignedUpload = new S3PresignedUpload(artifactPath, objectKey, file, configuration, s3SignedUploadManager, lowLevelS3Client, progressListener);
+    final S3PresignedUpload s3PresignedUpload =
+      new S3PresignedUpload(artifactPath, objectKey, file, multipartUpload, configuration, s3SignedUploadManager, lowLevelS3Client, progressListener);
     progressListener.setUpload(s3PresignedUpload);
     return s3PresignedUpload;
   }
@@ -198,14 +204,12 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   }
 
   @NotNull
-  private String regularUpload() throws IOException {
+  private String regularUpload() {
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      String digest = myCheckConsistency ? getDigest(myFile) : null;
-      final String url = myS3SignedUploadManager.getUrl(myObjectKey, digest);
-      if (url == null) {
-        throw new IOException("Could not fetch presigned URL from server");
-      }
+      final Pair<String, String> urlWithDigest = myS3SignedUploadManager.getUrlWithDigest(myObjectKey);
+      String url = urlWithDigest.first;
+      String digest = urlWithDigest.second;
       String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest));
       myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess(stripQuery(url));
@@ -216,16 +220,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     }
   }
 
-  @NotNull
-  private String getDigest(@NotNull File file) throws IOException {
-    try (final InputStream in = Files.newInputStream(file.toPath())) {
-      byte[] digest = DigestUtils.md5(in);
-      return Base64.getEncoder().encodeToString(digest);
-    }
-  }
-
   public boolean isMultipartUpload() {
-    return myMultipartEnabled && myFile.length() > myMultipartThresholdInBytes * 1.2 && myFile.length() > myChunkSizeInBytes;
+    return myMultipartUpload;
   }
 
   @NotNull

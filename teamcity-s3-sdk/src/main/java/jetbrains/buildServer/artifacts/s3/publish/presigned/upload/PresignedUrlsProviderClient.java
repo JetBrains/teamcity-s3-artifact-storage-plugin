@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadAbortRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadCompleteRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadStartRequestDto;
@@ -15,7 +16,7 @@ public interface PresignedUrlsProviderClient extends AutoCloseable {
   PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable final String digest);
 
   @NotNull
-  Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull List<String> objectKey);
+  Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull List<String> objectKey, Map<String, String> precalculatedDigests);
 
   @NotNull
   PresignedUrlDto getMultipartPresignedUrl(@NotNull String objectKey, @NotNull List<String> digests);

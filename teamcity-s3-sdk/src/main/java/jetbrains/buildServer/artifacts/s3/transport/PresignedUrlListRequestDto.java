@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.transport;
 
+import com.intellij.openapi.util.Pair;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +41,15 @@ public class PresignedUrlListRequestDto {
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeys(@NotNull final Collection<String> objectKeys) {
     return new PresignedUrlListRequestDto(objectKeys.stream().map(objectKey -> PresignedUrlRequestDto.from(objectKey)).collect(Collectors.toSet()), false);
+  }
+
+
+  @NotNull
+  public static PresignedUrlListRequestDto forObjectKeysWithDigests(@NotNull final Collection<Pair<String, String>> keysWithDigests) {
+    return new PresignedUrlListRequestDto(keysWithDigests.stream()
+                                                         .map(pair -> PresignedUrlRequestDto.from(pair.getFirst(), Collections.singletonList(pair.getSecond())))
+                                                         .collect(Collectors.toSet()),
+                                          false);
   }
 
   public Collection<PresignedUrlRequestDto> getPresignedUrlRequests() {
