@@ -14,13 +14,20 @@ public class GuardedCloudFrontPresignedUrlProvider implements CloudFrontPresigne
 
   @Nullable
   @Override
-  public String generateUrl(@NotNull String objectKey,
-                            @NotNull CloudFrontSettings settings) throws IOException {
-    return IOGuard.allowNetworkCall(() -> myDelegate.generateUrl(objectKey, settings));
+  public String generateDownloadUrl(@NotNull String objectKey,
+                                    @NotNull CloudFrontSettings settings) throws IOException {
+    return IOGuard.allowNetworkCall(() -> myDelegate.generateDownloadUrl(objectKey, settings));
+  }
+
+  @Nullable
+  @Override
+  public String generateUploadUrl(@NotNull String objectKey,
+                                  @NotNull CloudFrontSettings settings) throws IOException {
+    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrl(objectKey, settings));
   }
 
   @Override
-  public String generateUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException {
-    return IOGuard.allowNetworkCall(() -> myDelegate.generateUrlForPart(objectKey, nPart, uploadId, settings));
+  public String generateUploadUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException {
+    return IOGuard.allowNetworkCall(() -> myDelegate.generateUploadUrlForPart(objectKey, nPart, uploadId, settings));
   }
 }

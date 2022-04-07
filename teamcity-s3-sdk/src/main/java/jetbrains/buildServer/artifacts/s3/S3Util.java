@@ -137,8 +137,13 @@ public final class S3Util {
   }
 
   @Nullable
-  public static String getCloudFrontDistribution(@NotNull final Map<String, String> params) {
-    return params.get(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION);
+  public static String getCloudFrontUploadDistribution(@NotNull final Map<String, String> params) {
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION);
+  }
+
+  @Nullable
+  public static String getCloudFrontDownloadDistribution(@NotNull final Map<String, String> params) {
+    return params.get(CloudFrontConstants.S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION);
   }
 
   @Nullable

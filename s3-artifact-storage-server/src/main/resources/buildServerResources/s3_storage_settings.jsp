@@ -35,13 +35,15 @@
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
 <c:set var="cloudFrontDistributionEmptyOption" value="--Select distribution --"/>
 <c:set var="cloudFrontKeyPairEmptyOption" value="-- Select key pair --"/>
-<c:set var="cloudfrontDistributionSelect" value="cloudfrontDistributionSelect"/>
-<c:set var="cloudFrontDistributionName" value="cloudFrontDistributionName"/>
 <c:set var="cloudFrontPublicKeyName" value="cloudFrontPublicKeyName"/>
 <c:set var="cloudfrontKeyPairSelect" value="cloudfrontKeyPairSelect"/>
 <c:set var="cloudFrontPrivateKeyUpload" value="cloudFrontPrivateKeyUpload"/>
 <c:set var="cloudFrontPrivateKeyNote" value="cloudFrontPrivateKeyNote"/>
+
+<c:set var="cloudfrontUploadDistributionSelect" value="cloudfrontUploadDistributionSelect"/>
+<c:set var="cloudfrontDownloadDistributionSelect" value="cloudfrontDownloadDistributionSelect"/>
 <c:set var="cloudFrontDistributionCreationLoader" value="distributionCreationLoader"/>
+
 <c:set var="enableCloudFrontIntegration" value="enableCloudFrontIntegration"/>
 <c:set var="enableCloudFrontIntegrationLabel" value="enableCloudFrontIntegrationLabel"/>
 <c:set var="disableCloudFrontIntegration" value="disableCloudFrontIntegration"/>
@@ -134,20 +136,38 @@
     </tr>
     <tbody id="${params.cloudFrontSettingsGroup}">
     <tr class="noBorder">
-      <th><label for="${cloudfrontDistributionSelect}">Distribution: <l:star/></label></th>
+      <th><label for="${cloudfrontUploadDistributionSelect}">Distribution for uploads: <l:star/></label></th>
       <td>
         <div class="posRel">
           <span class="non_serializable_form_elements_container">
-            <props:selectProperty name="${cloudfrontDistributionSelect}" id="${cloudfrontDistributionSelect}" className="longField"/>
+            <props:selectProperty name="${cloudfrontUploadDistributionSelect}" id="${cloudfrontUploadDistributionSelect}" className="longField"/>
           </span>
           <i class="icon-refresh" title="Reload distributions" id="distributions-refresh"></i>
           <i class="icon-magic" title="Create new CloudFront distribution" id="${params.cloudFrontCreateDistribution}"></i>
           <forms:saving id="${cloudFrontDistributionCreationLoader}"/>
-          <span class="error" id="error_${cloudfrontDistributionSelect}"></span>
+          <span class="error" id="error_${cloudfrontUploadDistributionSelect}"></span>
           <span class="error" id="error_distributions"></span>
-          <span class="error" id="error_${params.cloudFrontDistribution}"></span>
+          <span class="error" id="error_${params.cloudFrontUploadDistribution}"></span>
           <span class="error" id="error_${params.cloudFrontCreateDistribution}"></span>
-          <props:hiddenProperty name="${params.cloudFrontDistribution}" value="${propertiesBean.properties[params.cloudFrontDistribution]}"/>
+          <props:hiddenProperty name="${params.cloudFrontUploadDistribution}" value="${propertiesBean.properties[params.cloudFrontUploadDistribution]}"/>
+        </div>
+      </td>
+    </tr>
+    <tr class="noBorder">
+      <th><label for="${cloudfrontDownloadDistributionSelect}">Distribution for downloads: <l:star/></label></th>
+      <td>
+        <div class="posRel">
+          <span class="non_serializable_form_elements_container">
+            <props:selectProperty name="${cloudfrontDownloadDistributionSelect}" id="${cloudfrontDownloadDistributionSelect}" className="longField"/>
+          </span>
+          <i class="icon-refresh" title="Reload distributions" id="distributions-refresh"></i>
+          <i class="icon-magic" title="Create new CloudFront distribution" id="${params.cloudFrontCreateDistribution}"></i>
+          <forms:saving id="${cloudFrontDistributionCreationLoader}"/>
+          <span class="error" id="error_${cloudfrontDownloadDistributionSelect}"></span>
+          <span class="error" id="error_distributions"></span>
+          <span class="error" id="error_${params.cloudFrontDownloadDistribution}"></span>
+          <span class="error" id="error_${params.cloudFrontCreateDistribution}"></span>
+          <props:hiddenProperty name="${params.cloudFrontDownloadDistribution}" value="${propertiesBean.properties[params.cloudFrontDownloadDistribution]}"/>
         </div>
       </td>
     </tr>
@@ -211,6 +231,7 @@
   </c:if>
 </l:settingsGroup>
 
+
 <script type="text/javascript">
 
   $j(document).ready(function () {
@@ -221,15 +242,18 @@
     var $bucketSelect = $j(BS.Util.escapeId('${bucketNameSelect}'));
     var $bucketString = $j(BS.Util.escapeId('${bucketNameStringInput}'));
     var $realBucketInput = $j(BS.Util.escapeId('${params.bucketName}'));
-    var $createDistributionButton = $j(BS.Util.escapeId('${params.cloudFrontCreateDistribution}'));
-    var $distributionInput = $j(BS.Util.escapeId('${params.cloudFrontDistribution}'));
     var $publicKeyInput = $j(BS.Util.escapeId('${params.cloudFrontPublicKeyId}'));
     var $privateKeyInput = $j(BS.Util.escapeId('${params.cloudFrontPrivateKey}'));
-    var $distributionSelect = $j(BS.Util.escapeId('${cloudfrontDistributionSelect}'));
     var $publicKeySelect = $j(BS.Util.escapeId('${cloudfrontKeyPairSelect}'));
     var $privateKeyUpload = $j('#file\\:${cloudFrontPrivateKeyUpload}');
     var $privateKeyNote = $j(BS.Util.escapeId('${cloudFrontPrivateKeyNote}'));
     var $awsEnvSelect = $j(BS.Util.escapeId('${environment_name_param}'));
+
+    var $createDistributionButton = $j(BS.Util.escapeId('${params.cloudFrontCreateDistribution}'));
+    var $distributionUploadInput = $j(BS.Util.escapeId('${params.cloudFrontUploadDistribution}'));
+    var $distributionUploadSelect = $j(BS.Util.escapeId('${cloudfrontUploadDistributionSelect}'));
+    var $distributionDownloadInput = $j(BS.Util.escapeId('${params.cloudFrontDownloadDistribution}'));
+    var $distributionDownloadSelect = $j(BS.Util.escapeId('${cloudfrontDownloadDistributionSelect}'));
 
     var bucketLocations = {};
     var publicKeys = [];
@@ -332,46 +356,43 @@
       });
     }
 
-    function getSelectedDistributionName() {
-      return $distributionInput.val();
-    }
-
     function getSelectedKeyGroup() {
       return $publicKeyInput.val();
     }
 
-    function redrawDistributionSelector() {
-      var selectedDistribution = getSelectedDistributionName();
+    function redrawDistributionSelector(input, select) {
+      var selectedDistribution = input.val();
 
-      $distributionSelect.empty();
-      addOptionToSelector($distributionSelect, '${cloudFrontDistributionEmptyOption}', "");
+      select.empty();
+      addOptionToSelector(select, '${cloudFrontDistributionEmptyOption}', "");
       var selectedValueExistsInList = false;
       $j.each(distributions, function (i, distribution) {
         if (selectedDistribution && distribution.enabled && distribution.id === selectedDistribution) {
           selectedValueExistsInList = true;
         }
         if (distribution.enabled) {
-          addOptionToSelector($distributionSelect, distribution.description, distribution.id)
+          addOptionToSelector(select, distribution.description, distribution.id)
         }
       });
       if (selectedDistribution) {
         if (selectedValueExistsInList) {
-          $distributionSelect.val(selectedDistribution);
+          select.val(selectedDistribution).change();
         }
       }
-      BS.enableJQueryDropDownFilter('${cloudfrontDistributionSelect}', {});
+      BS.enableJQueryDropDownFilter(select.attr('id'), {});
     }
 
     function redrawKeyGroupSelector() {
       const selectedKeyGroup = getSelectedKeyGroup();
-      const selectedDistributionName = getSelectedDistributionName();
-      const selectedDistribution = distributions.find(d => d.id === selectedDistributionName);
+      const selectedUploadDistributionName = $distributionUploadInput.val();
+      const selectedDownDistributionName = $distributionDownloadInput.val();
+      const selectedDistributions = distributions.findAll(d => (d.id === selectedUploadDistributionName) || (d.id === selectedDownDistributionName));
 
       $publicKeySelect.empty();
       addOptionToSelector($publicKeySelect, '${cloudFrontKeyPairEmptyOption}', "");
       var keys = publicKeys;
-      if (selectedDistribution != null) {
-        keys = keys.filter(k => selectedDistribution.publicKeys.includes(k.id))
+      if (selectedDistributions != null) {
+        keys = keys.filter(k => selectedDistributions.every(d => d.publicKeys.includes(k.id)))
       }
       var selectedValueExistsInList = false;
       keys.forEach(publicKey => {
@@ -400,9 +421,7 @@
       }
     }
 
-    window.updateSelectedDistributionName = function (value) {
-      $distributionInput.val(value).change();
-    };
+
 
     window.updateSelectedKeyGroup = function (value) {
       $publicKeyInput.val(value).change();
@@ -424,7 +443,8 @@
         var $response = $j(response);
         if (displayErrorsFromResponseIfAny($response)) {
           distributions = [];
-          redrawDistributionSelector();
+          redrawDistributionSelector($distributionUploadInput, $distributionUploadSelect);
+          redrawDistributionSelector($distributionDownloadInput, $distributionDownloadSelect);
           return;
         }
 
@@ -435,9 +455,8 @@
           const publicKeys = d.find("publicKey").map((i, e) => $j(e).text()).get();
           return {id, description, enabled, publicKeys};
         });
-        var selectedDistribution = getSelectedDistributionName();
-        redrawDistributionSelector(selectedDistribution);
-        updateSelectedDistributionName(selectedDistribution)
+        redrawDistributionSelector($distributionUploadInput, $distributionUploadSelect);
+        redrawDistributionSelector($distributionDownloadInput, $distributionDownloadSelect);
       }).always(function () {
         BS.ErrorsAwareListener.onCompleteSave(BS.EditStorageForm, "<errors/>", true);
         $refreshButton.removeClass('icon-spin');
@@ -506,10 +525,16 @@
       }
     });
 
-    $j(document).on('change', '#${cloudfrontDistributionSelect}', function () {
+    $j(document).on('change', '#${cloudfrontUploadDistributionSelect}', function () {
       BS.EditStorageForm.clearErrors();
       var distributionName = $j(this).val();
-      updateSelectedDistributionName(distributionName === "" ? null : distributionName);
+      $distributionUploadInput.val(distributionName === "" ? null : distributionName).change();
+    });
+
+    $j(document).on('change', '#${cloudfrontDownloadDistributionSelect}', function () {
+      BS.EditStorageForm.clearErrors();
+      var distributionName = $j(this).val();
+      $distributionDownloadInput.val(distributionName === "" ? null : distributionName).change();
     });
 
     $j(document).on('change', '#${cloudfrontKeyPairSelect}', function () {
@@ -536,19 +561,30 @@
           return;
         }
 
-        const $distribution = $response.find("distribution");
-        const distributionId = $distribution.find("id").text();
-        const distributionDescription = $distribution.find("description").text();
-        const publicKeyid = $distribution.find("publicKeyId").text();
-        const publicKeyName = $distribution.find("publicKeyName").text();
-        const privateKey = $distribution.find("privateKey").text();
+        const $downloadDistribution = $response.find("downloadDistribution");
+        const downloadDistrId = $downloadDistribution.find("id").text();
+        const downloadDistrDescription = $downloadDistribution.find("description").text();
 
-        distributions.push({id: distributionId, description: distributionDescription, enabled: true, publicKeys: [publicKeyid]});
+        const $uploadDistribution = $response.find("uploadDistribution");
+        const uploadDistrId = $uploadDistribution.find("id").text();
+        const uploadDistrDescription = $uploadDistribution.find("description").text();
+
+        const publicKeyid = $response.find("publicKeyId").text();
+        const publicKeyName = $response.find("publicKeyName").text();
+
+        const privateKey = $response.find("privateKey").text();
+
+        distributions.push({id: downloadDistrId, description: downloadDistrDescription, enabled: true, publicKeys: [publicKeyid]});
+        distributions.push({id: uploadDistrId, description: uploadDistrDescription, enabled: true, publicKeys: [publicKeyid]});
         publicKeys.push({id: publicKeyid, name: publicKeyName});
 
-        addOptionToSelector($distributionSelect, distributionDescription, distributionId);
-        BS.enableJQueryDropDownFilter('${cloudfrontDistributionSelect}', {});
-        $distributionSelect.val(distributionId).change();
+        addOptionToSelector($distributionUploadSelect, uploadDistrDescription, uploadDistrId);
+        BS.enableJQueryDropDownFilter('${cloudfrontUploadDistributionSelect}', {});
+        $distributionUploadSelect.val(uploadDistrId).change();
+
+        addOptionToSelector($distributionDownloadSelect, downloadDistrDescription, downloadDistrId);
+        BS.enableJQueryDropDownFilter('${cloudfrontDownloadDistributionSelect}', {});
+        $distributionDownloadSelect.val(downloadDistrId).change();
 
         addOptionToSelector($publicKeySelect, publicKeyName, publicKeyid);
         BS.enableJQueryDropDownFilter('${cloudfrontKeyPairSelect}', {});
@@ -589,7 +625,7 @@
       }
     });
 
-    $distributionInput.change(function () {
+    $distributionUploadInput.change(function () {
       redrawKeyGroupSelector();
     });
 

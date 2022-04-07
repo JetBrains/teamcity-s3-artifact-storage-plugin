@@ -7,10 +7,17 @@ import org.jetbrains.annotations.Nullable;
 public interface CloudFrontSettings extends S3Settings {
   boolean getCloudFrontEnabled();
 
-  @Nullable
+  @Deprecated
+  @NotNull
   String getCloudFrontDistribution();
 
   @Nullable
+  String getCloudFrontUploadDistribution();
+
+  @Nullable
+  String getCloudFrontDownloadDistribution();
+
+  @NotNull
   String getCloudFrontPublicKeyId();
 
   @NotNull

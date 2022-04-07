@@ -68,12 +68,16 @@ public class S3ParametersProvider {
     return CloudFrontConstants.S3_CLOUDFRONT_ENABLED;
   }
 
-  public String getCloudFrontSettingsGroup(){
+  public String getCloudFrontSettingsGroup() {
     return CloudFrontConstants.S3_CLOUDFRONT_SETTINGS_GROUP;
   }
 
-  public String getCloudFrontDistribution() {
-    return CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION;
+  public String getCloudFrontUploadDistribution() {
+    return CloudFrontConstants.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION;
+  }
+
+  public String getCloudFrontDownloadDistribution() {
+    return CloudFrontConstants.S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION;
   }
 
   public String getCloudFrontPublicKeyId() {
@@ -85,7 +89,7 @@ public class S3ParametersProvider {
   }
 
   public String getCloudFrontCreateDistribution() {
-    return CloudFrontConstants.S3_CLOUDFRONT_CREATE_DISTRIBUTION;
+    return CloudFrontConstants.S3_CLOUDFRONT_CREATE_DISTRIBUTIONS;
   }
 
   public List<String> getAclEnum() {

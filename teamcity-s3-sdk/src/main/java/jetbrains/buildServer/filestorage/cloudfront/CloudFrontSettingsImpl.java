@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,22 +33,34 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
     return S3Util.getCloudFrontEnabled(mySettings);
   }
 
-  @Nullable
+  @NotNull
   @Override
   public String getCloudFrontDistribution() {
-    return S3Util.getCloudFrontDistribution(mySettings);
+    return mySettings.get(CloudFrontConstants.S3_CLOUDFRONT_DISTRIBUTION);
   }
 
   @Nullable
   @Override
+  public String getCloudFrontUploadDistribution() {
+    return S3Util.getCloudFrontUploadDistribution(mySettings);
+  }
+
+  @Nullable
+  @Override
+  public String getCloudFrontDownloadDistribution() {
+    return S3Util.getCloudFrontDownloadDistribution(mySettings);
+  }
+
+  @NotNull
+  @Override
   public String getCloudFrontPublicKeyId() {
-    return S3Util.getCloudFrontPublicKeyId(mySettings);
+    return Objects.requireNonNull(S3Util.getCloudFrontPublicKeyId(mySettings));
   }
 
   @NotNull
   @Override
   public String getCloudFrontPrivateKey() {
-    return S3Util.getCloudFrontPrivateKey(mySettings);
+    return Objects.requireNonNull(S3Util.getCloudFrontPrivateKey(mySettings));
   }
 
   @NotNull

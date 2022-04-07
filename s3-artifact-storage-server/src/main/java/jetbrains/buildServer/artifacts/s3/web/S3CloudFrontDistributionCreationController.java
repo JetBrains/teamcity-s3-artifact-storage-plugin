@@ -40,7 +40,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
@@ -72,6 +71,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   public static final String COMMENT = BASE_COMMENT + " for '%s'";
   public static final String NUMBERED_COMMENT = COMMENT + " (%d)";
   public static final AllowedMethods ALL_METHODS_ALLOWED = new AllowedMethods().withItems(Method.values()).withQuantity(7);
+  public static final AllowedMethods ONLY_DOWNLOAD_METHODS_ALLOWED = new AllowedMethods().withItems(Method.HEAD, Method.GET, Method.OPTIONS).withQuantity(3);
   public static final Predicate<CachePolicy> IS_GENERATED_POLICY = p -> p.getCachePolicyConfig().getName().equals(S3_CLOUDFRONT_GENERATED_CACHE_POLICY);
   public static final Predicate<CachePolicy> IS_DEFAULT_POLICY = p -> p.getCachePolicyConfig().getName().equals(S3_CLOUDFRONT_DEFAULT_CACHE_POLICY);
 
@@ -111,7 +111,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     SProject project = myProjectManager.findProjectByExternalId(projectId);
 
     if (project == null) {
-      errors.addError(S3_CLOUDFRONT_CREATE_DISTRIBUTION, String.format("Project %s not found", projectId));
+      errors.addError(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, String.format("Project %s not found", projectId));
     } else {
       myAccessChecker.checkCanEditProject(project);
 
@@ -126,7 +126,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
             String privateKey = toPemString("PRIVATE KEY", keyPair.getPrivate().getEncoded());
             String publicKey = toPemString("PUBLIC KEY", keyPair.getPublic().getEncoded());
 
-            DistributionDTO distributionDTO = AWSCommonParams.withAWSClients(params, clients -> {
+            DistributionCreationResultDTO distributionCreationResultDTO = AWSCommonParams.withAWSClients(params, clients -> {
               AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
               AmazonS3 s3Client = clients.createS3Client();
 
@@ -147,10 +147,14 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
               try {
                 publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
                 keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
-                Distribution distribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client);
-                return new DistributionDTO(distribution.getId(), comment, publicKeyId, name, privateKey);
+                Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
+                final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
+
+                Distribution downloadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, false);
+                final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
+                return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
               } catch (SdkClientException e) {
-                errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTION, e);
+                errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
                 if (keyGroupId != null) {
                   try {
                     cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
@@ -168,13 +172,13 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
               }
               return null;
             });
-            if (distributionDTO != null) {
-              Element element = S3XmlSerializerFactory.getInstance().serializeAsElement(distributionDTO);
+            if (distributionCreationResultDTO != null) {
+              Element element = S3XmlSerializerFactory.getInstance().serializeAsElement(distributionCreationResultDTO);
               xmlResponse.addContent(element);
             }
           }
         } catch (IllegalArgumentException | SdkClientException | IOException | NoSuchAlgorithmException e) {
-          errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTION, e);
+          errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
         }
       });
     }
@@ -197,13 +201,14 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                                           @NotNull String comment,
                                           @NotNull String bucketName,
                                           @NotNull AmazonCloudFront cloudFrontClient,
-                                          @NotNull AmazonS3 s3Client) {
+                                          @NotNull AmazonS3 s3Client,
+                                          boolean uploadAllowed) {
     String originId = bucketName + "." + UUID.randomUUID();
 
     String oaiId = getOriginAccessIdentityId(s3Client, cloudFrontClient, bucketName);
     String bucketRegion = s3Client.getBucketLocation(bucketName);
     Origin origin = createOrigin(bucketName, bucketRegion, originId, oaiId);
-    DistributionConfig distributionConfig = createDistributionConfig(cloudFrontClient, keyGroupId, origin, comment);
+    DistributionConfig distributionConfig = createDistributionConfig(cloudFrontClient, keyGroupId, origin, comment, uploadAllowed);
     CreateDistributionResult result = cloudFrontClient.createDistribution(new CreateDistributionRequest(distributionConfig));
     return result.getDistribution();
   }
@@ -240,14 +245,21 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   }
 
   @NotNull
-  private DistributionConfig createDistributionConfig(@NotNull AmazonCloudFront cloudFrontClient, @NotNull String keyGroupId, @NotNull Origin origin, @NotNull String comment) {
-    DefaultCacheBehavior cacheBehavior = createDefaultCacheBehavior(cloudFrontClient, keyGroupId, origin.getId());
+  private DistributionConfig createDistributionConfig(@NotNull AmazonCloudFront cloudFrontClient,
+                                                      @NotNull String keyGroupId,
+                                                      @NotNull Origin origin,
+                                                      @NotNull String comment,
+                                                      boolean uploadAllowed) {
+    AllowedMethods methods = uploadAllowed ? ALL_METHODS_ALLOWED : ONLY_DOWNLOAD_METHODS_ALLOWED;
+    DefaultCacheBehavior cacheBehavior = createDefaultCacheBehavior(cloudFrontClient, keyGroupId, origin.getId(), methods);
+
+    final String enchancedComment = comment + (uploadAllowed ? " for Uploads" : " for Downloads");
 
     return new DistributionConfig()
       .withDefaultCacheBehavior(cacheBehavior)
       .withOrigins(new Origins().withItems(origin).withQuantity(1))
       .withCallerReference(ZonedDateTime.now(ZoneOffset.UTC).toString())
-      .withComment(comment)
+      .withComment(enchancedComment)
       .withEnabled(true);
   }
 
@@ -262,7 +274,9 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   }
 
   @NotNull
-  private DefaultCacheBehavior createDefaultCacheBehavior(@NotNull AmazonCloudFront cloudFrontClient, @NotNull String keyGroupId, @NotNull String originId) {
+  private DefaultCacheBehavior createDefaultCacheBehavior(@NotNull AmazonCloudFront cloudFrontClient,
+                                                          @NotNull String keyGroupId,
+                                                          @NotNull String originId, AllowedMethods allowedMethods) {
     CachePolicy defaultPolicy = getOrCreateCachePolicy(cloudFrontClient);
 
     TrustedKeyGroups trustedKeyGroups = new TrustedKeyGroups()
@@ -272,7 +286,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     return new DefaultCacheBehavior()
       .withViewerProtocolPolicy(ViewerProtocolPolicy.RedirectToHttps)
       .withTargetOriginId(originId)
-      .withAllowedMethods(ALL_METHODS_ALLOWED)
+      .withAllowedMethods(allowedMethods)
       .withCachePolicyId(defaultPolicy.getId())
       .withTrustedKeyGroups(trustedKeyGroups);
   }
@@ -343,10 +357,10 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                                                 @NotNull Policy policy,
                                                 @NotNull List<CloudFrontOriginAccessIdentitySummary> existingIdentities) {
     String oaiId = existingIdentities.stream()
-                                     .filter(o -> o.getComment().equals(S3_CLOUDFRONT_DEFAULT_OAI_COMMENT))
+                                     .filter(o -> o.getComment().equals(BASE_COMMENT))
                                      .findFirst()
                                      .map(CloudFrontOriginAccessIdentitySummary::getId)
-                                     .orElseGet(() -> createOriginAccessIdentity(cloudFrontClient, S3_CLOUDFRONT_DEFAULT_OAI_COMMENT));
+                                     .orElseGet(() -> createOriginAccessIdentity(cloudFrontClient));
 
     Collection<Statement> statements = policy.getStatements();
     statements.add(generateStatementForOAI(bucketName, oaiId));
@@ -390,8 +404,10 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   }
 
   @NotNull
-  private String createOriginAccessIdentity(@NotNull AmazonCloudFront cloudFrontClient, @NotNull String comment) {
-    CloudFrontOriginAccessIdentityConfig config = new CloudFrontOriginAccessIdentityConfig().withCallerReference(comment).withComment(comment);
+  private String createOriginAccessIdentity(@NotNull AmazonCloudFront cloudFrontClient) {
+    CloudFrontOriginAccessIdentityConfig config = new CloudFrontOriginAccessIdentityConfig()
+      .withCallerReference(BASE_COMMENT)
+      .withComment(BASE_COMMENT);
 
     CreateCloudFrontOriginAccessIdentityRequest request = new CreateCloudFrontOriginAccessIdentityRequest()
       .withCloudFrontOriginAccessIdentityConfig(config);
@@ -400,29 +416,28 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                            .getId();
   }
 
-  @XmlRootElement(name = "distribution")
-  static class DistributionDTO {
-    private final String id;
-    private final String description;
+  static class DistributionCreationResultDTO {
+    private final DistributionDTO uploadDistribution;
+    private final DistributionDTO downloadDistribution;
     private final String publicKeyId;
     private final String publicKeyName;
     private final String privateKey;
 
     @Used("xml-serialization")
-    public DistributionDTO(@NotNull String id, @NotNull String description, @NotNull String publicKeyId, @NotNull String publicKeyName, @NotNull String privateKey) {
-      this.id = id;
-      this.description = description;
+    public DistributionCreationResultDTO(DistributionDTO uploadDistribution, DistributionDTO downloadDistribution, String publicKeyId, String publicKeyName, String privateKey) {
+      this.uploadDistribution = uploadDistribution;
+      this.downloadDistribution = downloadDistribution;
       this.publicKeyId = publicKeyId;
       this.publicKeyName = publicKeyName;
       this.privateKey = privateKey;
     }
 
-    public String getId() {
-      return id;
+    public DistributionDTO getUploadDistribution() {
+      return uploadDistribution;
     }
 
-    public String getDescription() {
-      return description;
+    public DistributionDTO getDownloadDistribution() {
+      return downloadDistribution;
     }
 
     public String getPublicKeyId() {
@@ -435,6 +450,25 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
 
     public String getPrivateKey() {
       return privateKey;
+    }
+  }
+
+  static class DistributionDTO {
+    private final String id;
+    private final String description;
+
+    @Used("xml-serialization")
+    public DistributionDTO(String id, String description) {
+      this.id = id;
+      this.description = description;
+    }
+
+    public String getId() {
+      return id;
+    }
+
+    public String getDescription() {
+      return description;
     }
   }
 }

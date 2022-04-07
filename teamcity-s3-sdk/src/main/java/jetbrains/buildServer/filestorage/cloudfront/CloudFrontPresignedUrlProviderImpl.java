@@ -23,7 +23,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
@@ -53,15 +52,31 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
 
   @Nullable
   @Override
-  public String generateUrl(@NotNull String objectKey,
-                            @NotNull CloudFrontSettings settings) throws IOException {
-    return generateUrl(objectKey, settings, Collections.emptyMap());
+  public String generateDownloadUrl(@NotNull String objectKey,
+                                    @NotNull CloudFrontSettings settings) throws IOException {
+    String distribution = settings.getCloudFrontDownloadDistribution();
+    if (distribution == null) {
+      distribution = settings.getCloudFrontDistribution();
+    }
+    return generateUrl(objectKey, settings, Collections.emptyMap(), distribution);
   }
 
   @Nullable
-  private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters) throws IOException {
+  @Override
+  public String generateUploadUrl(@NotNull String objectKey,
+                                  @NotNull CloudFrontSettings settings) throws IOException {
+    String distribution = settings.getCloudFrontUploadDistribution();
+    if (distribution == null) {
+      distribution = settings.getCloudFrontDistribution();
+    }
+    return generateUrl(objectKey, settings, Collections.emptyMap(), distribution);
+  }
+
+  @Nullable
+  private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters, @NotNull String distribution)
+    throws IOException {
     try {
-      String domain = getDomainName(settings);
+      String domain = getDomainName(settings, distribution);
       String publicKeyId = settings.getCloudFrontPublicKeyId();
 
       String encodedObjectKey = SdkHttpUtils.urlEncode(objectKey, true);
@@ -93,36 +108,39 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
         final String message = awsException.getMessage() + details;
         LOG.warnAndDebugDetails(message, cause);
       }
-      throw new IOException(String.format("Failed to create pre-signed URL to artifact '%s' in CloudFront distribution '%s': %s", objectKey, settings.getCloudFrontDistribution(),
-                                          awsException.getMessage()),
-                            awsException);
+      throw new IOException(
+        String.format("Failed to create pre-signed URL to artifact '%s' in CloudFront distribution '%s': %s", objectKey, distribution, awsException.getMessage()),
+        awsException);
     }
   }
 
   @Override
-  public String generateUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException {
+  public String generateUploadUrlForPart(@NotNull String objectKey, int nPart, @NotNull String uploadId, @NotNull CloudFrontSettings settings) throws IOException {
     HashMap<String, String> additionalParameters = new HashMap<>();
     additionalParameters.put("uploadId", uploadId);
     additionalParameters.put("partNumber", String.valueOf(nPart));
-    return generateUrl(objectKey, settings, additionalParameters);
+    String distribution = settings.getCloudFrontUploadDistribution();
+    if (distribution == null) {
+      distribution = settings.getCloudFrontDistribution();
+    }
+    return generateUrl(objectKey, settings, additionalParameters, distribution);
   }
 
   @Nullable
-  private String getDomainName(@NotNull CloudFrontSettings settings) throws IOException {
-    Map<String, String> params = ((CloudFrontSettingsImpl)settings).toRawSettings();
-    String selectedDistribution = S3Util.getCloudFrontDistribution(params);
+  private String getDomainName(@NotNull CloudFrontSettings settings, String distribution) throws IOException {
+    Map<String, String> params = settings.toRawSettings();
 
     String name = null;
     try {
-      if (selectedDistribution != null) {
-        name = domainNameCache.get(selectedDistribution, () -> getDistribution(selectedDistribution, params));
+      if (distribution != null) {
+        name = domainNameCache.get(distribution, () -> getDistribution(distribution, params));
       }
     } catch (ExecutionException e) {
       Throwable cause = e;
       if (e.getCause() != null) {
         cause = e.getCause();
       }
-      throw new IOException("Could not fetch distribution " + selectedDistribution + " from CloudFront", cause);
+      throw new IOException("Could not fetch distribution " + distribution + " from CloudFront", cause);
     }
     return name;
   }

@@ -19,6 +19,7 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,8 +33,12 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
   public Collection<InvalidProperty> process(Map<String, String> params) {
     final ArrayList<InvalidProperty> invalids = new ArrayList<>();
 
-    if (S3Util.getCloudFrontDistribution(params) == null) {
-      invalids.add(new InvalidProperty(S3_CLOUDFRONT_DISTRIBUTION, "CloudFront distribution should not be empty"));
+    if (StringUtil.isEmptyOrSpaces(S3Util.getCloudFrontUploadDistribution(params))) {
+      invalids.add(new InvalidProperty(S3_CLOUDFRONT_UPLOAD_DISTRIBUTION, "CloudFront distribution for upload should not be empty"));
+    }
+
+    if (StringUtil.isEmptyOrSpaces(S3Util.getCloudFrontDownloadDistribution(params))) {
+      invalids.add(new InvalidProperty(S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION, "CloudFront distribution for download should not be empty"));
     }
 
     PrivateKey privateKey = getPrivateKey(params, invalids);

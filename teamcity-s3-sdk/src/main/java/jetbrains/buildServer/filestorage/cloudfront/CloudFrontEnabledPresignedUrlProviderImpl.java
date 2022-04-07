@@ -29,7 +29,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     String preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
-      preSignedUrl = myCloudFrontProvider.generateUrl(objectKey, settings);
+      preSignedUrl = myCloudFrontProvider.generateDownloadUrl(objectKey, settings);
     }
 
     if (preSignedUrl == null) {
@@ -44,7 +44,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     String preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
-      preSignedUrl = myCloudFrontProvider.generateUrl(objectKey, settings);
+      preSignedUrl = myCloudFrontProvider.generateUploadUrl(objectKey, settings);
     }
 
     if (preSignedUrl == null) {
@@ -63,7 +63,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
     String preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
-      preSignedUrl = myCloudFrontProvider.generateUrlForPart(objectKey, nPart, uploadId, settings);
+      preSignedUrl = myCloudFrontProvider.generateUploadUrlForPart(objectKey, nPart, uploadId, settings);
     }
 
     if (preSignedUrl == null) {
