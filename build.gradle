@@ -20,6 +20,7 @@ ext {
   teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2021.1'
   awsCoreVersion = project.hasProperty('awsCoreVersion') ? property('awsCoreVersion') : teamcityVersion
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
+  migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : 'lastSuccessful'
 }
 
 group = projectIds.group
