@@ -93,10 +93,6 @@ public final class S3Util {
         invalids.put(S3_PATH_PREFIX_SETTING, "Should match the regexp [" + OUR_OBJECT_KEY_PATTERN.pattern() + "]");
       }
     }
-    final String acl = params.getOrDefault(S3_ACL, CannedAccessControlList.Private.name());
-    if (acl.isEmpty()) {
-      invalids.put(S3_ACL, "Should be present");
-    }
     final Pair<Long, String> partSizeValueWithError = parseMultipartUploadByteSetting(params.get(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE));
     if (partSizeValueWithError.getSecond() != null) {
       invalids.put(S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE, "Invalid " + partSizeValueWithError.getSecond());
@@ -272,7 +268,7 @@ public final class S3Util {
 
   @NotNull
   public static CannedAccessControlList getAcl(@NotNull final Map<String, String> configuration) {
-    final String acl = configuration.getOrDefault(S3_ACL, CannedAccessControlList.Private.name());
+    final String acl = configuration.getOrDefault(S3_ACL, CannedAccessControlList.BucketOwnerFullControl.name());
     return Arrays.stream(CannedAccessControlList.values())
                  .filter(v -> v.toString().equals(acl) || v.name().equals(acl))
                  .findFirst()

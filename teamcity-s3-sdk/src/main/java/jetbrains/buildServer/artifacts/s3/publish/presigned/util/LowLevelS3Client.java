@@ -7,7 +7,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.*;
@@ -43,9 +42,7 @@ public class LowLevelS3Client implements AutoCloseable {
       HttpClientUtil.createConnectionManager(s3Config.getAdvancedConfiguration().getConnectionTimeout(), s3Config.getAdvancedConfiguration().getNThreads()));
     myCheckConsistency = s3Config.getAdvancedConfiguration().isConsistencyCheckEnabled();
     myAdditionalHeaders = new HashMap<>();
-    if (s3Config.getSettingsMap().containsKey(S3Constants.S3_ACL)) {
-      myAdditionalHeaders.put("x-amz-acl", s3Config.getAcl().toString());
-    }
+    myAdditionalHeaders.put("x-amz-acl", s3Config.getAcl().toString());
   }
 
   @NotNull
