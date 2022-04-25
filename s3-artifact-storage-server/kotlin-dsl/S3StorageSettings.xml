@@ -6,8 +6,8 @@
     </description>
   </class>
   <init>
-    <param name="storage.type" dslName="storageType" value="S3_storage" />
-    <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true" />
+    <param name="storage.type" dslName="storageType" value="S3_storage"/>
+    <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
   </init>
   <function name="s3Storage">
     <description>
@@ -59,33 +59,25 @@
         Whether to use CloudFront for artifact transport
       </description>
     </param>
-      <param name="storage.s3.cloudfront.distribution" dslName="cloudFrontDistribution" type="string">
-          <description>
-              Name of CloudFront distribution
-          </description>
-          <deprecated>
-              Replaced by cloudFrontUploadDistribution and cloudFrontDownloadDistribution
-          </deprecated>
-      </param>
-      <param name="storage.s3.cloudfront.upload.distribution" dslName="cloudFrontUploadDistribution" type="string">
-          <description>
-              Name of CloudFront distribution for uploads
-          </description>
-      </param>
-      <param name="storage.s3.cloudfront.download.distribution" dslName="cloudFrontDownloadDistribution" type="string">
-          <description>
-              Name of CloudFront distribution for downloads
-          </description>
-      </param>
-      <param name="storage.s3.cloudfront.publicKeyId" dslName="cloudFrontPublicKeyId" type="string">
-          <description>
-              Id of Public Key in CloudFront that has access to selected distribution
-          </description>
-      </param>
-      <param name="secure:storage.s3.cloudfront.privateKey" dslName="cloudFrontPrivateKey">
-          <description>
-              Private key that corresponds to chosen public key
-          </description>
-      </param>
+    <param name="storage.s3.cloudfront.upload.distribution" dslName="cloudFrontUploadDistribution" type="string">
+      <description>
+        Name of CloudFront distribution for uploads
+      </description>
+    </param>
+    <param name="storage.s3.cloudfront.download.distribution" dslName="cloudFrontDownloadDistribution" type="string">
+      <description>
+        Name of CloudFront distribution for downloads
+      </description>
+    </param>
+    <param name="storage.s3.cloudfront.publicKeyId" dslName="cloudFrontPublicKeyId" type="string">
+      <description>
+        Id of Public Key in CloudFront that has access to selected distribution
+      </description>
+    </param>
+    <param name="secure:storage.s3.cloudfront.privateKey" dslName="cloudFrontPrivateKey">
+      <description>
+        Private key that corresponds to chosen public key
+      </description>
+    </param>
   </params>
 </dsl-extension>
