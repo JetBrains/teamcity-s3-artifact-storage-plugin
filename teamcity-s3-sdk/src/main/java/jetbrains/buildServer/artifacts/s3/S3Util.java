@@ -267,8 +267,8 @@ public final class S3Util {
   }
 
   @NotNull
-  public static CannedAccessControlList getAcl(@NotNull final Map<String, String> configuration) {
-    final String acl = configuration.getOrDefault(S3_ACL, CannedAccessControlList.BucketOwnerFullControl.name());
+  public static CannedAccessControlList getAcl(@NotNull final Map<String, String> configuration, Map<String, String> projectConfiguration) {
+    final String acl = projectConfiguration.getOrDefault(S3_ACL, configuration.getOrDefault(S3_ACL, CannedAccessControlList.BucketOwnerFullControl.name()));
     return Arrays.stream(CannedAccessControlList.values())
                  .filter(v -> v.toString().equals(acl) || v.name().equals(acl))
                  .findFirst()

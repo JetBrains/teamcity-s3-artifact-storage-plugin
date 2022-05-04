@@ -95,7 +95,7 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   @NotNull
   @Override
   public CannedAccessControlList getAcl() {
-    return S3Util.getAcl(mySettings);
+    return S3Util.getAcl(mySettings, myProjectSettings);
   }
 
   @NotNull

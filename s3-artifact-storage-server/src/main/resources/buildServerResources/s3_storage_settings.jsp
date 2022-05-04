@@ -102,20 +102,6 @@
       <span class="error" id="error_${params.pathPrefix}"></span>
     </td>
   </tr>
-  <%--  Needed for TW-73641. Should be returned for next release --%>
-  <%--  <tr>--%>
-  <%--    <th><label for="${params.acl}">S3 ACL: </label></th>--%>
-  <%--    <td>--%>
-  <%--      <c:set value="${propertiesBean.properties[params.acl]}" var="aclSetValue"/>--%>
-  <%--      <props:selectProperty name="${params.acl}" enableFilter="true" id="${params.acl}">--%>
-  <%--        <c:forEach items="${params.aclEnum}" var="aclValue">--%>
-  <%--          <props:option value="${aclValue}" selected="${aclSetValue == aclValue || (empty aclSetValue && aclValue == params.defaultAcl)}">${aclValue}</props:option>--%>
-  <%--        </c:forEach>--%>
-  <%--      </props:selectProperty>--%>
-  <%--      <span class="smallNote">Specify the ACL</span>--%>
-  <%--      <span class="error" id="error_${params.acl}"></span>--%>
-  <%--    </td>--%>
-  <%--  </tr>--%>
   <tr class="noBorder">
     <th class="noBorder"></th>
     <td class="noBorder">
