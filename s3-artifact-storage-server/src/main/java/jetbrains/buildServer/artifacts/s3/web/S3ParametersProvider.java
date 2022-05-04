@@ -52,10 +52,6 @@ public class S3ParametersProvider {
     return S3Constants.S3_PATH_PREFIX_SETTING;
   }
 
-  public String getAcl() {
-    return S3Constants.S3_ACL;
-  }
-
   public String getMultipartUploadThreshold() {
     return S3Constants.S3_MULTIPART_UPLOAD_THRESHOLD;
   }

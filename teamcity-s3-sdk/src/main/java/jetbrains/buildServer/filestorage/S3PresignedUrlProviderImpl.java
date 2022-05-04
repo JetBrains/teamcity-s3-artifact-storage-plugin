@@ -193,7 +193,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @NotNull
     @Override
     public CannedAccessControlList getAcl() {
-      return S3Util.getAcl(mySettings);
+      return S3Util.getAcl(mySettings, myProjectSettings);
     }
 
     @NotNull

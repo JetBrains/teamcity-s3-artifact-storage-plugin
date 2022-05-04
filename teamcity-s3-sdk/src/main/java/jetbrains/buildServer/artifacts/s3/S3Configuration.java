@@ -45,7 +45,7 @@ public class S3Configuration {
 
   @NotNull
   public CannedAccessControlList getAcl() {
-    return S3Util.getAcl(mySettingsMap);
+    return myS3AdvancedConfiguration.getAcl();
   }
 
   @NotNull

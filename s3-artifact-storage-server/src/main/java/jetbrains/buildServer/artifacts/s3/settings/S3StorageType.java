@@ -16,7 +16,6 @@
 
 package jetbrains.buildServer.artifacts.s3.settings;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -91,7 +90,6 @@ public class S3StorageType extends ArtifactStorageType {
     Map<String, String> result = new HashMap<>(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
     result.put(AWSCommonParams.REGION_NAME_PARAM, AWSRegions.DEFAULT_REGION);
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
-    result.put(S3Constants.S3_ACL, CannedAccessControlList.BucketOwnerFullControl.name());
     return result;
   }
 
