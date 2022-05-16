@@ -91,18 +91,40 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
         post.addRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKeys.get(i));
       }
 
-      // set current node id cookie to instruct proxy server where this request should be landed
-      // note: we don't read the cookie from the response here because for this type of request on the server side
-      // the cookie is not sent to the response
-      final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, myNodeIdHolder.getOwnerNodeId(), "/", myNodeIdHolder.getExpirationTime(), false);
-      myTeamCityClient.getState().addCookie(cookie);
+      setNodeIdCookie();
 
       final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
+
+      updateOwnerNodeId();
+
       return deserializeResponseV2(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
     }
+  }
+
+  private void setNodeIdCookie() {
+    // set current node id cookie to instruct proxy server where this request should be landed
+    final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, myNodeIdHolder.getOwnerNodeId(), "/", myNodeIdHolder.getExpirationTime(), false);
+    myTeamCityClient.getState().addCookie(cookie);
+  }
+
+  private void updateOwnerNodeId() {
+    // update current node id if we've got a cookie in the response
+    Cookie nodeIdCookie = findCookie(myTeamCityClient, XmlRpcConstants.NODE_ID_COOKIE);
+    if (nodeIdCookie != null && !myNodeIdHolder.getOwnerNodeId().equals(nodeIdCookie.getValue())) {
+      myNodeIdHolder.setOwnerNodeId(nodeIdCookie.getValue(), nodeIdCookie.getExpiryDate());
+    }
+  }
+
+  @Nullable
+  private Cookie findCookie(@NotNull HttpClient client, @NotNull String cookieName) {
+    for (Cookie c: client.getState().getCookies()) {
+      if (c.getName().equals(cookieName)) return c;
+    }
+
+    return null;
   }
 
   @NotNull
