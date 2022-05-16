@@ -253,6 +253,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
                                                build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_URLS_PROVIDER_PATH, ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML),
                                                build.getAccessUser(),
                                                build.getAccessCode(),
+                                               build.getNodeIdHolder(),
                                                build.getAgentConfiguration().getServerConnectionTimeout());
   }
 }

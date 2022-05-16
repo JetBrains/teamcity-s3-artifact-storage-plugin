@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.xmlrpc.NodeIdHolder;
 import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.apache.commons.httpclient.UsernamePasswordCredentials;
@@ -20,16 +21,20 @@ public class TeamCityConnectionConfiguration {
   private final String myUrlsProviderPath;
   private final int myConnectionTimeout;
 
+  private final NodeIdHolder myNodeIdHolder;
+
   public TeamCityConnectionConfiguration(@NotNull final String teamCityUrl,
                                          @NotNull final String urlsProviderPath,
                                          @NotNull final String accessUser,
                                          @NotNull final String accessCode,
+                                         @NotNull final NodeIdHolder nodeIdHolder,
                                          final int connectionTimeout) {
     myTeamCityUrl = teamCityUrl;
     myAccessUser = accessUser;
     myAccessCode = accessCode;
     myConnectionTimeout = connectionTimeout;
     myUrlsProviderPath = urlsProviderPath;
+    myNodeIdHolder = nodeIdHolder;
   }
 
   public int getConnectionTimeout() {
@@ -53,5 +58,10 @@ public class TeamCityConnectionConfiguration {
   @NotNull
   public String getUrlsProviderPath() {
     return myUrlsProviderPath;
+  }
+
+  @NotNull
+  public NodeIdHolder getNodeIdHolder() {
+    return myNodeIdHolder;
   }
 }

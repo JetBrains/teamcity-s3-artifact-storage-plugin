@@ -23,6 +23,9 @@ import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.xmlrpc.NodeIdHolder;
+import jetbrains.buildServer.xmlrpc.XmlRpcConstants;
+import org.apache.commons.httpclient.Cookie;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.HttpMethod;
@@ -51,11 +54,16 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @NotNull
   private final HttpResponseErrorHandler myErrorHandler = new CompositeHttpRequestErrorHandler(new S3ServerResponseErrorHandler(), new TeamCityPresignedUrlsProviderErrorHandler());
 
+  private final NodeIdHolder myNodeIdHolder;
+  private final String myServerUrl;
+
   public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration,
                                                    @NotNull final Collection<ArtifactTransportAdditionalHeadersProvider> additionalHeadersProviders) {
     myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth/" + StringUtil.removeLeadingSlash(teamCityConnectionConfiguration.getUrlsProviderPath());
     myTeamCityClient = createClient(teamCityConnectionConfiguration);
     myAdditionalHeadersProviders = additionalHeadersProviders;
+    myNodeIdHolder = teamCityConnectionConfiguration.getNodeIdHolder();
+    myServerUrl = teamCityConnectionConfiguration.getTeamCityUrl();
   }
 
   @NotNull
@@ -73,7 +81,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   @NotNull
-  public Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull final List<String> objectKeys, Map<String, String> digests) {
+  public Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull final List<String> objectKeys, @NotNull Map<String, String> digests) {
     validateClient();
     try {
       final PostMethod post = postTemplate();
@@ -82,6 +90,13 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       for (int i = 0; i < Math.min(maxHeaders, objectKeys.size()); i++) {
         post.addRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKeys.get(i));
       }
+
+      // set current node id cookie to instruct proxy server where this request should be landed
+      // note: we don't read the cookie from the response here because for this type of request on the server side
+      // the cookie is not sent to the response
+      final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, myNodeIdHolder.getOwnerNodeId(), "/", myNodeIdHolder.getExpirationTime(), false);
+      myTeamCityClient.getState().addCookie(cookie);
+
       final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
       return deserializeResponseV2(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
