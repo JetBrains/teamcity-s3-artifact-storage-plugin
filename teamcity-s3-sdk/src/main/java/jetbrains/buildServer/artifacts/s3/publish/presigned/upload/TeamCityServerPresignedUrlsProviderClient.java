@@ -104,7 +104,10 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   private void setNodeIdCookie() {
     // set current node id cookie to instruct proxy server where this request should be landed
-    final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, myNodeIdHolder.getOwnerNodeId(), "/", myNodeIdHolder.getExpirationTime(), false);
+    final String nodeId = myNodeIdHolder.getOwnerNodeId();
+    if (nodeId == null) return;
+
+    final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, nodeId, "/", myNodeIdHolder.getExpirationTime(), false);
     myTeamCityClient.getState().addCookie(cookie);
   }
 
