@@ -237,7 +237,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build, FlowLogger flowLogger) {
     if (myFileUploader == null) {
       Collection<ArtifactTransportAdditionalHeadersProvider> headersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
-      final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration.getAgentHomeDirectory());
+      final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration);
       final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
       s3Configuration.setPathPrefix(getPathPrefix(build));
       myFileUploader = myUploaderFactory.create(s3Configuration,
