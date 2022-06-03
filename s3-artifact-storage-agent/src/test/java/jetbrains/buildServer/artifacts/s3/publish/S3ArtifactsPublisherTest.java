@@ -64,6 +64,8 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
 
     BuildAgentConfiguration config = Mockito.mock(BuildAgentConfiguration.class);
     when(config.getAgentHomeDirectory()).thenReturn(new File(""));
+    File systemDir = createTempDir();
+    when(config.getCacheDirectory(anyString())).thenAnswer(i -> new File(systemDir, i.getArguments()[0].toString()));
 
     PresignedUrlsProviderClientFactory clientFactory = Mockito.mock(PresignedUrlsProviderClientFactory.class);
     ExtensionHolder holder = Mockito.mock(ExtensionHolder.class);
@@ -135,6 +137,8 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
 
     BuildAgentConfiguration config = Mockito.mock(BuildAgentConfiguration.class);
     when(config.getAgentHomeDirectory()).thenReturn(new File(""));
+    File systemDir = createTempDir();
+    when(config.getCacheDirectory(anyString())).thenAnswer(i -> new File(systemDir, i.getArguments()[0].toString()));
 
     PresignedUrlsProviderClientFactory clientFactory = Mockito.mock(PresignedUrlsProviderClientFactory.class);
     ExtensionHolder holder = Mockito.mock(ExtensionHolder.class);
