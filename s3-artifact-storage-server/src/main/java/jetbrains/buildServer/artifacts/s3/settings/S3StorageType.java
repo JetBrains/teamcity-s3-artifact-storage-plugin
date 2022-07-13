@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.artifacts.s3.settings;
 
+import com.amazonaws.services.s3.model.BucketAccelerateConfiguration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,6 +35,7 @@ import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
@@ -106,15 +108,23 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final String location = IOGuard.allowNetworkCall(() -> S3Util.withS3ClientShuttingDownImmediately(
+          final BucketAccelerateConfiguration accelerateConfig = IOGuard.allowNetworkCall(() -> S3Util.withS3ClientShuttingDownImmediately(
             ParamUtil.putSslValues(myServerPaths, params),
-            client -> S3Util.withClientCorrectingRegion(client, params, correctedClient -> correctedClient.getBucketLocation(bucketName))
+            client -> S3Util.withClientCorrectingAcceleration(client, params, correctedClient -> correctedClient.getBucketAccelerateConfiguration(bucketName))
           ));
-          if (location == null) {
-            invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
+          if (S3Util.isAccelerateModeEnabled(params) && !accelerateConfig.isAccelerateEnabled()) {
+            invalids.add(new InvalidProperty(S3_ENABLE_ACCELERATE_MODE, "S3 Transfer Acceleration is not configured on this bucket"));
           } else {
-            if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && !location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
-              params.put(REGION_NAME_PARAM, BucketLocationFetcher.getRegionName(location));
+            final String location = IOGuard.allowNetworkCall(() -> S3Util.withS3ClientShuttingDownImmediately(
+              ParamUtil.putSslValues(myServerPaths, params),
+              client -> S3Util.withClientCorrectingRegion(client, params, correctedClient -> correctedClient.getBucketLocation(bucketName))
+            ));
+            if (location == null) {
+              invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
+            } else {
+              if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && !location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
+                params.put(REGION_NAME_PARAM, BucketLocationFetcher.getRegionName(location));
+              }
             }
           }
         } catch (Throwable e) {

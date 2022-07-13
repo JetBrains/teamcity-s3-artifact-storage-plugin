@@ -40,6 +40,8 @@
 <c:set var="cloudFrontPrivateKeyUpload" value="cloudFrontPrivateKeyUpload"/>
 <c:set var="cloudFrontPrivateKeyNote" value="cloudFrontPrivateKeyNote"/>
 
+<c:set var="enableAccelerateModeNote" value="transferAccelerationNote"/>
+
 <c:set var="cloudfrontUploadDistributionSelect" value="cloudfrontUploadDistributionSelect"/>
 <c:set var="cloudfrontDownloadDistributionSelect" value="cloudfrontDownloadDistributionSelect"/>
 <c:set var="cloudFrontDistributionCreationLoader" value="distributionCreationLoader"/>
@@ -191,7 +193,10 @@
     <th>Options:</th>
     <td>
       <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/><label for="${params.usePresignUrlsForUpload}">Use Pre-Signed URLs for upload</label><br/>
-      <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/><label for="${params.forceVirtualHostAddressing}">Force Virtual Host Addressing</label>
+      <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/><label for="${params.forceVirtualHostAddressing}">Force Virtual Host Addressing</label><br/>
+      <props:checkboxProperty name="${params.enableAccelerateMode}"/><label for="${params.enableAccelerateMode}">Enable Transfer Acceleration</label>
+      <span class="error" id="error_${params.enableAccelerateMode}"></span>
+      <span id="${enableAccelerateModeNote}" class="smallNote">Transfer Acceleration only works when <b>Force Virtual Host Addressing</b> is enabled</span>
     </td>
   </tr>
   <c:if test="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.upload.presignedUrl.multipart.enabled')}">
@@ -241,6 +246,10 @@
     var $distributionUploadSelect = $j(BS.Util.escapeId('${cloudfrontUploadDistributionSelect}'));
     var $distributionDownloadInput = $j(BS.Util.escapeId('${params.cloudFrontDownloadDistribution}'));
     var $distributionDownloadSelect = $j(BS.Util.escapeId('${cloudfrontDownloadDistributionSelect}'));
+
+    var $forceVirtualHost = $j(BS.Util.escapeId('${params.forceVirtualHostAddressing}'));
+    var $enableAccelerateMode = $j(BS.Util.escapeId('${params.enableAccelerateMode}'));
+    var previousAccelerateModeValue;
 
     var bucketLocations = {};
     var publicKeys = [];
@@ -652,11 +661,30 @@
       });
     });
 
+    function changeAccelerateMode(shouldBeDisabled) {
+      if (!previousAccelerateModeValue || shouldBeDisabled) {
+        previousAccelerateModeValue = $enableAccelerateMode.is(':checked');
+      }
+      $enableAccelerateMode.prop({
+        checked: shouldBeDisabled ? false : previousAccelerateModeValue,
+        disabled: shouldBeDisabled
+      })
+    }
+
+    $forceVirtualHost.on("change", function (event) {
+      changeAccelerateMode(!event.target.checked)
+    });
+
     redrawBucketSelector([], "");
     loadBucketList();
     loadDistributionList();
     loadPublicKeyList();
     redrawPrivateKeyUploader();
     updateCloudFrontVisibility();
+
+    setTimeout(function () {
+      changeAccelerateMode(!$forceVirtualHost.is(":checked"))
+    }, 500);
+
   });
 </script>

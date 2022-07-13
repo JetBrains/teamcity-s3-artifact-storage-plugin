@@ -40,6 +40,8 @@ public class S3Constants {
   public static final String S3_PRESIGNED_UPLOAD_MAX_NUMBER_OF_URLS_TO_LOAD_IN_ONE_REQUEST = "teamcity.internal.storage.s3.upload.presignedUrl.maxNumberOfUrlsToLoadInOneRequest";
   public static final String S3_PRESIGNED_UPLOAD_INTERNAL_CHUNK_SIZE = "teamcity.internal.storage.s3.upload.presignedUrl.internalChunkSize";
   public static final String S3_FORCE_VIRTUAL_HOST_ADDRESSING = "storage.s3.forceVirtualHostAddressing";
+
+  public static final String S3_ENABLE_ACCELERATE_MODE = "storage.s3.accelerateModeEnabled";
   public static final String S3_CLEANUP_BATCH_SIZE = "storage.s3.cleanup.batchSize";
   public static final String S3_MULTIPART_UPLOAD_THRESHOLD = "storage.s3.upload.multipart_threshold";
   public static final String S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE = "storage.s3.upload.multipart_chunksize";

@@ -101,6 +101,10 @@ public final class S3Util {
     if (thresholdWithError.getSecond() != null) {
       invalids.put(S3_MULTIPART_UPLOAD_THRESHOLD, "Invalid " + thresholdWithError.getSecond());
     }
+
+    if (!disablePathStyleAccess(params) && isAccelerateModeEnabled(params)) {
+      invalids.put(S3_ENABLE_ACCELERATE_MODE, "Transfer Acceleration can only be used together with Virtual Host Addressing");
+    }
     return invalids;
   }
 
@@ -279,6 +283,10 @@ public final class S3Util {
     return Boolean.parseBoolean(properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING));
   }
 
+  public static boolean isAccelerateModeEnabled(@NotNull final Map<String, String> properties) {
+    return Boolean.parseBoolean(properties.get(S3_ENABLE_ACCELERATE_MODE));
+  }
+
   public static <T, E extends Throwable> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
     return withS3Client(params, withClient, true);
   }
@@ -297,6 +305,7 @@ public final class S3Util {
     return AWSCommonParams.withAWSClients(params, clients -> {
       clients.setS3SignerType(V4_SIGNER_TYPE);
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
+      clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
       patchAWSClientsSsl(clients, params);
       final AmazonCloudFront client = clients.createCloudFrontClient();
       try {
@@ -315,6 +324,7 @@ public final class S3Util {
     return AWSCommonParams.withAWSClients(params, clients -> {
       clients.setS3SignerType(V4_SIGNER_TYPE);
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
+      clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
       patchAWSClientsSsl(clients, params);
       final AmazonS3 s3Client = clients.createS3Client();
       try {
@@ -388,6 +398,22 @@ public final class S3Util {
       return file.getName();
     } else {
       return FileUtil.normalizeRelativePath(String.format("%s/%s", path, file.getName()));
+    }
+  }
+
+  public static <T> T withClientCorrectingAcceleration(@NotNull final AmazonS3 s3Client,
+                                                       @NotNull final Map<String, String> settings,
+                                                       @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
+    try {
+      return withCorrectedClient.run(s3Client);
+    } catch (AmazonS3Exception awsException) {
+      if (awsException.getErrorMessage().equals("S3 Transfer Acceleration is not configured on this bucket")) {
+        final HashMap<String, String> correctedSettings = new HashMap<>(settings);
+        correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
+        return withS3ClientShuttingDownImmediately(correctedSettings, withCorrectedClient);
+      } else {
+        throw awsException;
+      }
     }
   }
 

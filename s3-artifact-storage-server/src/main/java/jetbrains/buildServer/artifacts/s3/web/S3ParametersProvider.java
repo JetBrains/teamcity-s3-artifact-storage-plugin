@@ -48,6 +48,10 @@ public class S3ParametersProvider {
     return S3Constants.S3_FORCE_VIRTUAL_HOST_ADDRESSING;
   }
 
+  public String getEnableAccelerateMode() {
+    return S3Constants.S3_ENABLE_ACCELERATE_MODE;
+  }
+
   public String getPathPrefix() {
     return S3Constants.S3_PATH_PREFIX_SETTING;
   }
