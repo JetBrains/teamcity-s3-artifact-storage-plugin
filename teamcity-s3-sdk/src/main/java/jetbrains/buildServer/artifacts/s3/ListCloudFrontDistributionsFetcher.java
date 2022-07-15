@@ -28,44 +28,39 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
 
     return S3Util.withCloudFrontClient(parameters, client -> {
       ListDistributionsRequest request = new ListDistributionsRequest();
-      try {
-        ListDistributionsResult result = client.listDistributions(request);
+      ListDistributionsResult result = client.listDistributions(request);
 
-        List<KeyGroupSummary> keyGroups = client.listKeyGroups(new ListKeyGroupsRequest())
-                                                .getKeyGroupList()
-                                                .getItems();
+      List<KeyGroupSummary> keyGroups = client.listKeyGroups(new ListKeyGroupsRequest())
+                                              .getKeyGroupList()
+                                              .getItems();
 
-        Map<String, KeyGroup> groupMap = keyGroups
-          .stream()
-          .map(KeyGroupSummary::getKeyGroup)
-          .collect(Collectors.toMap(KeyGroup::getId, Function.identity()));
+      Map<String, KeyGroup> groupMap = keyGroups
+        .stream()
+        .map(KeyGroupSummary::getKeyGroup)
+        .collect(Collectors.toMap(KeyGroup::getId, Function.identity()));
 
-        List<DistributionDto> distributions = result
-          .getDistributionList()
-          .getItems()
-          .stream()
-          .filter(d -> d.getOrigins()
-                        .getItems()
-                        .stream()
-                        .anyMatch(o -> o.getDomainName().equals(domainPattern) || o.getDomainName().equals(domainPatternNoRegion))
-          ).map(d -> {
-            String id = d.getId();
-            String comment = d.getComment();
-            Boolean enabled = d.isEnabled();
-            Set<String> publicKeys = new HashSet<>();
-            TrustedKeyGroups defaultKeyGroups = d.getDefaultCacheBehavior().getTrustedKeyGroups();
-            publicKeys.addAll(getAllPublicKeys(groupMap, defaultKeyGroups));
-            for (CacheBehavior item : d.getCacheBehaviors().getItems()) {
-              publicKeys.addAll(getAllPublicKeys(groupMap, item.getTrustedKeyGroups()));
-            }
-            return new DistributionDto(id, comment, enabled, publicKeys);
-          })
-          .collect(Collectors.toList());
-        return new ListDistributionsDto(distributions);
-      } catch (Throwable t) {
-        System.out.println(t);
-        throw t;
-      }
+      List<DistributionDto> distributions = result
+        .getDistributionList()
+        .getItems()
+        .stream()
+        .filter(d -> d.getOrigins()
+                      .getItems()
+                      .stream()
+                      .anyMatch(o -> o.getDomainName().equals(domainPattern) || o.getDomainName().equals(domainPatternNoRegion))
+        ).map(d -> {
+          String id = d.getId();
+          String comment = d.getComment();
+          Boolean enabled = d.isEnabled();
+          Set<String> publicKeys = new HashSet<>();
+          TrustedKeyGroups defaultKeyGroups = d.getDefaultCacheBehavior().getTrustedKeyGroups();
+          publicKeys.addAll(getAllPublicKeys(groupMap, defaultKeyGroups));
+          for (CacheBehavior item : d.getCacheBehaviors().getItems()) {
+            publicKeys.addAll(getAllPublicKeys(groupMap, item.getTrustedKeyGroups()));
+          }
+          return new DistributionDto(id, comment, enabled, publicKeys);
+        })
+        .collect(Collectors.toList());
+      return new ListDistributionsDto(distributions);
     });
   }
 
