@@ -52,8 +52,8 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  public String uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart, @Nullable final String digest) throws IOException {
-    final EntityEnclosingMethod request = put(url, new RepeatableFilePartRequestEntity(filePart), digest, Collections.emptyMap());
+  public String uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart) throws IOException {
+    final EntityEnclosingMethod request = put(url, new RepeatableFilePartRequestEntity(filePart), filePart.getDigest(), Collections.emptyMap());
     return parseEtags(request);
   }
 

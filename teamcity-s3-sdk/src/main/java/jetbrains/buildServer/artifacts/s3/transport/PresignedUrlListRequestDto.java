@@ -17,25 +17,35 @@ import org.jetbrains.annotations.Nullable;
 public class PresignedUrlListRequestDto {
   private Collection<PresignedUrlRequestDto> presignedUrlRequests;
   private boolean isVersion2;
+  @Nullable
+  private Long myCustomTtl;
 
   @Used("xmlSerialization")
   public PresignedUrlListRequestDto() {
   }
 
   public PresignedUrlListRequestDto(@NotNull final Collection<PresignedUrlRequestDto> requests, final boolean isVersion2) {
+    this(requests, isVersion2, null);
+  }
+
+  public PresignedUrlListRequestDto(@NotNull final Collection<PresignedUrlRequestDto> requests, final boolean isVersion2, @Nullable Long customTtl) {
     presignedUrlRequests = requests;
     this.isVersion2 = isVersion2;
+    myCustomTtl = customTtl;
   }
 
   @NotNull
-  public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @Nullable String digest) {
-    return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, Collections.singletonList(digest))), true);
+  public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @Nullable String digest, @Nullable Long ttl) {
+    return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, digest)), true, ttl);
   }
 
   @NotNull
-  public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey, @NotNull final List<String> digests) {
-    final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, digests);
-    return new PresignedUrlListRequestDto(Collections.singleton(request), true);
+  public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey,
+                                                                 @Nullable String uploadId,
+                                                                 @NotNull final List<String> digests,
+                                                                 @Nullable Long ttl) {
+    final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, uploadId, digests);
+    return new PresignedUrlListRequestDto(Collections.singleton(request), true, ttl);
   }
 
   @NotNull
@@ -47,9 +57,9 @@ public class PresignedUrlListRequestDto {
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeysWithDigests(@NotNull final Collection<Pair<String, String>> keysWithDigests) {
     return new PresignedUrlListRequestDto(keysWithDigests.stream()
-                                                         .map(pair -> PresignedUrlRequestDto.from(pair.getFirst(), Collections.singletonList(pair.getSecond())))
+                                                         .map(pair -> PresignedUrlRequestDto.from(pair.getFirst(), pair.getSecond()))
                                                          .collect(Collectors.toSet()),
-                                          false);
+                                          false, null);
   }
 
   public Collection<PresignedUrlRequestDto> getPresignedUrlRequests() {
@@ -68,5 +78,10 @@ public class PresignedUrlListRequestDto {
   @Used("serialization")
   public void setVersion2(boolean version2) {
     isVersion2 = version2;
+  }
+
+  @Nullable
+  public Long getCustomTtl() {
+    return myCustomTtl;
   }
 }

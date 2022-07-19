@@ -63,6 +63,8 @@ public class S3Constants {
   public static final String S3_REGION_HEADER_NAME = "s3-region";
   public static final String S3_ARTIFACT_KEYS_HEADER_NAME = "s3-url-request-artifact-keys";
 
+  public static final String S3_CUSTOM_TTL_HEADER_NAME = "s3-url-request-custom-ttl";
+
   public static final String S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS = "teamcity.internal.storage.s3.metadata.request.timeout.sec";
 
   public static enum ErrorSource {

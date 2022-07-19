@@ -108,14 +108,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
                            .map(objectKeyToFileWithArtifactPath -> {
                              try {
                                return forkJoinPool.submit(() -> retrier
-                                 .execute(S3PresignedUpload.create(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
-                                                                   objectKeyToFileWithArtifactPath.getKey(),
-                                                                   objectKeyToFileWithArtifactPath.getValue().getFile(),
-                                                                   isMultipartUpload(objectKeyToFileWithArtifactPath.getValue().getFile()),
-                                                                   myS3Configuration.getAdvancedConfiguration(),
-                                                                   uploadManager,
-                                                                   lowLevelS3Client,
-                                                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, statisticsLogger))));
+                                 .execute(createUpload(interrupter, statisticsLogger, lowLevelS3Client, uploadManager, objectKeyToFileWithArtifactPath)));
                              } catch (RejectedExecutionException e) {
                                if (isPoolTerminating(forkJoinPool)) {
                                  LOGGER.debug("Artifact publishing rejected by pool shutdown");
@@ -154,6 +147,31 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
       }
     }
     return statisticsLogger.getAllRecords();
+  }
+
+  @NotNull
+  private S3PresignedUpload createUpload(@NotNull Supplier<String> interrupter,
+                                         StatisticsLogger statisticsLogger,
+                                         LowLevelS3Client lowLevelS3Client,
+                                         S3SignedUploadManager uploadManager,
+                                         Map.Entry<String, FileWithArtifactPath> objectKeyToFileWithArtifactPath) throws IOException {
+    if (isMultipartUpload(objectKeyToFileWithArtifactPath.getValue().getFile())) {
+      return new S3PresignedMultipartUpload(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
+                                            objectKeyToFileWithArtifactPath.getKey(),
+                                            objectKeyToFileWithArtifactPath.getValue().getFile(),
+                                            myS3Configuration.getAdvancedConfiguration(),
+                                            uploadManager,
+                                            lowLevelS3Client,
+                                            new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, statisticsLogger));
+    } else {
+      return new S3PresignedUpload(objectKeyToFileWithArtifactPath.getValue().getArtifactPath(),
+                                   objectKeyToFileWithArtifactPath.getKey(),
+                                   objectKeyToFileWithArtifactPath.getValue().getFile(),
+                                   myS3Configuration.getAdvancedConfiguration(),
+                                   uploadManager,
+                                   lowLevelS3Client,
+                                   new PresignedUploadProgressListenerImpl(myLogger, uploadManager, interrupter, statisticsLogger));
+    }
   }
 
   public boolean isMultipartUpload(File file) throws IOException {
@@ -254,10 +272,10 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onFileUploadFailed(@NotNull Exception e) {
+    public void onFileUploadFailed(@NotNull Exception e, boolean isRecoverable) {
       myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + e.getMessage());
       myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
-      myUploadManager.onUploadFailed(myUpload);
+      myUploadManager.onUploadFailed(myUpload, isRecoverable);
     }
 
     @Override

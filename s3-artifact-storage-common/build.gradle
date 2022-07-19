@@ -19,6 +19,7 @@ dependencies {
   compile project(':teamcity-s3-sdk')
   testCompile "org.testng:testng:6.8.21"
   testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+  testCompile group: 'org.mockito', name: 'mockito-core', version: '3.12.1'
 }
 
 tasks.withType(JavaCompile) {

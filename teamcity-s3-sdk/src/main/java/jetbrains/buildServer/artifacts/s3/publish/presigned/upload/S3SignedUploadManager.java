@@ -18,6 +18,7 @@ import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class S3SignedUploadManager implements AutoCloseable {
   @NotNull
@@ -53,8 +54,14 @@ public class S3SignedUploadManager implements AutoCloseable {
   }
 
   @NotNull
-  public Pair<String, String> getUrlWithDigest(@NotNull final String s3ObjectKey) {
-    PresignedUrlDto presignedUrlDto = myCache.getValue().get(s3ObjectKey);
+  public Pair<String, String> getUrlWithDigest(@NotNull final String s3ObjectKey, @Nullable Long customTtl) {
+    PresignedUrlDto presignedUrlDto;
+    if (customTtl != null) {
+      presignedUrlDto = myPresignedUrlsProviderClient.getUrl(s3ObjectKey, myPrecalculatedDigests.get(s3ObjectKey), customTtl);
+      myCache.getValue().put(s3ObjectKey, presignedUrlDto);
+    } else {
+      presignedUrlDto = myCache.getValue().get(s3ObjectKey);
+    }
     if (presignedUrlDto == null) {
       LOGGER.info(() -> "Presigned url for object key '" + s3ObjectKey + "' wasn't found in cached result from server, cache: '" + myCache.getValue().toString() + "'");
       throw new IllegalArgumentException("Specified object key not found in cached response from server");
@@ -97,30 +104,31 @@ public class S3SignedUploadManager implements AutoCloseable {
   }
 
   @NotNull
-  public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests) {
-    final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests));
+  public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
+    final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests, uploadId, ttl));
     myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());
     return presignedUrl;
   }
 
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {
-    onUploadFinished(upload, true);
+    onUploadFinished(upload, true, false);
   }
 
-  public void onUploadFailed(@NotNull final S3PresignedUpload upload) {
-    onUploadFinished(upload, false);
+  public void onUploadFailed(@NotNull final S3PresignedUpload upload, boolean isRecoverable) {
+    onUploadFinished(upload, false, isRecoverable);
   }
 
-  private void onUploadFinished(@NotNull final S3PresignedUpload upload, final boolean isSuccess) {
+  private void onUploadFinished(@NotNull final S3PresignedUpload upload, final boolean isSuccess, boolean isRecoverable) {
     LOGGER.debug("Sending " + (isSuccess ? "success" : "abort") + " multipart upload for manager " + this + " started...");
     final String uploadId = myMultipartUploadIds.get(upload.getObjectKey());
-    if (uploadId != null && upload.isMultipartUpload()) {
+    if (uploadId != null && upload instanceof S3PresignedMultipartUpload) {
+      final S3PresignedMultipartUpload multipartUpload = (S3PresignedMultipartUpload)upload;
       try {
         myRetrier.execute(() -> {
           if (isSuccess) {
-            myPresignedUrlsProviderClient.completeMultipartUpload(new MultipartUploadCompleteRequestDto(upload.getObjectKey(), uploadId, upload.getEtags()));
-          } else {
-            myPresignedUrlsProviderClient.abortMultipartUpload(new MultipartUploadAbortRequestDto(upload.getObjectKey(), uploadId));
+            myPresignedUrlsProviderClient.completeMultipartUpload(new MultipartUploadCompleteRequestDto(multipartUpload.getObjectKey(), uploadId, multipartUpload.getEtags()));
+          } else if (!isRecoverable) {
+            myPresignedUrlsProviderClient.abortMultipartUpload(new MultipartUploadAbortRequestDto(multipartUpload.getObjectKey(), uploadId));
           }
         });
         LOGGER.debug("Multipart upload for " + this + " has been " + (isSuccess ? "completed" : "aborted"));

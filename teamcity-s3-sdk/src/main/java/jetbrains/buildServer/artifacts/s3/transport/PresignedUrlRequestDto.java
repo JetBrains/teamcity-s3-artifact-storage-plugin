@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.transport;
 
 import com.intellij.openapi.util.Pair;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import javax.xml.bind.annotation.XmlAccessType;
@@ -20,23 +21,27 @@ public class PresignedUrlRequestDto {
   @Nullable
   private String httpMethod;
 
+  @Nullable
+  private String uploadId;
+
   @Used("serialization")
   public PresignedUrlRequestDto() {
   }
 
-  private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts, @Nullable String httpMethod) {
-    this(objectKey, numberOfParts, null, httpMethod);
+  private PresignedUrlRequestDto(@NotNull final String objectKey, final int numberOfParts, @Nullable String httpMethod, @Nullable String uploadId) {
+    this(objectKey, numberOfParts, null, httpMethod, uploadId);
   }
 
-  private PresignedUrlRequestDto(@NotNull final String objectKey, @NotNull List<String> digests, @Nullable String httpMethod) {
-    this(objectKey, digests.size(), digests, httpMethod);
+  private PresignedUrlRequestDto(@NotNull final String objectKey, @NotNull List<String> digests, @Nullable String httpMethod, @Nullable String uploadId) {
+    this(objectKey, digests.size(), digests, httpMethod, uploadId);
   }
 
-  public PresignedUrlRequestDto(String objectKey, int numberOfParts, @Nullable List<String> digests, @Nullable String httpMethod) {
+  public PresignedUrlRequestDto(String objectKey, int numberOfParts, @Nullable List<String> digests, @Nullable String httpMethod, @Nullable String uploadId) {
     this.digests = digests;
     this.objectKey = objectKey;
     this.numberOfParts = numberOfParts;
     this.httpMethod = httpMethod;
+    this.uploadId = uploadId;
   }
 
   @NotNull
@@ -57,23 +62,29 @@ public class PresignedUrlRequestDto {
 
   @NotNull
   public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable String httpMethod) {
-    return from(objectKey, numberOfParts, httpMethod, null);
+    return from(objectKey, numberOfParts, httpMethod, null, null);
   }
 
   @NotNull
-  public static PresignedUrlRequestDto from(@NotNull final String objectKey, @NotNull List<String> digests) {
-    return from(objectKey, digests.size(), null, digests);
+  public static PresignedUrlRequestDto from(@NotNull final String objectKey, @Nullable String uploadId, @NotNull List<String> digests) {
+    return from(objectKey, digests.size(), null, uploadId, digests);
+  }
+
+  public static PresignedUrlRequestDto from(String objectKey, String digest) {
+    return from(objectKey, 1, null, null, Collections.singletonList(digest));
   }
 
   @NotNull
-  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable String httpMethod, @Nullable List<String> digests) {
+  public static PresignedUrlRequestDto from(@NotNull final String objectKey, int numberOfParts, @Nullable String httpMethod,
+                                            @Nullable String uploadId,
+                                            @Nullable List<String> digests) {
     if (numberOfParts < 1) {
       throw new IllegalArgumentException("Number of parts cannot be < 1");
     }
     if (digests == null) {
-      return new PresignedUrlRequestDto(objectKey, numberOfParts, httpMethod);
+      return new PresignedUrlRequestDto(objectKey, numberOfParts, httpMethod, uploadId);
     } else {
-      return new PresignedUrlRequestDto(objectKey, digests, httpMethod);
+      return new PresignedUrlRequestDto(objectKey, digests, httpMethod, uploadId);
     }
   }
 
@@ -105,5 +116,10 @@ public class PresignedUrlRequestDto {
   @Nullable
   public String getHttpMethod() {
     return httpMethod;
+  }
+
+  @Nullable
+  public String getUploadId() {
+    return uploadId;
   }
 }

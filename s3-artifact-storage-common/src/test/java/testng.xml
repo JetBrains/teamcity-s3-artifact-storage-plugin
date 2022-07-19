@@ -5,6 +5,7 @@
       <class name="jetbrains.buildServer.artifacts.s3.PresignedUrlRequestSerializerTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.S3UtilTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.S3DtoSerializerTest"/>
+      <class name="jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3PresignedUploadLinkExpirationTest"/>
     </classes>
   </test>
 </suite>

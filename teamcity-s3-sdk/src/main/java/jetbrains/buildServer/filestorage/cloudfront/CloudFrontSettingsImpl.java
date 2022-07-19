@@ -4,6 +4,7 @@ import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import org.jetbrains.annotations.NotNull;
@@ -18,7 +19,7 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   private final RequestMetadata myRequestMetadata;
 
   CloudFrontSettingsImpl(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata requestMetadata) {
-    mySettings = rawSettings;
+    mySettings = new HashMap<>(rawSettings);
     myProjectSettings = projectSettings;
     myRequestMetadata = requestMetadata;
   }
@@ -101,5 +102,10 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
   @NotNull
   public Map<String, String> getProjectSettings() {
     return new HashMap<>(myProjectSettings);
+  }
+
+  @Override
+  public void setTtl(long ttl) {
+    mySettings.put(S3Constants.S3_URL_LIFETIME_SEC, String.valueOf(ttl));
   }
 }

@@ -58,7 +58,14 @@ public class PresignedUrlRequestSerializer {
   @NotNull
   private static final String NUMBER_OF_PARTS = "s3-number-of-parts";
 
+  @NotNull
   private static final String DIGEST = "s3-file-digest";
+
+  @NotNull
+  private static final String UPLOAD_ID = "s3-file-upload-id";
+
+  @NotNull
+  private static final String CUSTOM_TTL = "s3-custom-ttl";
   @NotNull
   private static final String HTTP_METHOD = "s3-http-method";
 
@@ -158,6 +165,9 @@ public class PresignedUrlRequestSerializer {
     if (isVersion2) {
       document.setAttribute(PRE_SIGN_V2, "true");
     }
+    if (request.getCustomTtl() != null) {
+      document.setAttribute(CUSTOM_TTL, String.valueOf(request.getCustomTtl()));
+    }
     request.getPresignedUrlRequests().stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
       final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.getObjectKey());
       element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getDigests() != null ? s3ObjectKey.getDigests().size() : s3ObjectKey.getNumberOfParts()));
@@ -165,6 +175,9 @@ public class PresignedUrlRequestSerializer {
         for (String digest : s3ObjectKey.getDigests()) {
           XmlUtil.addTextChild(element, DIGEST, digest);
         }
+      }
+      if (s3ObjectKey.getUploadId() != null) {
+        element.setAttribute(UPLOAD_ID, s3ObjectKey.getUploadId());
       }
     });
     return XmlUtil.toString(document);
@@ -179,6 +192,10 @@ public class PresignedUrlRequestSerializer {
       }
       final Collection<PresignedUrlRequestDto> result = new HashSet<>();
       final boolean isVersion2 = document.getAttribute(PRE_SIGN_V2) != null;
+
+      final Attribute customTtlAttribute = document.getAttribute(CUSTOM_TTL);
+      final Long customTtl = customTtlAttribute != null ? customTtlAttribute.getLongValue() : null;
+
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;
         final Attribute nPartsAttr = objectKeyEl.getAttribute(NUMBER_OF_PARTS);
@@ -195,8 +212,12 @@ public class PresignedUrlRequestSerializer {
             final Element element = (Element)iterator.next();
             digests.add(element.getValue());
           }
+
+          final Attribute uploadIdAttr = objectKeyEl.getAttribute(UPLOAD_ID);
+          final String uploadId = uploadIdAttr != null ? uploadIdAttr.getValue() : null;
+
           if (!digests.isEmpty()) {
-            result.add(PresignedUrlRequestDto.from(text, digests));
+            result.add(PresignedUrlRequestDto.from(text, uploadId, digests));
           } else {
             result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
           }
@@ -204,7 +225,7 @@ public class PresignedUrlRequestSerializer {
           result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
         }
       }
-      return new PresignedUrlListRequestDto(result, isVersion2);
+      return new PresignedUrlListRequestDto(result, isVersion2, customTtl);
     } catch (Exception e) {
       LOGGER.warnAndDebugDetails("Got exception while parsing XML", e);
       throw new IllegalArgumentException("Request is not a valid XML");

@@ -112,10 +112,10 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  public PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable String digest) {
+  public PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable String digest, long ttl) {
     validateClient();
     try {
-      return fetchPresignedUrlDto(objectKey, s3ObjectKeyRequestEntity(objectKey, digest));
+      return fetchPresignedUrlDto(objectKey, s3ObjectKeyRequestEntity(objectKey, digest, ttl));
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
       LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
@@ -124,10 +124,10 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   @NotNull
-  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, @NotNull final List<String> digests) {
+  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
     validateClient();
     try {
-      return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, digests));
+      return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, digests, uploadId, ttl));
     } catch (Exception e) {
       throw new FetchFailedException(e);
     }
@@ -189,9 +189,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
 
   @NotNull
-  private StringRequestEntity multipartRequestEntity(@NotNull final String s3ObjectKey, @NotNull final List<String> digests) {
+  private StringRequestEntity multipartRequestEntity(@NotNull final String s3ObjectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
     try {
-      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyMultipart(s3ObjectKey, digests)));
+      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyMultipart(s3ObjectKey, uploadId, digests, ttl)));
     } catch (UnsupportedEncodingException e) {
       LOGGER.warnAndDebugDetails("Unsupported encoding", e);
       throw new MisconfigurationException(e);
@@ -215,9 +215,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @Nullable String digest) {
+  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @Nullable String digest, long ttl) {
     try {
-      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyWithDigest(objectKey, digest)));
+      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyWithDigest(objectKey, digest, ttl)));
     } catch (UnsupportedEncodingException e) {
       LOGGER.warnAndDebugDetails("Unsupported encoding", e);
       throw new MisconfigurationException(e);

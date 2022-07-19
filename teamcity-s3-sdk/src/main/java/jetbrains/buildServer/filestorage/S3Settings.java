@@ -17,4 +17,6 @@ public interface S3Settings {
 
   @NotNull
   Map<String, String> getProjectSettings();
+
+  void setTtl(long ttl);
 }

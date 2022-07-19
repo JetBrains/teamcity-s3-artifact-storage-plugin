@@ -108,14 +108,18 @@ public class S3PreSignedUrlController extends BaseController {
         final CloudFrontSettings settings = request.getSecond();
         final PresignedUrlListRequestDto urlsRequest = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
 
+        final Long customTtl = urlsRequest.getCustomTtl();
+        if (customTtl != null) {
+          settings.setTtl(customTtl);
+        }
         RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
         Disposable threadName = NamedDaemonThreadFactory.patchThreadName("Generating " + urlsRequest.getPresignedUrlRequests().size() + " pre-signed URLs"
                                                                          + (runningBuild != null ? " for a running build with id: " + runningBuild.getBuildId() : ""));
         final String response;
         try {
           response = urlsRequest.isVersion2()
-                                  ? presignedUrlsV2(urlsRequest, settings)
-                                  : presignedUrlsV1(urlsRequest, settings);
+                     ? presignedUrlsV2(urlsRequest, settings)
+                     : presignedUrlsV1(urlsRequest, settings);
         } finally {
           threadName.dispose();
         }
@@ -219,7 +223,12 @@ public class S3PreSignedUrlController extends BaseController {
     final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
         if (request.getDigests() != null && request.getDigests().size() > 1) {
-          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          String uploadId;
+          if (request.getUploadId() == null) {
+            uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          } else {
+            uploadId = request.getUploadId();
+          }
           final List<PresignedUrlPartDto> presignedUrls = new ArrayList<>();
           for (int i = 0; i < request.getDigests().size(); i++) {
             final String digest = request.getDigests().get(i);

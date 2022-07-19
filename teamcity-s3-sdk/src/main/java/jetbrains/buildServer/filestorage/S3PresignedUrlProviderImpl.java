@@ -32,6 +32,8 @@ import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_URL_LIFETIME_SEC;
+
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
@@ -175,7 +177,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     private final Map<String, String> myProjectSettings;
 
     private S3SettingsImpl(@NotNull final Map<String, String> params, @NotNull Map<String, String> projectSettings) {
-      mySettings = params;
+      mySettings = new HashMap<>(params);
       myProjectSettings = projectSettings;
     }
 
@@ -205,6 +207,11 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @NotNull
     public Map<String, String> getProjectSettings() {
       return new HashMap<>(myProjectSettings);
+    }
+
+    @Override
+    public void setTtl(long ttl) {
+      mySettings.put(S3_URL_LIFETIME_SEC, String.valueOf(ttl));
     }
   }
 }
