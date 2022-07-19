@@ -112,7 +112,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  public PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable String digest, long ttl) {
+  public PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable String digest, @Nullable Long ttl) {
     validateClient();
     try {
       return fetchPresignedUrlDto(objectKey, s3ObjectKeyRequestEntity(objectKey, digest, ttl));
@@ -124,7 +124,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   @NotNull
-  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
+  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
     validateClient();
     try {
       return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, digests, uploadId, ttl));
@@ -189,7 +189,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
 
   @NotNull
-  private StringRequestEntity multipartRequestEntity(@NotNull final String s3ObjectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
+  private StringRequestEntity multipartRequestEntity(@NotNull final String s3ObjectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
     try {
       return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyMultipart(s3ObjectKey, uploadId, digests, ttl)));
     } catch (UnsupportedEncodingException e) {
@@ -215,7 +215,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   }
 
   @NotNull
-  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @Nullable String digest, long ttl) {
+  private StringRequestEntity s3ObjectKeyRequestEntity(@NotNull String objectKey, @Nullable String digest, @Nullable Long ttl) {
     try {
       return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyWithDigest(objectKey, digest, ttl)));
     } catch (UnsupportedEncodingException e) {

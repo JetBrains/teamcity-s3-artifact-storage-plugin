@@ -120,10 +120,10 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, -1))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
            .thenReturn(multipartDto);
 
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L))
            .thenReturn(multipartDto);
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
@@ -145,10 +145,10 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
 
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, -1);
+        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null);
         assertTrue(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2);
+        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -167,7 +167,7 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, -1))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
            .thenReturn(multipartDto);
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);

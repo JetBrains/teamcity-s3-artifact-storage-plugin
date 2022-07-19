@@ -12,6 +12,7 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
@@ -45,7 +46,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   protected final Retrier myRetrier;
 
-  protected AtomicLong myTtl = new AtomicLong(-1);
+  protected AtomicReference<Long> myTtl = new AtomicReference<Long>(null);
 
   public S3PresignedUpload(@NotNull final String artifactPath,
                            @NotNull final String objectKey,
@@ -74,7 +75,13 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                                  return;
                                }
                                if (((HttpClientUtil.HttpErrorCodeException)e).getResponseCode() == 403 && e.getMessage().contains("Request has expired")) {
-                                 myTtl.getAndUpdate(prev -> 2L * Math.max(configuration.getUrlTtlSeconds(), Math.abs(prev)));
+                                 myTtl.getAndUpdate(prev -> {
+                                   if (prev == null) {
+                                     return 2L * configuration.getUrlTtlSeconds();
+                                   } else {
+                                     return 2L * prev;
+                                   }
+                                 });
                                  throw new AbortRetriesException(e);
                                }
                              }
@@ -111,8 +118,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     String result;
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      final long customTtl = myTtl.get();
-      final Pair<String, String> urlWithDigest = myS3SignedUploadManager.getUrlWithDigest(myObjectKey, customTtl == -1 ? null : customTtl);
+      final Pair<String, String> urlWithDigest = myS3SignedUploadManager.getUrlWithDigest(myObjectKey, myTtl.get());
       String url = urlWithDigest.first;
       String digest1 = urlWithDigest.second;
       String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest1));

@@ -104,7 +104,7 @@ public class S3SignedUploadManager implements AutoCloseable {
   }
 
   @NotNull
-  public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, long ttl) {
+  public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
     final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests, uploadId, ttl));
     myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());
     return presignedUrl;
