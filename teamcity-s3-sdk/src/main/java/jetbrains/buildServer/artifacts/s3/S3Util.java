@@ -405,12 +405,12 @@ public final class S3Util {
                                                        @NotNull final Map<String, String> settings,
                                                        @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
     try {
-      return withCorrectedClient.run(s3Client);
+      return withClientCorrectingRegion(s3Client, settings, correctedClient -> withCorrectedClient.run(correctedClient));
     } catch (AmazonS3Exception awsException) {
       if (awsException.getErrorMessage().equals("S3 Transfer Acceleration is not configured on this bucket")) {
         final HashMap<String, String> correctedSettings = new HashMap<>(settings);
         correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
-        return withS3ClientShuttingDownImmediately(correctedSettings, withCorrectedClient);
+        return withClientCorrectingRegion(s3Client, correctedSettings, correctedClient -> withCorrectedClient.run(correctedClient));
       } else {
         throw awsException;
       }
