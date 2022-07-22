@@ -54,6 +54,7 @@ import static jetbrains.buildServer.util.amazon.S3Util.*;
  * date: 02.08.2016.
  */
 public final class S3Util {
+  public static final Pattern TRANSFER_ACC_ERROR_PATTERN = Pattern.compile("S3 Transfer Acceleration is (not configured|disabled) on this bucket");
   @NotNull
   private static final Pattern OUR_OBJECT_KEY_PATTERN = Pattern.compile("^[a-zA-Z0-9!/\\-_.*'()]+$");
   private static final int OUT_MAX_PREFIX_LENGTH = 127;
@@ -85,7 +86,7 @@ public final class S3Util {
       invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
     }
     final String pathPrefix = params.getOrDefault(S3_PATH_PREFIX_SETTING, "");
-    if(!StringUtil.isEmptyOrSpaces(pathPrefix)) {
+    if (!StringUtil.isEmptyOrSpaces(pathPrefix)) {
       if (pathPrefix.length() > OUT_MAX_PREFIX_LENGTH) {
         invalids.put(S3_PATH_PREFIX_SETTING, "Should be less than " + OUT_MAX_PREFIX_LENGTH + " characters");
       }
@@ -401,18 +402,27 @@ public final class S3Util {
     }
   }
 
-  public static <T> T withClientCorrectingAcceleration(@NotNull final AmazonS3 s3Client,
-                                                       @NotNull final Map<String, String> settings,
-                                                       @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
+  public static <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
+                                                          @NotNull final WithS3<T, AmazonS3Exception> action) {
     try {
-      return withClientCorrectingRegion(s3Client, settings, correctedClient -> withCorrectedClient.run(correctedClient));
-    } catch (AmazonS3Exception awsException) {
-      if (awsException.getErrorMessage().equals("S3 Transfer Acceleration is not configured on this bucket")) {
-        final HashMap<String, String> correctedSettings = new HashMap<>(settings);
+      return withS3ClientShuttingDownImmediately(settings, action);
+    } catch (AmazonS3Exception s3Exception) {
+      final String correctedRegion = extractCorrectedRegion(s3Exception);
+      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getErrorMessage()).matches();
+      final boolean isRegionException = correctedRegion != null;
+
+      final HashMap<String, String> correctedSettings = new HashMap<>(settings);
+
+      if (isTAException) {
+        LOGGER.debug("Running operation with disabled Transfer Acceleration", s3Exception);
         correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
-        return withClientCorrectingRegion(s3Client, correctedSettings, correctedClient -> withCorrectedClient.run(correctedClient));
+        return withCorrectingRegionAndAcceleration(correctedSettings, action);
+      } else if (isRegionException) {
+        LOGGER.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
+        correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
+        return withCorrectingRegionAndAcceleration(correctedSettings, action);
       } else {
-        throw awsException;
+        throw s3Exception;
       }
     }
   }

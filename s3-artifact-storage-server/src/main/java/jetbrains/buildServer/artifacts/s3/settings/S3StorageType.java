@@ -108,10 +108,9 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          final BucketAccelerateConfiguration accelerateConfig = IOGuard.allowNetworkCall(() -> S3Util.withS3ClientShuttingDownImmediately(
-            ParamUtil.putSslValues(myServerPaths, params),
-            client -> S3Util.withClientCorrectingAcceleration(client, params, correctedClient -> correctedClient.getBucketAccelerateConfiguration(bucketName))
-          ));
+          final BucketAccelerateConfiguration accelerateConfig = IOGuard.allowNetworkCall(() -> S3Util.withCorrectingRegionAndAcceleration(
+            ParamUtil.putSslValues(myServerPaths, params), correctedClient -> correctedClient.getBucketAccelerateConfiguration(bucketName))
+          );
           if (S3Util.isAccelerateModeEnabled(params) && !accelerateConfig.isAccelerateEnabled()) {
             invalids.add(new InvalidProperty(S3_ENABLE_ACCELERATE_MODE, "S3 Transfer Acceleration is not configured on this bucket"));
           } else {

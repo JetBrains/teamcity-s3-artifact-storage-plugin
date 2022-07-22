@@ -19,9 +19,7 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
       throw new IllegalArgumentException("No S3 bucket specified");
     }
 
-    String bucketRegion = S3Util.withS3Client(parameters, client -> {
-      return S3Util.withClientCorrectingRegion(client, parameters, correctedClient -> correctedClient.getBucketLocation(bucketName));
-    });
+    String bucketRegion = S3Util.withCorrectingRegionAndAcceleration(parameters, correctedClient -> correctedClient.getBucketLocation(bucketName));
 
     String domainPattern = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN, bucketName, bucketRegion);
     String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
