@@ -33,6 +33,7 @@
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
+<c:set var="transferAccelerationOn" value="${intprop:getBoolean(params.transferAccelerationEnabled)}"/>
 <c:set var="cloudFrontDistributionEmptyOption" value="--Select distribution --"/>
 <c:set var="cloudFrontKeyPairEmptyOption" value="-- Select key pair --"/>
 <c:set var="cloudFrontPublicKeyName" value="cloudFrontPublicKeyName"/>
@@ -194,9 +195,11 @@
     <td>
       <props:checkboxProperty name="${params.usePresignUrlsForUpload}"/><label for="${params.usePresignUrlsForUpload}">Use Pre-Signed URLs for upload</label><br/>
       <props:checkboxProperty name="${params.forceVirtualHostAddressing}"/><label for="${params.forceVirtualHostAddressing}">Force Virtual Host Addressing</label><br/>
-      <props:checkboxProperty name="${params.enableAccelerateMode}"/><label for="${params.enableAccelerateMode}">Enable Transfer Acceleration</label>
-      <span class="error" id="error_${params.enableAccelerateMode}"></span>
-      <span id="${enableAccelerateModeNote}" class="smallNote">Transfer Acceleration only works when <b>Force Virtual Host Addressing</b> is enabled</span>
+      <c:if test="${transferAccelerationOn}">
+        <props:checkboxProperty name="${params.enableAccelerateMode}"/><label for="${params.enableAccelerateMode}">Enable Transfer Acceleration</label>
+        <span class="error" id="error_${params.enableAccelerateMode}"></span>
+        <span id="${enableAccelerateModeNote}" class="smallNote">Transfer Acceleration only works when <b>Force Virtual Host Addressing</b> is enabled</span>
+      </c:if>
     </td>
   </tr>
   <c:if test="${intprop:getBooleanOrTrue('teamcity.internal.storage.s3.upload.presignedUrl.multipart.enabled')}">
@@ -416,7 +419,6 @@
         $privateKeyNote.text("Please upload a private key");
       }
     }
-
 
 
     window.updateSelectedKeyGroup = function (value) {

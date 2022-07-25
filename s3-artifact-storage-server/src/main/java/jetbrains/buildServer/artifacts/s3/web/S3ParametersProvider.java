@@ -99,4 +99,8 @@ public class S3ParametersProvider {
   public String getDefaultAcl() {
     return CannedAccessControlList.Private.name();
   }
+
+  public String getTransferAccelerationEnabled() {
+    return S3Constants.S3_TRANSFER_ACCELERATION_FEATURE_ENABLED;
+  }
 }
