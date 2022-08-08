@@ -62,7 +62,9 @@ dependencies {
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
     server group: 'commons-codec', name: 'commons-codec', version: "1.11"
 
-    artifactMigrationTool tc(buildTypeId: 'TC_TeamCityTools_TeamCityArtifactsMigrationTool', version: migrationToolVersion, artifactPath: "teamcity-artifacts-migration-tool.zip")
+    if(shouldIncludeMigrationTool){
+        artifactMigrationTool tc(buildTypeId: 'TC_TeamCityTools_TeamCityArtifactsMigrationTool', version: migrationToolVersion, artifactPath: "teamcity-artifacts-migration-tool.zip")
+    }
 }
 
 serverPlugin.version = null
@@ -83,5 +85,7 @@ task prepareArtifactMigrationTool(type: Sync) {
     rename { "artifacts-migration-tool.zip" }
 }
 
-processResources.finalizedBy(prepareArtifactMigrationTool)
+if(shouldIncludeMigrationTool){
+    processResources.finalizedBy(prepareArtifactMigrationTool)
+}
 
