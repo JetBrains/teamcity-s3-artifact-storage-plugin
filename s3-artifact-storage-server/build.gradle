@@ -33,12 +33,14 @@ teamcity {
     }
 }
 
-repositories {
-    teamcityServer {
-        url = "https://buildserver.labs.intellij.net/"
-        credentials {
-          username = teamcity_username
-          password = (project.hasProperty("teamcity_password") ? teamcity_password : teamcity_token)
+if(shouldIncludeMigrationTool) {
+    repositories {
+        teamcityServer {
+            url = "https://buildserver.labs.intellij.net/"
+            credentials {
+                username = teamcity_username
+                password = (project.hasProperty("teamcity_password") ? teamcity_password : teamcity_token)
+            }
         }
     }
 }
