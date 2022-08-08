@@ -7,7 +7,7 @@ public interface PresignedUploadProgressListener {
 
   void onPartUploadSuccess(@NotNull String uploadUrl);
 
-  void onFileUploadFailed(@NotNull final Exception e, boolean isRecoverable);
+  void onFileUploadFailed(@NotNull String message, boolean isRecoverable);
 
   void onFileUploadSuccess(@NotNull String uploadUrl);
 

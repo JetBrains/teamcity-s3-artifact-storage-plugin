@@ -89,11 +89,11 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       return DigestUtil.multipartDigest(getEtags());
     } catch (IOException e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      myProgressListener.onFileUploadFailed(e, isRecoverable(e));
+      myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
       throw new RuntimeException(e);
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      myProgressListener.onFileUploadFailed(e, isRecoverable(e));
+      myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
       throw e;
     }
   }

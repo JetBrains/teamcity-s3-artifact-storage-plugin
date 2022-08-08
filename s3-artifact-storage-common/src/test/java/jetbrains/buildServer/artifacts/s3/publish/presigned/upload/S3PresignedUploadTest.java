@@ -21,8 +21,9 @@ import org.testng.annotations.Test;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
 
-public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
+public class S3PresignedUploadTest extends BaseTestCase {
 
   @Test
   public void repeatsUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException {
@@ -44,10 +45,10 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
 
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, Mockito.times(1)).getUrlWithDigest("key", null);
+        Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", null);
         assertTrue(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, Mockito.times(1)).getUrlWithDigest("key", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
+        Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -78,7 +79,7 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
       try {
         assertTrue(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, Mockito.times(2)).getUrlWithDigest("key", null);
+        Mockito.verify(uploadManager, times(2)).getUrlWithDigest("key", null);
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -145,10 +146,10 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
 
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null);
+        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null);
         assertTrue(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, Mockito.times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
+        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -192,4 +193,27 @@ public class S3PresignedUploadLinkExpirationTest extends BaseTestCase {
     fail("Should throw a FileUploadFailedException");
   }
 
+  @Test
+  public void doesNotFailWhenFileNotFound() throws IOException {
+    final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
+    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
+
+    final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
+    Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
+           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
+           .thenReturn("digest");
+
+    final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
+
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration();
+    final File file = new File("s3uploadTest", "file");
+    final S3PresignedUpload upload = new S3PresignedUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
+    try {
+      upload.call();
+    } catch (FileUploadFailedException e) {
+      fail("Should not throw a FileUploadFailedException");
+    }
+
+    Mockito.verify(s3client, times(0)).uploadFile(any(), any(), any());
+  }
 }

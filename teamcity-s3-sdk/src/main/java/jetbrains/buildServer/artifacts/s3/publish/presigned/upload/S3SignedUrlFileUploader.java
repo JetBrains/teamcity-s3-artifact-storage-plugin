@@ -272,9 +272,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onFileUploadFailed(@NotNull Exception e, boolean isRecoverable) {
-      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + e.getMessage());
-      myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
+    public void onFileUploadFailed(@NotNull String message, boolean isRecoverable) {
+      myS3UploadLogger.warn("Upload " + myUpload.description() + " failed with error: " + message);
+      myStatisticsLogger.uploadFailed(myUpload.description(), message, Instant.now());
       myUploadManager.onUploadFailed(myUpload, isRecoverable);
     }
 

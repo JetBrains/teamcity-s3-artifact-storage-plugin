@@ -3,7 +3,6 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.net.SocketException;
@@ -98,7 +97,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   public FileUploadInfo call() {
     try {
       if (!myFile.exists()) {
-        throw new FileNotFoundException(myFile.getAbsolutePath());
+        myProgressListener.onFileUploadFailed("File does not exist", false);
+        return null;
       }
       myRemainingBytes.set(myFile.length());
       myProgressListener.beforeUploadStarted();
@@ -126,7 +126,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       myProgressListener.onFileUploadSuccess(stripQuery(url));
       result = etag;
     } catch (final Exception e) {
-      myProgressListener.onFileUploadFailed(e, false);
+      myProgressListener.onFileUploadFailed(e.getMessage(), false);
       throw e;
     }
 
