@@ -84,6 +84,7 @@
             <i class="icon-refresh" title="Reload buckets" id="buckets-refresh"></i>
           </div>
           <span class="smallNote">Existing S3 bucket to store artifacts</span>
+          <span class="error" id="error_buckets"></span>
         </td>
       </tr>
     </props:selectSectionPropertyContent>
@@ -93,6 +94,8 @@
         <td class="noBorder">
           <props:textProperty name="${bucketNameStringInput}" id="${bucketNameStringInput}" className="longField" value="${propertiesBean.properties[params.bucketName]}"/>
           <span class="smallNote">Specify the bucket name</span>
+          <span class="error" id="error_${params.bucketName}"></span>
+          <span class="error" id="error_bucketLocation"></span>
         </td>
       </tr>
     </props:selectSectionPropertyContent>
@@ -106,13 +109,7 @@
     </td>
   </tr>
   <tr class="noBorder">
-    <th class="noBorder"></th>
-    <td class="noBorder">
-      <props:hiddenProperty name="${params.bucketName}" id="${params.bucketName}" value="${propertiesBean.properties[params.bucketName]}"/>
-      <span class="error" id="error_${params.bucketName}" style="margin-top: -1em; margin-bottom: 1em;"></span>
-      <span class="error" id="error_bucketLocation" style="margin-top: -1em; margin-bottom: 1em;"></span>
-      <span class="error" id="error_buckets" style="margin-top: -1em; margin-bottom: 1em;"></span>
-    </td>
+    <props:hiddenProperty name="${params.bucketName}" id="${params.bucketName}" value="${propertiesBean.properties[params.bucketName]}"/>
   </tr>
 </l:settingsGroup>
 <c:if test="${cloudfrontFeatureOn}">
