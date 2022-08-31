@@ -112,17 +112,17 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
         Map<String, String> storageSettings = mySettingsProvider.getStorageSettings(build);
         Map<String, String> invalids = S3Util.validateParameters(storageSettings, false);
         if (!invalids.isEmpty()) {
-          CLEANUP.warn("Failed to remove S3 artifacts: " + StringUtil.join("\n", invalids.values()));
+          CLEANUP.warn("Failed to remove S3 artifacts in build " + LogUtil.describe(build) + ":\n" + StringUtil.join("\n", invalids.values()));
           cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
           return null;
         }
         return new BuildStorageInfo(build, pathPrefix, pathsToDelete, storageSettings);
       } catch (IOException e) {
-        CLEANUP.warn("Failed to get S3 artifacts list: " + e.getMessage());
+        CLEANUP.warn("Failed to get S3 artifacts list in build " + LogUtil.describe(build) + ": " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to get S3 artifacts list due to IO error.");
         return null;
       } catch (RuntimeException e) {
-        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        CLEANUP.warn("Failed to remove S3 artifacts " + LogUtil.describe(build) + ": " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
         return null;
       }
