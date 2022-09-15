@@ -91,19 +91,34 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         request.setContentMd5(digest);
       }
 
+      String contentType = getObjectMetadata(objectKey, settings)
+        .map(ObjectMetadata::getContentType)
+        .map(it -> {
+          if (it.indexOf("charset") < 0) {
+            return it + ";" + S3Util.DEFAULT_CHARSET;
+          }
+
+          return it;
+        })
+        .orElse(S3Util.DEFAULT_CONTENT_TYPE);
+
+      ResponseHeaderOverrides headerOverrides = new ResponseHeaderOverrides();
+      headerOverrides.withContentType(contentType);
+
       if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
         final List<String> split = StringUtil.split(objectKey, "/");
         if (!split.isEmpty()) {
           //Unfortunately S3 expects everything to be ISO-8859-1 compliant. We have to encode filename to allow any non-ISO-8859-1 characters
           String filename = SdkHttpUtils.urlEncode(split.get(split.size() - 1), false);
-          request.withResponseHeaders(new ResponseHeaderOverrides()
-                                        .withContentDisposition("inline; filename=\"" + filename + "\""));
+          headerOverrides.withContentDisposition("inline; filename=\"" + filename + "\"");
         }
       }
       //This header ensures that bucket owner always has access to uploaded objects
       if ((httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) && nPart == null) {
         request.putCustomRequestHeader("x-amz-acl", settings.getAcl().toString());
       }
+
+      request.withResponseHeaders(headerOverrides);
       return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
     } catch (Exception e) {
       final Throwable cause = e.getCause();
@@ -116,6 +131,19 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       throw new IOException(String.format("Failed to create pre-signed URL to %s artifact '%s' in bucket '%s': %s",
                                           httpMethod.name().toLowerCase(), objectKey, settings.getBucketName(), awsException.getMessage()), awsException);
     }
+  }
+
+  @NotNull
+  private Optional<ObjectMetadata> getObjectMetadata(@NotNull String objectKey, @NotNull S3Settings settings) {
+    ObjectMetadata metadata = null;
+
+    try {
+      metadata = callS3(client -> client.getObjectMetadata(settings.getBucketName(), objectKey), settings);
+    } catch (Exception e) {
+      LOG.debug("Metadata not found for object " + objectKey + " in a bucket " + settings.getBucketName(), e);
+    }
+
+    return Optional.ofNullable(metadata);
   }
 
   @NotNull

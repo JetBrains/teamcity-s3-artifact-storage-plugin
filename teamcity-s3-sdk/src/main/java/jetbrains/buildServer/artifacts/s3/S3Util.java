@@ -61,7 +61,9 @@ public final class S3Util {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3Util.class.getName());
   @NotNull
-  private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+  public static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+  @NotNull
+  public static final String DEFAULT_CHARSET = "charset=UTF-8";
   @NotNull
   private static final String V4_SIGNER_TYPE = "AWSS3V4SignerType";
   @NotNull
