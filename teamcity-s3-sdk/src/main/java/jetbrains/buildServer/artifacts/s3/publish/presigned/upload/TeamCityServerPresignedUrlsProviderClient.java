@@ -20,12 +20,13 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.http.HttpUtil;
+import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.xmlrpc.NodeIdCookie;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
 import jetbrains.buildServer.xmlrpc.XmlRpcConstants;
-import org.apache.commons.httpclient.Cookie;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.HttpMethod;
@@ -107,8 +108,11 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     final String nodeId = myNodeIdHolder.getOwnerNodeId();
     if (nodeId == null) return;
 
-    final Cookie cookie = new Cookie(myServerUrl, XmlRpcConstants.NODE_ID_COOKIE, nodeId, "/", myNodeIdHolder.getExpirationTime(), false);
-    myTeamCityClient.getState().addCookie(cookie);
+    try {
+      NodeIdCookie.setNodeIdCookie(myNodeIdHolder, myTeamCityClient, myServerUrl);
+    } catch (MalformedURLException e) {
+      Loggers.AGENT.warnAndDebugDetails("Failed to create java.net.URL object from: " + myServerUrl + ", cookie: " + XmlRpcConstants.NODE_ID_COOKIE + " cannot be set", e);
+    }
   }
 
   @NotNull
