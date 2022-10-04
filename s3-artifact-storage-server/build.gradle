@@ -57,7 +57,7 @@ dependencies {
       exclude group: 'commons-codec', module: 'commons-codec'
     }
 
-    compile "org.bouncycastle:bcprov-jdk15on:1.69"
+    compile "org.bouncycastle:bcprov-jdk15on:1.70"
 
     testImplementation "org.testcontainers:localstack:1.15.2"
 
