@@ -195,10 +195,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
   private void logPublishingError(@NotNull final Throwable e) {
     if (isPublishingInterruptedException(e)) {
-      myLogger.debug("Artifact publishing has been interrupted");
       LOGGER.debug("Artifact upload has been interrupted, will not continue with current upload");
     } else {
-      myLogger.debug("Artifact publishing failed with error " + ExceptionUtil.getDisplayMessage(e));
       LOGGER.infoAndDebugDetails("Got exception while waiting for upload to finish, the upload will not continue and the artifact will be ignored", e);
     }
   }
