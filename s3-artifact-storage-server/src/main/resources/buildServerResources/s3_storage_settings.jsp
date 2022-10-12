@@ -84,7 +84,6 @@
             <i class="icon-refresh" title="Reload buckets" id="buckets-refresh"></i>
           </div>
           <span class="smallNote">Existing S3 bucket to store artifacts</span>
-          <span class="error" id="error_buckets"></span>
         </td>
       </tr>
     </props:selectSectionPropertyContent>
@@ -94,12 +93,19 @@
         <td class="noBorder">
           <props:textProperty name="${bucketNameStringInput}" id="${bucketNameStringInput}" className="longField" value="${propertiesBean.properties[params.bucketName]}"/>
           <span class="smallNote">Specify the bucket name</span>
-          <span class="error" id="error_${params.bucketName}"></span>
-          <span class="error" id="error_bucketLocation"></span>
         </td>
       </tr>
     </props:selectSectionPropertyContent>
   </props:selectSectionProperty>
+  <tr class="noBorder">
+    <th class="noBorder"/>
+    <td class="noBorder">
+      <props:hiddenProperty name="${params.bucketName}" id="${params.bucketName}" value="${propertiesBean.properties[params.bucketName]}"/>
+      <span class="error" id="error_buckets" style="margin-top: -1em; margin-bottom: 1em;"></span>
+      <span class="error" id="error_${params.bucketName}" style="margin-top: -1em; margin-bottom: 1em;"></span>
+      <span class="error" id="error_bucketLocation" style="margin-top: -1em; margin-bottom: 1em;"></span>
+    </td>
+  </tr>
   <tr>
     <th><label for="${params.pathPrefix}">S3 path prefix: </label></th>
     <td>
@@ -107,9 +113,6 @@
       <span class="smallNote">Specify the path prefix</span>
       <span class="error" id="error_${params.pathPrefix}"></span>
     </td>
-  </tr>
-  <tr class="noBorder">
-    <props:hiddenProperty name="${params.bucketName}" id="${params.bucketName}" value="${propertiesBean.properties[params.bucketName]}"/>
   </tr>
 </l:settingsGroup>
 <c:if test="${cloudfrontFeatureOn}">
