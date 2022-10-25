@@ -3,13 +3,18 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
+import java.net.SocketException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
@@ -24,6 +29,10 @@ import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
+import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
+import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import jetbrains.buildServer.xmlrpc.NodeIdCookie;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
 import jetbrains.buildServer.xmlrpc.XmlRpcConstants;
@@ -38,6 +47,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_MULTIPART_COMPLETION_RETRY;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsProviderClient {
@@ -47,7 +57,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @NotNull
   private final String myPresignedUrlsPostUrl;
   @NotNull
-  private final HttpClient myTeamCityClient;
+  private final TeamCityConnectionConfiguration myTeamCityConnectionConfiguration;
+  @NotNull
+  private final AtomicReference<HttpClient> myTeamCityClient;
   @NotNull
   private final Collection<ArtifactTransportAdditionalHeadersProvider> myAdditionalHeadersProviders;
   @NotNull
@@ -57,14 +69,23 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   private final NodeIdHolder myNodeIdHolder;
   private final String myServerUrl;
+  @NotNull
+  private final Retrier myRetrier;
 
   public TeamCityServerPresignedUrlsProviderClient(@NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration,
                                                    @NotNull final Collection<ArtifactTransportAdditionalHeadersProvider> additionalHeadersProviders) {
     myPresignedUrlsPostUrl = teamCityConnectionConfiguration.getTeamCityUrl() + "/httpAuth/" + StringUtil.removeLeadingSlash(teamCityConnectionConfiguration.getUrlsProviderPath());
-    myTeamCityClient = createClient(teamCityConnectionConfiguration);
+    myTeamCityConnectionConfiguration = teamCityConnectionConfiguration;
+    myTeamCityClient = new AtomicReference<>(createClient(myTeamCityConnectionConfiguration));
     myAdditionalHeadersProviders = additionalHeadersProviders;
     myNodeIdHolder = teamCityConnectionConfiguration.getNodeIdHolder();
     myServerUrl = teamCityConnectionConfiguration.getTeamCityUrl();
+
+    myRetrier = Retrier.withRetries(myTeamCityConnectionConfiguration.getRetriesNum())
+                       .registerListener(new LoggingRetrierListener(LOGGER))
+                       .registerListener(new AbortingListener(SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class,
+                                                              InterruptedException.class))
+                       .registerListener(new ExponentialDelayListener(myTeamCityConnectionConfiguration.getRetryDelay()));
   }
 
   @NotNull
@@ -94,7 +115,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
       setNodeIdCookie();
 
-      final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
+      final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient.get(), post, myErrorHandler);
 
       return deserializeResponseV2(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | IOException e) {
@@ -109,7 +130,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     if (nodeId == null) return;
 
     try {
-      NodeIdCookie.setNodeIdCookie(myNodeIdHolder, myTeamCityClient, myServerUrl);
+      NodeIdCookie.setNodeIdCookie(myNodeIdHolder, myTeamCityClient.get(), myServerUrl);
     } catch (MalformedURLException e) {
       Loggers.AGENT.warnAndDebugDetails("Failed to create java.net.URL object from: " + myServerUrl + ", cookie: " + XmlRpcConstants.NODE_ID_COOKIE + " cannot be set", e);
     }
@@ -143,7 +164,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     post.setRequestEntity(requestEntity);
     post.setRequestHeader("Content-Type", "application/xml; charset=" + StandardCharsets.UTF_8.name());
     post.setRequestHeader(S3Constants.S3_ARTIFACT_KEYS_HEADER_NAME, objectKey);
-    final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
+    final String responseBody = HttpClientUtil.executeAndReleaseConnection(myTeamCityClient.get(), post, myErrorHandler);
     final PresignedUrlListResponseDto presignedUrlListResponseDto = deserializeResponseV2(responseBody);
     return presignedUrlListResponseDto.getPresignedUrls()
                                       .stream()
@@ -174,6 +195,29 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   private void finishMultipartUpload(@NotNull final String objectKey, @Nullable final List<String> etags, @NotNull final String uploadId, final boolean isSuccessful) {
     LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " started");
+
+    final boolean isRetryEnabled = TeamCityProperties.getBoolean(S3_ENABLE_MULTIPART_COMPLETION_RETRY);
+    if (isRetryEnabled) {
+
+      myRetrier.execute(() -> {
+        recreateClient();
+        finishMultipartUploadImpl(objectKey, etags, uploadId, isSuccessful);
+      });
+    } else {
+      try {
+        finishMultipartUploadImpl(objectKey, etags, uploadId, isSuccessful);
+      } catch (IOException e) {
+        ExceptionUtil.rethrowAsRuntimeException(e);
+      }
+    }
+  }
+
+  private void recreateClient() {
+    final HttpClient oldClient = myTeamCityClient.getAndUpdate(old -> createClient(myTeamCityConnectionConfiguration));
+    HttpClientUtil.shutdown(oldClient);
+  }
+
+  private void finishMultipartUploadImpl(@NotNull String objectKey, @Nullable List<String> etags, @NotNull String uploadId, boolean isSuccessful) throws IOException {
     final PostMethod post = postTemplate();
     post.setParameter(OBJECT_KEY, objectKey);
     post.setParameter(OBJECT_KEY + "_BASE64", Base64.getEncoder().encodeToString(objectKey.getBytes(StandardCharsets.UTF_8)));
@@ -183,11 +227,11 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       etags.forEach(etag -> post.addParameter(ETAGS, etag));
     }
     try {
-      HttpClientUtil.executeAndReleaseConnection(myTeamCityClient, post, myErrorHandler);
+      HttpClientUtil.executeAndReleaseConnection(myTeamCityClient.get(), post, myErrorHandler);
       LOGGER.debug(() -> "Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " finished");
     } catch (Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload " + uploadId + " signaling " + (isSuccessful ? "success" : "failure") + " failed: " + e.getMessage(), e);
-      ExceptionUtil.rethrowAsRuntimeException(e);
+      throw e;
     }
   }
 
@@ -242,7 +286,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
   @Override
   public void close() {
     myShutdown.set(true);
-    HttpClientUtil.shutdown(myTeamCityClient);
+    HttpClientUtil.shutdown(myTeamCityClient.get());
   }
 
   private void validateClient() {

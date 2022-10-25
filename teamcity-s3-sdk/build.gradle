@@ -16,6 +16,7 @@ dependencies {
 
   testCompile "org.testng:testng:6.8.21"
   testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+  testCompile "org.mockito:mockito-core:3.9.0"
 }
 
 tasks.withType(JavaCompile) {

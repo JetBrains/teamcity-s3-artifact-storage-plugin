@@ -22,19 +22,25 @@ public class TeamCityConnectionConfiguration {
   private final int myConnectionTimeout;
 
   private final NodeIdHolder myNodeIdHolder;
+  private final int myRetriesNum;
+  private final int myRetryDelay;
 
   public TeamCityConnectionConfiguration(@NotNull final String teamCityUrl,
                                          @NotNull final String urlsProviderPath,
                                          @NotNull final String accessUser,
                                          @NotNull final String accessCode,
                                          @NotNull final NodeIdHolder nodeIdHolder,
-                                         final int connectionTimeout) {
+                                         final int connectionTimeout,
+                                         int retriesNum,
+                                         int retryDelay) {
     myTeamCityUrl = teamCityUrl;
     myAccessUser = accessUser;
     myAccessCode = accessCode;
     myConnectionTimeout = connectionTimeout;
     myUrlsProviderPath = urlsProviderPath;
     myNodeIdHolder = nodeIdHolder;
+    myRetriesNum = retriesNum;
+    myRetryDelay = retryDelay;
   }
 
   public int getConnectionTimeout() {
@@ -63,5 +69,13 @@ public class TeamCityConnectionConfiguration {
   @NotNull
   public NodeIdHolder getNodeIdHolder() {
     return myNodeIdHolder;
+  }
+
+  public int getRetriesNum() {
+    return myRetriesNum;
+  }
+
+  public int getRetryDelay() {
+    return myRetryDelay;
   }
 }

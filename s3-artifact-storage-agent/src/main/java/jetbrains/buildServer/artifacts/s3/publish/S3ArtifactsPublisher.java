@@ -242,18 +242,20 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       s3Configuration.setPathPrefix(getPathPrefix(build));
       myFileUploader = myUploaderFactory.create(s3Configuration,
                                                 CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(flowLogger), new S3Log4jUploadLogger()),
-                                                () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
+                                                () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build, s3Configuration), headersProviders));
     }
     return myFileUploader;
   }
 
   @NotNull
-  private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
+  private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build, S3Configuration s3Configuration) {
     return new TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
                                                build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_URLS_PROVIDER_PATH, ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML),
                                                build.getAccessUser(),
                                                build.getAccessCode(),
                                                build.getNodeIdHolder(),
-                                               build.getAgentConfiguration().getServerConnectionTimeout());
+                                               build.getAgentConfiguration().getServerConnectionTimeout(),
+                                               s3Configuration.getAdvancedConfiguration().getRetriesNum(),
+                                               s3Configuration.getAdvancedConfiguration().getRetryDelay());
   }
 }
