@@ -7,7 +7,7 @@ ext {
 
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
-  compile 'commons-httpclient:commons-httpclient:3.1'
+  compileOnly 'commons-httpclient:commons-httpclient:3.1'
   compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
   compileOnly 'com.google.guava:guava:13.0.1'
   compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
