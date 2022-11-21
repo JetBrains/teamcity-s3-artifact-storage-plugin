@@ -94,25 +94,25 @@
       </description>
       <code>
         s3Storage {
-        id = "PROJECT_EXT_9"
-        storageName = "Storage Name"
+          id = "PROJECT_EXT_9"
+          storageName = "Storage Name"
 
-        bucketName = "Bucket Name"
-        bucketPrefix = "prefix"
+          bucketName = "Bucket Name"
+          bucketPrefix = "path prefix inside the bucket"
 
-        forceVirtualHostAddressing = true
-        enableTransferAcceleration = false
-        multipartThreshold = "8MB"
-        multipartChunksize = "8MB"
+          forceVirtualHostAddressing = true
+          enableTransferAcceleration = false
+          multipartThreshold = "8MB"
+          multipartChunksize = "8MB"
 
-        // Storage requires configured AwsEnvironment
-        awsEnvironment = default {
-        awsRegionName = "AWS region"
-        }
+          // Storage requires configured AwsEnvironment
+          awsEnvironment = default {
+            awsRegionName = "AWS region"
+          }
 
-        // Storage also requires configured Credentials
-        accessKeyID = "AWS Access key ID"
-        accessKey = "Link to credentialsJSON property containing AWS access key"
+          // Storage also requires configured Credentials
+          accessKeyID = "AWS Access key ID"
+          accessKey = "Link to credentialsJSON property containing AWS access key"
         }
       </code>
     </example>
@@ -123,29 +123,29 @@
       </description>
       <code>
         s3Storage {
-        id = "PROJECT_EXT_9"
-        storageName = "Storage Name"
-        bucketName = "Bucket Name"
-        bucketPrefix = "prefix"
-        forceVirtualHostAddressing = true
-        multipartThreshold = "6MB"
-        multipartChunksize = "8MB"
+          id = "PROJECT_EXT_9"
+          storageName = "Storage Name"
+          bucketName = "Bucket Name"
+          bucketPrefix = "path prefix inside the bucket"
+          forceVirtualHostAddressing = true
+          multipartThreshold = "6MB"
+          multipartChunksize = "8MB"
 
-        //CloudFront configuration
-        cloudFrontEnabled = true
-        cloudFrontUploadDistribution = "ID of CloudFront Distribution used for uploads"
-        cloudFrontDownloadDistribution = "ID of CloudFront Distribution used for downloads"
-        cloudFrontPublicKeyId = "ID of CloudFront public key"
-        cloudFrontPrivateKey = "Link to credentialsJSON property containing CloudFront private key"
+          //CloudFront configuration
+          cloudFrontEnabled = true
+          cloudFrontUploadDistribution = "ID of CloudFront Distribution used for uploads"
+          cloudFrontDownloadDistribution = "ID of CloudFront Distribution used for downloads"
+          cloudFrontPublicKeyId = "ID of CloudFront public key"
+          cloudFrontPrivateKey = "Link to credentialsJSON property containing CloudFront private key"
 
-        // Storage requires configured AwsEnvironment
-        awsEnvironment = default {
-        awsRegionName = "AWS region"
-        }
+          // Storage requires configured AwsEnvironment
+          awsEnvironment = default {
+            awsRegionName = "AWS region"
+          }
 
-        // Storage also requires configured Credentials
-        accessKeyID = "AWS Access key ID"
-        accessKey = "Link to credentialsJSON property containing AWS access key"
+          // Storage also requires configured Credentials
+          accessKeyID = "AWS Access key ID"
+          accessKey = "Link to credentialsJSON property containing AWS access key"
         }
       </code>
     </example>
@@ -156,7 +156,7 @@
       </description>
       <code>
         awsEnvironment = default {
-        awsRegionName = "AWS region"
+          awsRegionName = "AWS region"
         }
       </code>
     </example>
@@ -167,8 +167,8 @@
       </description>
       <code>
         awsEnvironment = custom {
-        endpoint = "URL of custom endpoint"
-        awsRegionName = "region"
+          endpoint = "URL of custom endpoint"
+          awsRegionName = "region"
         }
       </code>
     </example>
