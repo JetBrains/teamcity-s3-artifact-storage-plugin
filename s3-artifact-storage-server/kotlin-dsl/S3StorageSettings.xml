@@ -94,7 +94,7 @@
       </description>
       <code>
         s3Storage {
-          id = "PROJECT_EXT_9"
+          id = "S3_STORAGE_ID"
           storageName = "Storage Name"
 
           bucketName = "Bucket Name"
@@ -123,7 +123,7 @@
       </description>
       <code>
         s3Storage {
-          id = "PROJECT_EXT_9"
+          id = "S3_STORAGE_ID"
           storageName = "Storage Name"
           bucketName = "Bucket Name"
           bucketPrefix = "path prefix inside the bucket"
