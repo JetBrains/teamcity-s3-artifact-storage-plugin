@@ -433,6 +433,9 @@
       if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
         return;
       }
+      if (!$j(BS.Util.escapeId('${params.cloudFrontEnabled}')).is(':checked')) {
+        return;
+      }
       BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
 
       var parameters = BS.EditStorageForm.serializeParameters() + '&resource=distributions';
@@ -465,6 +468,10 @@
       if (!$j(useDefaultCredentialProviderChain).is(':checked') && (!$j(keyId).val() || !$j(keySecret).val())) {
         return;
       }
+      if (!$j(BS.Util.escapeId('${params.cloudFrontEnabled}')).is(':checked')) {
+        return;
+      }
+
       BS.ErrorsAwareListener.onBeginSave(BS.EditStorageForm);
 
       var parameters = BS.EditStorageForm.serializeParameters() + '&resource=publicKeys';
