@@ -17,7 +17,7 @@
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-  teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2021.1'
+  teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2022.10'
   awsCoreVersion = project.hasProperty('awsCoreVersion') ? property('awsCoreVersion') : teamcityVersion
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2022.10.tcbuildtag'

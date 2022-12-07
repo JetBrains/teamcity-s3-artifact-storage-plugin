@@ -357,7 +357,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                                                 @NotNull Policy policy,
                                                 @NotNull List<CloudFrontOriginAccessIdentitySummary> existingIdentities) {
     String oaiId = existingIdentities.stream()
-                                     .filter(o -> o.getComment().equals(BASE_COMMENT))
+                                     .filter(o -> BASE_COMMENT.equals(o.getComment()))
                                      .findFirst()
                                      .map(CloudFrontOriginAccessIdentitySummary::getId)
                                      .orElseGet(() -> createOriginAccessIdentity(cloudFrontClient));

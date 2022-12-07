@@ -1,0 +1,88 @@
+.selectError button {
+  box-shadow: 0 0 0 1px var(--ring-icon-error-color);
+}
+
+.errorText {
+  inline-size: 240px;
+  overflow-wrap: break-word;
+
+  color: var(--ring-error-color);
+
+  font-size: var(--ring-font-size-smaller);
+  line-height: var(--ring-line-height-lowest);
+}
+
+.commentary {
+  inline-size: 240px;
+  overflow-wrap: break-word;
+  margin-block-start: 0;
+  margin-block-end: 0;
+
+  color: var(--ring-secondary-color);
+
+  font-size: var(--ring-font-size-smaller);
+  line-height: var(--ring-line-height-lowest);
+}
+
+.fixToggleText input[data-test='ring-toggle-input'] {
+  position: absolute;
+  bottom: 0;
+}
+
+.hint {
+  margin-top: 10px;
+  margin-bottom: 0;
+
+  border-top: 1px solid var(--ring-line-color);
+  background-color: var(--ring-sidebar-background-color);
+
+  font-size: var(--ring-font-size-smaller);
+
+  padding: 3px calc(var(--ring-unit) * 2) 5px;
+
+  line-height: calc(var(--ring-unit) * 3);
+}
+
+.row {
+  display: flex;
+  margin-top: calc(var(--ring-unit) * 2);
+}
+
+.label {
+  display: flex;
+  flex-basis: 25%;
+}
+
+.required {
+  color: #db5860;
+  font-size: 90%;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+}
+
+.field input[type=radio] {
+  position: absolute;
+  bottom: 0;
+}
+
+.fieldRow {
+  display: flex;
+  margin-bottom: var(--ring-unit);
+}
+
+.fieldRow:last-child {
+  margin-bottom: 0px;
+}
+
+.fieldColumn {
+  display: flex;
+  margin-right: var(--ring-unit);
+  flex-direction: column;
+}
+
+.helpButton {
+  line-height: inherit !important;
+}
