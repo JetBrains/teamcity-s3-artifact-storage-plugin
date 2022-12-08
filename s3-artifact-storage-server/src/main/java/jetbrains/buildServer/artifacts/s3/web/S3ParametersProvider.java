@@ -93,7 +93,8 @@ public class S3ParametersProvider {
   }
 
   public List<String> getAclEnum() {
-    return Arrays.stream(CannedAccessControlList.values()).map(CannedAccessControlList::name).collect(Collectors.toList());
+    return Arrays.stream(CannedAccessControlList.values()).map(CannedAccessControlList::name)
+                 .collect(Collectors.toList());
   }
 
   public String getDefaultAcl() {
@@ -102,5 +103,9 @@ public class S3ParametersProvider {
 
   public String getTransferAccelerationEnabled() {
     return S3Constants.S3_TRANSFER_ACCELERATION_FEATURE_ENABLED;
+  }
+
+  public String getEnabledReactUi() {
+    return S3Constants.S3_ENABLE_REACT_UI;
   }
 }
