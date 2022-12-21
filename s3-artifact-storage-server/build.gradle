@@ -56,6 +56,9 @@ dependencies {
       exclude group: 'org.apache.httpcomponents', module: 'httpcore'
       exclude group: 'commons-codec', module: 'commons-codec'
     }
+    implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+      changing = true
+    }
 
     compile "org.bouncycastle:bcprov-jdk15on:1.70"
 

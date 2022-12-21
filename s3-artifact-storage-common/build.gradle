@@ -20,6 +20,9 @@ dependencies {
   testCompile "org.testng:testng:6.8.21"
   testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
   testCompile group: 'org.mockito', name: 'mockito-core', version: '3.12.1'
+  testImplementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+    changing = true
+  }
 }
 
 tasks.withType(JavaCompile) {

@@ -30,6 +30,9 @@ dependencies {
     compileOnly ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){
         exclude group: 'org.jetbrains.teamcity', module: 'common-api'
     }
+    implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+      changing = true
+    }
     testCompile "org.testng:testng:6.8.21"
     testCompile "org.mockito:mockito-core:3.9.0"
     testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"

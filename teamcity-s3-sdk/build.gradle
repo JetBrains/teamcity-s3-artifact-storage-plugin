@@ -8,9 +8,10 @@ ext {
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
   compileOnly 'commons-httpclient:commons-httpclient:3.1'
-  compile 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
+  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
+  implementation "org.apache.httpcomponents:httpclient:4.5.13"
   compileOnly 'com.google.guava:guava:13.0.1'
-  compile("jetbrains.buildServer.util:amazon-util:${teamcityVersion}") {
+  implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
     changing = true
   }
 

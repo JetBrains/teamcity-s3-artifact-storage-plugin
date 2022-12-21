@@ -19,8 +19,11 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpMethodResponseAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
+import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseResponseAdapter;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
@@ -28,6 +31,9 @@ import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpConnectionManager;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,6 +55,16 @@ public final class HttpClientUtil {
         } catch (Exception e) {
           LOG.infoAndDebugDetails("Got exception while shutting down httpClient " + httpClient + ".", e);
         }
+      }
+    }
+  }
+
+  public static void shutdown(CloseableHttpClient... httpClients) {
+    for (final CloseableHttpClient httpClient : httpClients) {
+      try {
+        httpClient.close();
+      } catch (IOException e) {
+        LOG.infoAndDebugDetails("Got exception while shutting down httpClient " + httpClient + ".", e);
       }
     }
   }
@@ -81,6 +97,28 @@ public final class HttpClientUtil {
         LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
       }
     }
+  }
+
+  public static CompletableFuture<HttpResponse> executeAndReleaseConnection(@NotNull final CloseableHttpClient client,
+                                                                            @NotNull final HttpRequestBase method,
+                                                                            @NotNull final HttpResponseErrorHandler errorHandler, ExecutorService executorService) {
+    return CompletableFuture.supplyAsync(() -> {
+      try {
+        HttpResponse response = client.execute(method);
+        if (response.getStatusLine().getStatusCode() != 200) {
+          throw errorHandler.handle(new HttpResponseResponseAdapter(response));
+        }
+        return response;
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      } finally {
+        try {
+          method.releaseConnection();
+        } catch (Exception e) {
+          LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
+        }
+      }
+    }, executorService);
   }
 
   @NotNull
