@@ -60,7 +60,7 @@ public class LowLevelS3Client implements AutoCloseable {
 
   @NotNull
   public String uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart) throws IOException, ExecutionException, InterruptedException {
-    return put(url, new FileEntity(filePart.getFile(), ContentType.parse(S3Util.getContentType(filePart.getFile()))), filePart.getDigest(), Collections.emptyMap()).get();
+    return put(url, new RepeatableFilePartRequestEntity(filePart, S3Util.getContentType(filePart.getFile())), filePart.getDigest(), Collections.emptyMap()).get();
   }
 
   @NotNull
