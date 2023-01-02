@@ -1,12 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
@@ -54,13 +52,13 @@ public class LowLevelS3Client implements AutoCloseable {
   }
 
   @NotNull
-  public String uploadFile(@NotNull final String url, @NotNull final File file, @Nullable String digest) throws ExecutionException, InterruptedException {
-    return put(url, new FileEntity(file, ContentType.parse(S3Util.getContentType(file))), digest, myAdditionalHeaders).get();
+  public CompletableFuture<String> uploadFile(@NotNull final String url, @NotNull final File file, @Nullable String digest) {
+    return put(url, new FileEntity(file, ContentType.parse(S3Util.getContentType(file))), digest, myAdditionalHeaders);
   }
 
   @NotNull
-  public String uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart) throws IOException, ExecutionException, InterruptedException {
-    return put(url, new RepeatableFilePartRequestEntity(filePart, S3Util.getContentType(filePart.getFile())), filePart.getDigest(), Collections.emptyMap()).get();
+  public CompletableFuture<String> uploadFilePart(@NotNull final String url, @NotNull final FilePart filePart) {
+    return put(url, new RepeatableFilePartRequestEntity(filePart, S3Util.getContentType(filePart.getFile())), filePart.getDigest(), Collections.emptyMap());
   }
 
   @NotNull

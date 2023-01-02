@@ -259,7 +259,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onPartUploadFailed(@NotNull Exception e) {
+    public void onPartUploadFailed(@NotNull Throwable e) {
       myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error: " + e.getMessage());
       myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
     }

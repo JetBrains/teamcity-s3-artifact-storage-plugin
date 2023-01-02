@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.FilePart;
@@ -14,7 +16,6 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.S3MultipartUploadFileSplitter;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
-import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -26,7 +27,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
   private final S3MultipartUploadFileSplitter myFileSplitter;
   private final boolean myCheckConsistency;
   @Nullable
-  private String[] myEtags;
+  private CompletableFuture<String>[] myEtags;
 
   @Nullable
   private String uploadId;
@@ -43,7 +44,6 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
     myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myChunkSizeInBytes = configuration.getMinimumUploadPartSize();
     myFileSplitter = new S3MultipartUploadFileSplitter(myChunkSizeInBytes);
-    myEtags = null;
   }
 
   @Override
@@ -51,9 +51,6 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
     LOGGER.debug(() -> "Multipart upload " + this + " started");
     final long totalLength = myFile.length();
     final int nParts = (int)(totalLength % myChunkSizeInBytes == 0 ? totalLength / myChunkSizeInBytes : totalLength / myChunkSizeInBytes + 1);
-    if (myEtags == null) {
-      myEtags = new String[nParts];
-    }
 
     myProgressListener.beforeUploadStarted();
     try {
@@ -65,29 +62,33 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
         uploadId = multipartUploadUrls.getUploadId();
       }
 
-      for (PresignedUrlPartDto partDto : multipartUploadUrls.getPresignedUrlParts()) {
-        try {
+      //noinspection unchecked
+      myEtags = multipartUploadUrls.getPresignedUrlParts()
+                                   .stream()
+                                   .map(partDto -> {
+                                     final int partIndex = partDto.getPartNumber() - 1;
+                                     myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
+                                     final String url = partDto.getUrl();
+                                     final FilePart filePart = fileParts.get(partIndex);
+                                     return myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, filePart))
+                                                     .thenApply(etag -> {
+                                                       myRemainingBytes.getAndAdd(-filePart.getLength());
+                                                       myProgressListener.onPartUploadSuccess(stripQuery(url));
+                                                       return etag;
+                                                     })
+                                                     .exceptionally(e -> {
+                                                       myProgressListener.onPartUploadFailed(e);
+                                                       throw new RuntimeException(e);
+                                                     });
+                                   })
+                                   .toArray(CompletableFuture[]::new);
 
-          final int partIndex = partDto.getPartNumber() - 1;
-          if (myEtags[partIndex] == null) {
-            myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
-            final String url = partDto.getUrl();
-            final FilePart filePart = fileParts.get(partIndex);
-            final String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, filePart));
-            myRemainingBytes.getAndAdd(-filePart.getLength());
-            myEtags[partIndex] = etag;
-            myProgressListener.onPartUploadSuccess(stripQuery(url));
-          }
-        } catch (Exception e) {
-          myProgressListener.onPartUploadFailed(e);
-          ExceptionUtil.rethrowAsRuntimeException(e);
-        }
-      }
+      CompletableFuture.allOf(myEtags).get();
       final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
       String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
       myProgressListener.onFileUploadSuccess(strippedUrl);
       return DigestUtil.multipartDigest(getEtags());
-    } catch (IOException e) {
+    } catch (InterruptedException | ExecutionException e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
       throw new RuntimeException(e);
@@ -100,6 +101,16 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
 
   @NotNull
   public List<String> getEtags() {
-    return myEtags != null ? Arrays.asList(myEtags) : Collections.emptyList();
+    if (myEtags == null) {
+      return Collections.emptyList();
+    }
+    final CompletableFuture<Void> etagsFuture = CompletableFuture.allOf(myEtags);
+
+    if (etagsFuture.isDone()) {
+      return etagsFuture.isCompletedExceptionally() || etagsFuture.isCancelled() ? Collections.emptyList() :
+             Arrays.stream(myEtags).map(CompletableFuture::join).collect(Collectors.toList());
+    } else {
+      return Collections.emptyList();
+    }
   }
 }

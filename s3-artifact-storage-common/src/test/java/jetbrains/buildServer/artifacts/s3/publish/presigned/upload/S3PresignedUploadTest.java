@@ -7,6 +7,7 @@ import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
@@ -34,7 +35,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
            .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
-           .thenReturn("digest");
+           .thenReturn(CompletableFuture.completedFuture("digest"));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
@@ -66,7 +67,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
            .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Unrelated auth exception", true))
-           .thenReturn("digest");
+           .thenReturn(CompletableFuture.completedFuture("digest"));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
@@ -130,9 +131,11 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFilePart(anyString(), any()))
-           .thenReturn(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8)))
+           .thenReturn(
+             CompletableFuture.completedFuture(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8))))
            .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
-           .thenReturn(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8)));
+           .thenReturn(
+             CompletableFuture.completedFuture(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8))));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
@@ -202,7 +205,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
            .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
-           .thenReturn("digest");
+           .thenReturn(CompletableFuture.completedFuture("digest"));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 

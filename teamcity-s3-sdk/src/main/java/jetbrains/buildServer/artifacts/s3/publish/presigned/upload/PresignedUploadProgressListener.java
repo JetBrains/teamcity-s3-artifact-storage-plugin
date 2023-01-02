@@ -3,7 +3,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUploadProgressListener {
-  void onPartUploadFailed(@NotNull final Exception e);
+  void onPartUploadFailed(@NotNull final Throwable e);
 
   void onPartUploadSuccess(@NotNull String uploadUrl);
 
