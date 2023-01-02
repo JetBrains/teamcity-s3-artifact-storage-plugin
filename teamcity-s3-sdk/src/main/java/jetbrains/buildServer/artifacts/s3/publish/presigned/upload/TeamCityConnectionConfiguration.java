@@ -2,9 +2,9 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
-import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
 import org.jetbrains.annotations.NotNull;
 
 public class TeamCityConnectionConfiguration {
