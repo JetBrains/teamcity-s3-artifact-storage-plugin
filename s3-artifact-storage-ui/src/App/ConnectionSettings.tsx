@@ -11,10 +11,11 @@ import HelpButton from '../FormComponents/HelpButton';
 import {SectionHeader} from '../FormComponents/SectionHeader';
 import {FieldRow} from '../FormComponents/FieldRow';
 import {FieldColumn} from '../FormComponents/FieldColumn';
-import {commentary} from '../FormComponents/styles.css';
+import styles from '../FormComponents/styles.css';
+
+import {Config, IFormInput} from '../types';
 
 import {FormFields} from './appConstants';
-import {Config, IFormInput} from './App';
 
 type OwnProps = Config
 
@@ -51,7 +52,7 @@ export default function ConnectionSettings({...config}: OwnProps) {
               control={control}
             />
             <FieldRow>
-              <p className={commentary}>{'Transfer Acceleration only works when '}
+              <p className={styles.commentary}>{'Transfer Acceleration only works when '}
                 <b>{'Force Virtual Host Addressing'}</b>{' is enabled'}</p>
             </FieldRow>
           </>

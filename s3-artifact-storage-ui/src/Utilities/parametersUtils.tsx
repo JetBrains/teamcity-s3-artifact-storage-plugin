@@ -1,9 +1,7 @@
-import {Config, IFormInput} from '../App/App';
-import {BucketNameType, S3BucketNameSwitchType} from '../App/S3Parameters';
 import {FormFields, keyToFormDataName} from '../App/appConstants';
-import {StorageTypeSelectItem} from '../App/StorageType';
-import {AwsEnvType} from '../App/AwsEnvironment';
-import {DistributionItem, PublicKeyItem} from '../App/CloudFrontSettings';
+import {DistributionItem} from '../App/CloudFrontSettings';
+import {Config, IFormInput} from '../types';
+import {Option} from '../FormComponents/FormSelect';
 
 function valueOrDefault(condition: () => boolean, getter: () => string, defaultVal: any = '') {
   let r;
@@ -17,22 +15,22 @@ function valueOrDefault(condition: () => boolean, getter: () => string, defaultV
 }
 
 function handleS3BucketListOrName(rkey: string, value: any) {
-  const v = value as S3BucketNameSwitchType;
+  const v = value as Option<number>;
   return {[rkey]: valueOrDefault(() => v.key !== 0, () => v.label)};
 }
 
 function handleS3BucketName(rkey: string, value: any) {
-  const v = value as BucketNameType;
+  const v = value as Option<number>;
   return {[rkey]: v.label};
 }
 
 function handleAwsEnvType(rkey: string, value: any) {
-  const v = value as AwsEnvType;
+  const v = value as Option<number>;
   return {[rkey]: valueOrDefault(() => v.key !== 0, () => v.label)};
 }
 
 function handleCfPublicKey(rkey: string, value: any) {
-  const v = value as PublicKeyItem;
+  const v = value as Option;
   return {[rkey]: v.key};
 }
 
@@ -56,7 +54,7 @@ export function serializeParameters(params: IFormInput, appProps: Config): { [k:
           return handleS3BucketName(rkey, value);
         }
         if (key === FormFields.STORAGE_TYPE) {
-          const v = value as StorageTypeSelectItem;
+          const v = value as Option;
           return {[rkey]: v.key};
         }
         if (key === FormFields.AWS_ENVIRONMENT_TYPE) {

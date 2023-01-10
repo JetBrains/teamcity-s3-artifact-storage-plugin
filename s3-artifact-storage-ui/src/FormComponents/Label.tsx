@@ -1,7 +1,7 @@
 import {React} from '@jetbrains/teamcity-api';
 import {ReactNode} from 'react';
 
-import {label as labelStyle, required as requiredStyle} from './styles.css';
+import styles from './styles.css';
 
 interface LabelProps {
   required?: boolean;
@@ -10,10 +10,10 @@ interface LabelProps {
 }
 
 export const Label: React.FunctionComponent<LabelProps> = props => (
-  <div className={labelStyle}>
+  <div className={styles.label}>
     <label htmlFor={props.htmlFor}>
       <b>{props.children}</b>
-      {props.required && <span className={requiredStyle}>{' *'}</span>}
+      {props.required && <span className={styles.required}>{' *'}</span>}
     </label>
   </div>
 );

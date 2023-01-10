@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.InvalidProperty;
@@ -29,9 +28,6 @@ import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.
 
 public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
   private static final Logger LOG = Logger.getInstance(CloudFrontPropertiesProcessor.class.getName());
-  private static final Pattern BEGIN_MATCHER = Pattern.compile("^(-----BEGIN[\\w\\s]+-----)\\n?");
-  private static final Pattern END_MATCHER = Pattern.compile("\\n?(-----END[\\w\\s]+-----)$");
-
   @Override
   public Collection<InvalidProperty> process(Map<String, String> params) {
     final ArrayList<InvalidProperty> invalids = new ArrayList<>();
@@ -66,7 +62,6 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
       return null;
     }
 
-    cloudFrontPrivateKey = END_MATCHER.matcher(BEGIN_MATCHER.matcher(cloudFrontPrivateKey).replaceAll("$1\n")).replaceAll("\n$1");
     PrivateKey privateKey;
     try {
       privateKey = PEM.readPrivateKey(new ByteArrayInputStream(cloudFrontPrivateKey.getBytes(StandardCharsets.UTF_8)));

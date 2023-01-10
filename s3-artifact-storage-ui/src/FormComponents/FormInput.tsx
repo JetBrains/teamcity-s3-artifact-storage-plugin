@@ -4,7 +4,7 @@ import {React} from '@jetbrains/teamcity-api';
 
 import {FieldRow} from './FieldRow';
 
-import {commentary} from './styles.css';
+import styles from './styles.css';
 
 export default function FormInput({control, name, rules, id, ...inputProps}: any) {
   const {defaultValue, details} = inputProps;
@@ -28,7 +28,7 @@ export default function FormInput({control, name, rules, id, ...inputProps}: any
               />
             </FieldRow>
             {!errorMessage && details &&
-            <FieldRow><p className={commentary}>{details}</p></FieldRow>
+            <FieldRow><p className={styles.commentary}>{details}</p></FieldRow>
             }
           </>
         );

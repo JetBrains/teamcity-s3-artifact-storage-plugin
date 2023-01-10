@@ -1,6 +1,6 @@
-import {Config, IFormInput} from '../App/App';
-
 import {FetchResourceIds} from '../App/appConstants';
+
+import {Config, IFormInput} from '../types';
 
 import {displayErrorsFromResponseIfAny, parseResourceListFromResponse, ResponseErrors} from './responseParser';
 import {serializeParameters} from './parametersUtils';
@@ -54,7 +54,17 @@ export async function loadDistributionList({
     const distributions = parseResourceListFromResponse(response, 'distributions:eq(0) distribution').map(
       n => window.$j(n)).map(d => {
       const id = d.find('id').text();
-      const description = d.find('description').text();
+      let description = null;
+      // special case, when description tag is actually empty.
+      // for some reason JQuery wraps tags under <description/>
+      // so <description/><enabled>true</enabled>
+      // becomes <description><enabled>true</enable></description>
+      // probably but in used JQuery version
+      if (d.find('description').children().length > 0) {
+        description = id;
+      } else {
+        description = d.find('description').text();
+      }
       const enabled = d.find('enabled').text() === 'true';
       const publicKeys = d.find('publicKey').map((i, e) => window.$j(e).text()).get();
       return {id, description, enabled, publicKeys};

@@ -14,11 +14,11 @@
   ~ limitations under the License.
   --%>
 <%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
-<%@ page import="jetbrains.buildServer.serverSide.TeamCityProperties" %>
+<%@ taglib prefix="intprop" uri="/WEB-INF/functions/intprop" %>
 
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
-<c:set var="s3StorageReactUiEnabled" value="<%= TeamCityProperties.getBoolean(params.getEnabledReactUi(), false) %>"/>
+<c:set var="s3StorageReactUiEnabled" value="${intprop:getBoolean(params.enabledReactUi)}"/>
 
 <c:choose>
   <c:when test="${s3StorageReactUiEnabled}">

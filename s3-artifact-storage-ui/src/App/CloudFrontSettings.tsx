@@ -1,14 +1,16 @@
 import {React} from '@jetbrains/teamcity-api';
 import {useFormContext} from 'react-hook-form';
 
-import {useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 
 import Button from '@jetbrains/ring-ui/components/button/button';
+
+import {Size} from '@jetbrains/ring-ui/components/input/input';
 
 import HelpButton from '../FormComponents/HelpButton';
 import FormToggle from '../FormComponents/FormToggle';
 import {FormRow} from '../FormComponents/FormRow';
-import FormSelect from '../FormComponents/FormSelect';
+import FormSelect, {Option} from '../FormComponents/FormSelect';
 import {loadPublicKeyList} from '../Utilities/fetchPublicKeys';
 import {ResponseErrors} from '../Utilities/responseParser';
 import {loadDistributionList} from '../Utilities/fetchDistributions';
@@ -17,33 +19,30 @@ import {createDistribution} from '../Utilities/createDistribution';
 import {SectionHeader} from '../FormComponents/SectionHeader';
 import {FieldRow} from '../FormComponents/FieldRow';
 import {FieldColumn} from '../FormComponents/FieldColumn';
-import {commentary} from '../FormComponents/styles.css';
+import styles from '../FormComponents/styles.css';
+
+import useDistributionInfo from '../hooks/useDistributionInfo';
+
+import {Config, IFormInput} from '../types';
 
 import {FormFields} from './appConstants';
 
-import {Config, IFormInput} from './App';
-
-export type PublicKeyItem = {
-  label: string,
-  key: string
-}
-
-export type DistributionItem = {
-  label: string,
-  key: string,
+export interface DistributionItem extends Option {
   publicKeys: string[] | null,
 }
 
 interface OwnProps extends Config {
-    setErrors: (errors: (ResponseErrors | null)) => void
+  setErrors: (errors: (ResponseErrors | null)) => void
 }
 
-export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
+export default function CloudFrontSettings(props: OwnProps) {
+  const {setErrors} = props;
+  const distributionInfo = useDistributionInfo(props);
   const cloudFrontSettingsLink = 'https://www.jetbrains.com/help/teamcity/2022.10/?CloudFrontSettings';
   const {control, setValue, getValues} = useFormContext<IFormInput>();
-  const [publicKeyListData, setPublicKeyListData] = useState<PublicKeyItem[]>(
+  const [publicKeyListData, setPublicKeyListData] = useState<Option[]>(
     getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID)
-      ? [getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID) as PublicKeyItem]
+      ? [getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID) as Option]
       : []);
   const [uploadDistributionData, setUploadDistributionData] = useState<DistributionItem[]>(
     getValues(FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION)
@@ -55,7 +54,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
       : []);
 
   const selectPublicKey = React.useCallback(
-    (data: PublicKeyItem | null) => {
+    (data: Option | null) => {
       setValue(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID, data);
     },
     [setValue]
@@ -84,6 +83,21 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
     },
     [setValue, getValues, selectPublicKey]
   );
+
+  useEffect(() => {
+    if (!distributionInfo.loading) {
+      selectUploadDistribution(distributionInfo.initialUploadDistribution);
+      selectDownloadDistribution(distributionInfo.initialDownloadDistribution);
+      selectPublicKey(distributionInfo.publicKey);
+    } else {
+      selectUploadDistribution(null);
+      selectDownloadDistribution(null);
+      selectPublicKey(null);
+    }
+  },
+  [distributionInfo.initialDownloadDistribution, distributionInfo.initialUploadDistribution,
+    distributionInfo.loading, distributionInfo.publicKey, selectDownloadDistribution, selectPublicKey,
+    selectUploadDistribution]);
 
   const [useCloudFront, setUseCloudFront] = useState(getValues(FormFields.CLOUD_FRONT_TOGGLE));
 
@@ -119,7 +133,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
         FormFields.SECRET_ACCESS_KEY]);
     const {publicKeys, errors} = await loadPublicKeyList(
       {
-        appProps: config,
+        appProps: props,
         allValues: getValues(),
         useDefaultCredentialProviderChain,
         keyId,
@@ -142,7 +156,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
           : true)).reduce((acc, cur) => {
           acc.push({label: cur.name, key: cur.id});
           return acc;
-        }, [] as PublicKeyItem[]);
+        }, [] as Option[]);
 
       setPublicKeyListData(publicKeysData);
     }
@@ -161,7 +175,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
         FormFields.SECRET_ACCESS_KEY]);
     const {distributions, errors} = await loadDistributionList(
       {
-        appProps: config,
+        appProps: props,
         allValues: getValues(),
         useDefaultCredentialProviderChain,
         keyId,
@@ -170,10 +184,10 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
     );
 
     if (distributions) {
-      const distributionsData = distributions.filter(d => d.enabled).reduce((acc, cur) => {
+      const distributionsData = distributions.filter(d => d.enabled).reduce<DistributionItem[]>((acc, cur) => {
         acc.push({label: cur.description!, key: cur.id, publicKeys: cur.publicKeys});
         return acc;
-      }, [] as DistributionItem[]);
+      }, []);
 
       const allKeysFromDistributions = distributionsData.flatMap(dd => dd.publicKeys);
       const filteredPublicKeyList = publicKeyListData.filter(pk => allKeysFromDistributions.indexOf(pk.key) > -1);
@@ -199,7 +213,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
         FormFields.SECRET_ACCESS_KEY]);
     const {response, errors} = await createDistribution(
       {
-        appProps: config,
+        appProps: props,
         allValues: getValues(),
         useDefaultCredentialProviderChain,
         keyId,
@@ -226,6 +240,110 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
     setErrors(errors);
   };
 
+  const distributionSection = () => (
+    <>
+      <FormRow
+        label="Distribution for uploads:"
+        star
+        labelFor={FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION}
+      >
+        <FieldRow>
+          <FieldColumn>
+            <FormSelect
+              name={FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION}
+              control={control}
+              selected={uploadDistributionData[0]}
+              rules={{required: 'Distribution is mandatory'}}
+              data={uploadDistributionData}
+              onChange={selectUploadDistribution}
+              onBeforeOpen={reloadCloudDistributions}
+              loading={distributionsLoading}
+              label="-- Select distribution --"
+              size={Size.L}
+              disabled={distributionInfo.loading}
+            />
+          </FieldColumn>
+          <FieldColumn>
+            <MagicButton
+              title="Create distribution"
+              onClick={createDistributionMagic}
+              disabled={distributionInfo.loading}
+            />
+          </FieldColumn>
+        </FieldRow>
+      </FormRow>
+      <FormRow
+        label="Distribution for downloads:"
+        star
+        labelFor={FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION}
+      >
+        <FieldRow>
+          <FieldColumn>
+            <FormSelect
+              name={FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION}
+              control={control}
+              rules={{required: 'Distribution is mandatory'}}
+              data={downloadDistributionData}
+              onChange={selectDownloadDistribution}
+              onBeforeOpen={reloadCloudDistributions}
+              loading={distributionsLoading}
+              label="-- Select distribution --"
+              size={Size.L}
+              disabled={distributionInfo.loading}
+            />
+          </FieldColumn>
+          <FieldColumn>
+            <MagicButton
+              title="Create distribution"
+              onClick={createDistributionMagic}
+              disabled={distributionInfo.loading}
+            />
+          </FieldColumn>
+        </FieldRow>
+      </FormRow>
+      <FormRow
+        label="Public key:"
+        star
+        labelFor={FormFields.CLOUD_FRONT_PUBLIC_KEY_ID}
+      >
+        <FormSelect
+          name={FormFields.CLOUD_FRONT_PUBLIC_KEY_ID}
+          control={control}
+          rules={{required: 'Public key is mandatory'}}
+          data={publicKeyListData}
+          filter
+          onChange={selectPublicKey}
+          onBeforeOpen={reloadPublicKeys}
+          loading={publicKeyDataLoading}
+          label="-- Select public key --"
+          disabled={distributionInfo.loading}
+        />
+      </FormRow>
+
+      <FormRow label="Private key:" star>
+        <>
+          <FieldRow>
+            <Button
+              disabled={distributionInfo.loading}
+              onClick={upload}
+            >{'Choose file'}</Button>
+          </FieldRow>
+          <FieldRow>
+            <p className={styles.commentary}>{privateKeyDetails}</p>
+          </FieldRow>
+          <input
+            type="file"
+            className="hidden"
+            multiple={false}
+            accept=".pem"
+            onChange={e => openFile(e)}
+            ref={hiddenInputEl}
+          />
+        </>
+      </FormRow>
+    </>
+  );
+
   return (
     <section>
       <SectionHeader>{'CloudFront Settings'}</SectionHeader>
@@ -244,99 +362,7 @@ export default function CloudFrontSettings({setErrors, ...config}: OwnProps) {
           </FieldColumn>
         </FieldRow>
       </FormRow>
-      {useCloudFront && (
-        <>
-          <FormRow
-            label="Distribution for uploads:"
-            star
-            labelFor={FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION}
-          >
-            <FieldRow>
-              <FieldColumn>
-                <FormSelect
-                  name={FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION}
-                  control={control}
-                  selected={uploadDistributionData[0]}
-                  rules={{required: 'Distribution is mandatory'}}
-                  data={uploadDistributionData}
-                  onChange={selectUploadDistribution}
-                  onBeforeOpen={reloadCloudDistributions}
-                  loading={distributionsLoading}
-                  label="-- Select distribution --"
-                />
-              </FieldColumn>
-              <FieldColumn>
-                <MagicButton
-                  title="Create distribution"
-                  onClick={createDistributionMagic}
-                />
-              </FieldColumn>
-            </FieldRow>
-          </FormRow>
-          <FormRow
-            label="Distribution for downloads:"
-            star
-            labelFor={FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION}
-          >
-            <FieldRow>
-              <FieldColumn>
-                <FormSelect
-                  name={FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION}
-                  control={control}
-                  rules={{required: 'Distribution is mandatory'}}
-                  data={downloadDistributionData}
-                  onChange={selectDownloadDistribution}
-                  onBeforeOpen={reloadCloudDistributions}
-                  loading={distributionsLoading}
-                  label="-- Select distribution --"
-                />
-              </FieldColumn>
-              <FieldColumn>
-                <MagicButton
-                  title="Create distribution"
-                  onClick={createDistributionMagic}
-                />
-              </FieldColumn>
-            </FieldRow>
-          </FormRow>
-          <FormRow
-            label="Public key:"
-            star
-            labelFor={FormFields.CLOUD_FRONT_PUBLIC_KEY_ID}
-          >
-            <FormSelect
-              name={FormFields.CLOUD_FRONT_PUBLIC_KEY_ID}
-              control={control}
-              rules={{required: 'Public key is mandatory'}}
-              data={publicKeyListData}
-              filter
-              onChange={selectPublicKey}
-              onBeforeOpen={reloadPublicKeys}
-              loading={publicKeyDataLoading}
-              label="-- Select public key --"
-            />
-          </FormRow>
-
-          <FormRow label="Private key:" star>
-            <>
-              <FieldRow>
-                <Button onClick={upload}>{'Choose file'}</Button>
-              </FieldRow>
-              <FieldRow>
-                <p className={commentary}>{privateKeyDetails}</p>
-              </FieldRow>
-              <input
-                type="file"
-                className="hidden"
-                multiple={false}
-                accept=".pem"
-                onChange={e => openFile(e)}
-                ref={hiddenInputEl}
-              />
-            </>
-          </FormRow>
-        </>
-      )}
+      {useCloudFront && distributionSection()}
     </section>
   );
 }

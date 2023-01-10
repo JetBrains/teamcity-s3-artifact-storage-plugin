@@ -1,4 +1,4 @@
-import {Config, IFormInput} from '../App/App';
+import {Config, IFormInput} from '../types';
 
 import {serializeParameters} from './parametersUtils';
 import {post} from './fetchHelper';

@@ -4,7 +4,12 @@ import Select from '@jetbrains/ring-ui/components/select/select';
 
 import {FieldRow} from './FieldRow';
 
-import {commentary, errorText, selectError} from './styles.css';
+import styles from './styles.css';
+
+export interface Option<K = string, L = string> {
+  key: K,
+  label: L
+}
 
 export default function FormSelect({name, control, selected, rules, details, id, ...selectProps}: any) {
   return (
@@ -23,16 +28,16 @@ export default function FormSelect({name, control, selected, rules, details, id,
                 {...selectProps}
                 id={id || name}
                 selected={field.value || selected}
-                className={errorMessage && selectError}
+                className={errorMessage && styles.selectError}
               />
             </FieldRow>
             {errorMessage && (
               <FieldRow>
-                <p className={errorText}>{errorMessage}</p>
+                <p className={styles.errorText}>{errorMessage}</p>
               </FieldRow>
             )}
             {!errorMessage && details &&
-            <FieldRow><p className={commentary}>{details}</p></FieldRow>
+            <FieldRow><p className={styles.commentary}>{details}</p></FieldRow>
             }
           </>
         );

@@ -4,7 +4,7 @@ import {useFormContext} from 'react-hook-form';
 
 import {useEffect, useState} from 'react';
 
-import FormSelect from '../FormComponents/FormSelect';
+import FormSelect, {Option} from '../FormComponents/FormSelect';
 import {FormRow} from '../FormComponents/FormRow';
 
 
@@ -13,21 +13,12 @@ import {loadBucketList} from '../Utilities/fetchBucketNames';
 import {ResponseErrors} from '../Utilities/responseParser';
 import {SectionHeader} from '../FormComponents/SectionHeader';
 
-import {Config, IFormInput} from './App';
+import {Config, IFormInput} from '../types';
+
 import {FormFields} from './appConstants';
 
-export type S3BucketNameSwitchType = {
-  label: string,
-  key: number
-}
-
-export type BucketNameType = {
-  label: string,
-  key: number
-}
-
 interface OwnProps extends Config {
-    setErrors: (errors: (ResponseErrors | null)) => void
+  setErrors: (errors: (ResponseErrors | null)) => void
 }
 
 export const S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY = [
@@ -39,7 +30,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
   const s3BucketListOrNameFieldName = FormFields.S3_BUCKET_LIST_OR_NAME;
   const {control, setValue, getValues, trigger} = useFormContext<IFormInput>();
   const selectS3BucketListOrName = React.useCallback(
-    (data: S3BucketNameSwitchType) => {
+    (data: Option<number>) => {
       setValue(s3BucketListOrNameFieldName, data);
       if (data.key === 1) {
         setValue(FormFields.S3_BUCKET_NAME, null);
@@ -48,15 +39,15 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
     [setValue, s3BucketListOrNameFieldName]
   );
   const selectS3BucketNameListValue = React.useCallback(
-    (data: BucketNameType | null) => {
+    (data: Option<number> | null) => {
       setValue(FormFields.S3_BUCKET_NAME, data);
     },
     [setValue]
   );
 
   const [manualFlag, setManualFlag] = useState(
-    getValues(s3BucketListOrNameFieldName).key === S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY[1].key);
-  const [buckets, setBuckets] = useState<BucketNameType[]>(
+    getValues(s3BucketListOrNameFieldName)?.key === S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY[1].key);
+  const [buckets, setBuckets] = useState<Option<number>[]>(
     (getValues(FormFields.S3_BUCKET_NAME) &&
      typeof getValues(FormFields.S3_BUCKET_NAME) === 'string')
       ? [{label: getValues(FormFields.S3_BUCKET_NAME) as string, key: 0}]
@@ -99,7 +90,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
         acc.push({label: cur, key: i++});
         return acc;
       },
-                                             [] as BucketNameType[]);
+                                             [] as Option<number>[]);
       setBuckets(bucketsData);
     }
     setBucketsListLoading(false);
@@ -117,7 +108,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
           name={s3BucketListOrNameFieldName}
           control={control}
           data={S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY}
-          onChange={(option: S3BucketNameSwitchType | null) => {
+          onChange={(option: Option<number> | null) => {
             if (option) {
               selectS3BucketListOrName(option);
             }

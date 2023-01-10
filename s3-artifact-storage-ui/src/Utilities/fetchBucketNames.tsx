@@ -1,6 +1,6 @@
-import {Config, IFormInput} from '../App/App';
-
 import {FetchResourceIds} from '../App/appConstants';
+
+import {Config, IFormInput} from '../types';
 
 import {post} from './fetchHelper';
 import {serializeParameters} from './parametersUtils';

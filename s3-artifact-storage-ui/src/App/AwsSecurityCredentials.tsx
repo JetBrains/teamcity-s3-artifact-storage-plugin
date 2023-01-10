@@ -2,7 +2,7 @@ import {React} from '@jetbrains/teamcity-api';
 
 import {useFormContext} from 'react-hook-form';
 
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 
 import FormRadio from '../FormComponents/FormRadio';
 import {FormRow} from '../FormComponents/FormRow';
@@ -11,8 +11,15 @@ import FormInput from '../FormComponents/FormInput';
 
 import {SectionHeader} from '../FormComponents/SectionHeader';
 
-import {Config, IFormInput} from './App';
+import {Label} from '../FormComponents/Label';
+import {Field} from '../FormComponents/Field';
+import {Row} from '../FormComponents/Row';
+
+import {Config, IFormInput} from '../types';
+
 import {FormFields} from './appConstants';
+
+import styles from './styles.css';
 
 type OwnProps = Config
 
@@ -40,13 +47,13 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
     setDefaultCredsFlag(event.target.value);
   };
 
-  return (
-    <section>
-      <SectionHeader>{'AWS Security Credentials'}</SectionHeader>
-      <FormRow
-        label="Credentials type:"
-        star
-      >
+  const credentialsTypeFormRow = useMemo(() => (
+    <Row>
+      <div className={styles.credTypesCustom}>
+        <Label required>{'Credentials type:'}</Label>
+        <a href="https://console.aws.amazon.com/iam" target="_blank" rel="noopener noreferrer">{'Open IAM Console'}</a>
+      </div>
+      <Field>
         <FormRadio
           data={AWS_CREDENTIALS_TYPE_ARRAY}
           name={credentialTypesFieldName}
@@ -56,7 +63,14 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
             onChange: credentialTypeChanged
           }}
         />
-      </FormRow>
+      </Field>
+    </Row>
+  ), [control, credentialTypesFieldName]);
+
+  return (
+    <section>
+      <SectionHeader>{'AWS Security Credentials'}</SectionHeader>
+      {credentialsTypeFormRow}
       {credentialType === tempCredsType && (
         <>
           <FormRow
@@ -90,6 +104,7 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
             name={defaultChainFlagFieldName}
             control={control}
             rules={{onChange: useDefaultCredentialsChainFlagChanged}}
+            checked={defaultCredsFlag ?? false}
           />
         </FormRow>
       )}

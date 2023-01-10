@@ -4,7 +4,7 @@ import Radio from '@jetbrains/ring-ui/components/radio/radio';
 import {Control} from 'react-hook-form/dist/types';
 
 import {FieldRow} from './FieldRow';
-import {commentary} from './styles.css';
+import styles from './styles.css';
 
 type OwnProps = {
   data: FormRadioItem[],
@@ -32,7 +32,7 @@ export default function FormRadio({name, control, data, rules}: OwnProps) {
               <FieldRow>
                 <Radio.Item value={value}>{label}</Radio.Item>
               </FieldRow>
-              {details && <FieldRow><p className={commentary}>{details}</p></FieldRow>}
+              {details && <FieldRow><p className={styles.commentary}>{details}</p></FieldRow>}
             </>
           ))}
         </Radio>

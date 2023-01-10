@@ -11,3 +11,9 @@
 .formControlButtons {
   margin-top: 32px;
 }
+
+.credTypesCustom {
+  display: flex;
+  flex-basis: 25%;
+  flex-direction: column;
+}

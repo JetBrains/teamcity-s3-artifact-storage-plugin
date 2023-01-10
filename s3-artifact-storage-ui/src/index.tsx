@@ -1,6 +1,7 @@
 import {React, ReactDOM} from '@jetbrains/teamcity-api';
 
-import App, {Config} from './App/App';
+import App from './App/App';
+import {Config} from './types';
 
 global.renderEditS3Storage = (config: Config) => {
   ReactDOM.render(

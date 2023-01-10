@@ -2,7 +2,7 @@ import helpIcon from '@jetbrains/icons/help';
 import Button from '@jetbrains/ring-ui/components/button/button';
 import {React} from '@jetbrains/teamcity-api';
 
-import {helpButton} from './styles.css';
+import styles from './styles.css';
 
 type OwnProps = {
   title?: string,
@@ -12,7 +12,7 @@ type OwnProps = {
 export default function HelpButton({title = 'View help', href}: OwnProps) {
   return (
     <Button
-      className={helpButton}
+      className={styles.helpButton}
       title={title}
       icon={helpIcon}
       primary={false}

@@ -3,19 +3,15 @@ import {SelectItem} from '@jetbrains/ring-ui/components/select/select';
 import {useFormContext} from 'react-hook-form';
 
 import {FormRow} from '../FormComponents/FormRow';
-import FormSelect from '../FormComponents/FormSelect';
+import FormSelect, {Option} from '../FormComponents/FormSelect';
 
-import {IFormInput} from './App';
+import {IFormInput} from '../types';
+
 import {FormFields} from './appConstants';
 
 type StorageTypeConfig = {
-  data: StorageTypeSelectItem[],
-  onChange: (option: StorageTypeSelectItem | null) => void | undefined | null,
-}
-
-export type StorageTypeSelectItem = {
-  label: string,
-  key: string
+  data: Option[],
+  onChange: (option: Option | null) => void | undefined | null,
 }
 
 export default function StorageType({data, onChange: callback}: StorageTypeConfig) {
@@ -23,7 +19,7 @@ export default function StorageType({data, onChange: callback}: StorageTypeConfi
 
   const {control} = useFormContext<IFormInput>();
 
-  const innerOnChange = (option: SelectItem<StorageTypeSelectItem> | null) => {
+  const innerOnChange = (option: SelectItem<Option> | null) => {
     if (option && option.key === s3StorageType) {
       // do nothing
     } else if (callback) {

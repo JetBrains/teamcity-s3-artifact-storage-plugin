@@ -1,7 +1,7 @@
 import {React} from '@jetbrains/teamcity-api';
 import {ReactNode} from 'react';
 
-import {fieldColumn as fieldColumnStyle} from './styles.css';
+import styles from './styles.css';
 
 interface FieldColumnProps {
   children: ReactNode;
@@ -9,6 +9,6 @@ interface FieldColumnProps {
 
 export const FieldColumn: React.FunctionComponent<FieldColumnProps> = props => (
   <div
-    className={fieldColumnStyle}
+    className={styles.fieldColumn}
   >{props.children}</div>
 );

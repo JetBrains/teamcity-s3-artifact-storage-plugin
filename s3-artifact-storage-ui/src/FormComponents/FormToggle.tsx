@@ -3,7 +3,7 @@ import {Controller, RegisterOptions} from 'react-hook-form';
 import {Control} from 'react-hook-form/dist/types';
 import Toggle, {ToggleAttrs} from '@jetbrains/ring-ui/components/toggle/toggle';
 
-import {fixToggleText} from './styles.css';
+import styles from './styles.css';
 import {FieldRow} from './FieldRow';
 
 interface OwnProps extends ToggleAttrs {
@@ -24,7 +24,7 @@ export default function FormToggle({name, control, rules, label, ...rest}: OwnPr
           <Toggle
             {...field}
             {...rest}
-            className={fixToggleText}
+            className={styles.fixToggleText}
           >
             {label}
           </Toggle>

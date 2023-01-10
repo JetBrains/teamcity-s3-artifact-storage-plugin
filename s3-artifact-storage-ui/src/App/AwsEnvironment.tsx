@@ -4,18 +4,14 @@ import {useFormContext} from 'react-hook-form';
 import {useState} from 'react';
 
 import {FormRow} from '../FormComponents/FormRow';
-import FormSelect from '../FormComponents/FormSelect';
+import FormSelect, {Option} from '../FormComponents/FormSelect';
 import FormInput from '../FormComponents/FormInput';
 
-import {IFormInput} from './App';
+import {IFormInput} from '../types';
+
 import {FormFields} from './appConstants';
 
-export type AwsEnvType = {
-  label: string,
-  key: number,
-}
-
-export const AWS_ENV_TYPE_ARRAY: Array<AwsEnvType> = [
+export const AWS_ENV_TYPE_ARRAY: Array<Option<number>> = [
   {label: '<Default>', key: 0},
   {label: 'Custom', key: 1}
 ];
@@ -23,7 +19,7 @@ export const AWS_ENV_TYPE_ARRAY: Array<AwsEnvType> = [
 export default function AwsEnvironment() {
   const {control, setValue} = useFormContext<IFormInput>();
   const selectAwsEnvironmentType = React.useCallback(
-    (data: AwsEnvType) => {
+    (data: Option<number>) => {
       setValue(FormFields.AWS_ENVIRONMENT_TYPE, data);
     },
     [setValue]
@@ -41,7 +37,7 @@ export default function AwsEnvironment() {
           name={FormFields.AWS_ENVIRONMENT_TYPE}
           control={control}
           data={AWS_ENV_TYPE_ARRAY}
-          onChange={(option: AwsEnvType | null) => {
+          onChange={(option: Option<number> | null) => {
             if (option) {
               selectAwsEnvironmentType(option);
             }
