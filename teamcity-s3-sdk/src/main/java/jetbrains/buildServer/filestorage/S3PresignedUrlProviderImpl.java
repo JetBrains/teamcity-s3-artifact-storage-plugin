@@ -91,19 +91,22 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
         request.setContentMd5(digest);
       }
 
-      String contentType = getObjectMetadata(objectKey, settings)
-        .map(ObjectMetadata::getContentType)
-        .map(it -> {
-          if (it.indexOf("charset") < 0) {
-            return it + ";" + S3Util.DEFAULT_CHARSET;
-          }
-
-          return it;
-        })
-        .orElse(S3Util.DEFAULT_CONTENT_TYPE);
-
       ResponseHeaderOverrides headerOverrides = new ResponseHeaderOverrides();
-      headerOverrides.withContentType(contentType);
+
+      if (HttpMethod.GET.equals(httpMethod)) {
+        String contentType = getObjectMetadata(objectKey, settings)
+          .map(ObjectMetadata::getContentType)
+          .map(it -> {
+            if (it.indexOf("charset") < 0) {
+              return it + ";" + S3Util.DEFAULT_CHARSET;
+            }
+
+            return it;
+          })
+          .orElse(S3Util.DEFAULT_CONTENT_TYPE);
+
+        headerOverrides.withContentType(contentType);
+      }
 
       if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
         final List<String> split = StringUtil.split(objectKey, "/");
