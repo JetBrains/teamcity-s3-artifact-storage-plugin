@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -256,6 +257,16 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     @Override
     public void setUpload(@NotNull S3PresignedUpload upload) {
       myUpload = upload;
+    }
+
+    @Override
+    public void partsSeparated(@NotNull Duration duration) {
+      myStatisticsLogger.partsSeparated(myUpload.description(), duration);
+    }
+
+    @Override
+    public void urlsGenerated(@NotNull Duration duration) {
+      myStatisticsLogger.urlsGenerated(myUpload.description(), duration);
     }
 
     @Override

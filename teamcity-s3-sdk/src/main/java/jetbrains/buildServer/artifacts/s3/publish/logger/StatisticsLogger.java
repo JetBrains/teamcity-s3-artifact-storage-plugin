@@ -3,7 +3,6 @@ package jetbrains.buildServer.artifacts.s3.publish.logger;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -21,8 +20,6 @@ import org.jetbrains.annotations.Nullable;
 public class StatisticsLogger {
 
   @NotNull
-  private final Map<String, Instant> myStartTimesMap = new ConcurrentHashMap<>();
-  @NotNull
   private final Map<String, UploadStatistics> myStatisticsMap = new ConcurrentHashMap<>();
 
   /**
@@ -32,7 +29,14 @@ public class StatisticsLogger {
    * @param startTime - starting time of the upload
    */
   public void uploadStarted(@NotNull String objectKey, @NotNull Instant startTime) {
-    myStartTimesMap.putIfAbsent(objectKey, startTime);
+    myStatisticsMap.compute(objectKey, (key, stat) -> {
+      if (stat != null) {
+        stat.setStartTime(startTime);
+        return stat;
+      } else {
+        return new UploadStatistics(objectKey, startTime);
+      }
+    });
   }
 
   /**
@@ -42,12 +46,7 @@ public class StatisticsLogger {
    * @param endTime   - time when upload was finished
    */
   public void uploadFinished(@NotNull String objectKey, @NotNull Instant endTime) {
-    final Instant startTime = myStartTimesMap.get(objectKey);
-    if (startTime != null) {
-      myStartTimesMap.remove(objectKey);
-      final Duration duration = Duration.between(startTime, endTime);
-      putOrMerge(objectKey, new UploadStatistics(objectKey, startTime, duration));
-    }
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.finish(endTime));
   }
 
 
@@ -59,13 +58,7 @@ public class StatisticsLogger {
    * @param errorTime - time when upload failed
    */
   public void uploadFailed(@NotNull String objectKey, @NotNull String error, @NotNull Instant errorTime) {
-    final Instant startTime = myStartTimesMap.get(objectKey);
-    if (startTime != null) {
-      myStartTimesMap.remove(objectKey);
-      UploadStatistics statistics = new UploadStatistics(objectKey, startTime, Duration.between(startTime, errorTime), Collections.singletonList(error));
-
-      putOrMerge(objectKey, statistics);
-    }
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.fail(errorTime, error));
   }
 
   /**
@@ -98,9 +91,14 @@ public class StatisticsLogger {
     return myStatisticsMap.size();
   }
 
-  private void putOrMerge(String objectKey, UploadStatistics statistics) {
-    myStatisticsMap.compute(objectKey, (key, value) -> statistics.merge(value));
+  public void partsSeparated(@NotNull String objectKey, Duration duration) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.addAditionalTiming("Dividing into chunks", duration));
   }
+
+  public void urlsGenerated(String objectKey, Duration duration) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.addAditionalTiming("Generating URL(s)", duration));
+  }
+
 
   /**
    * Summarized statistics from multiple uploads for different files

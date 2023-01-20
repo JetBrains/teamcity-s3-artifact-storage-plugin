@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
+import java.time.Duration;
 import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUploadProgressListener {
@@ -16,4 +17,8 @@ public interface PresignedUploadProgressListener {
   void beforePartUploadStarted(int partNumber);
 
   void setUpload(@NotNull S3PresignedUpload upload);
+
+  void partsSeparated(@NotNull Duration ofMillis);
+
+  void urlsGenerated(@NotNull Duration ofMillis);
 }

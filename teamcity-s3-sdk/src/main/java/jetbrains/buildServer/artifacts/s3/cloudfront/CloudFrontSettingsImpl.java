@@ -1,4 +1,4 @@
-package jetbrains.buildServer.filestorage.cloudfront;
+package jetbrains.buildServer.artifacts.s3.cloudfront;
 
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.HashMap;
@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Objects;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

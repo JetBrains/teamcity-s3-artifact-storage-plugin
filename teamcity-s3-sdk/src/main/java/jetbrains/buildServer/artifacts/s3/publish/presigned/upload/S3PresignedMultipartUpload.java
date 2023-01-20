@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
@@ -54,9 +55,16 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
 
     myProgressListener.beforeUploadStarted();
     try {
+      final long partSeparationStart = System.nanoTime();
       final List<FilePart> fileParts = myFileSplitter.getFileParts(myFile, nParts, myCheckConsistency);
+      final long partSeparationEnd = System.nanoTime();
+      myProgressListener.partsSeparated(Duration.ofNanos(partSeparationEnd - partSeparationStart));
       List<String> digests = fileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
+
+      final long urlRequestStart = System.nanoTime();
       final PresignedUrlDto multipartUploadUrls = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, digests, uploadId, myTtl.get());
+      final long urlRequestEnd = System.nanoTime();
+      myProgressListener.urlsGenerated(Duration.ofNanos(urlRequestEnd - urlRequestStart));
 
       if (uploadId == null) {
         uploadId = multipartUploadUrls.getUploadId();

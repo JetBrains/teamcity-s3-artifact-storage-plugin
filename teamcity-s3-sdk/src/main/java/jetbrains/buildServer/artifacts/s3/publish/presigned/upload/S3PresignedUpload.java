@@ -9,6 +9,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -118,7 +119,11 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     String result;
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
+      final long urlRequestStart = System.nanoTime();
       final Pair<String, String> urlWithDigest = myS3SignedUploadManager.getUrlWithDigest(myObjectKey, myTtl.get());
+      final long urlRequestEnd = System.nanoTime();
+      myProgressListener.urlsGenerated(Duration.ofNanos(urlRequestEnd - urlRequestStart));
+
       String url = urlWithDigest.first;
       String digest1 = urlWithDigest.second;
       String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest1).get());

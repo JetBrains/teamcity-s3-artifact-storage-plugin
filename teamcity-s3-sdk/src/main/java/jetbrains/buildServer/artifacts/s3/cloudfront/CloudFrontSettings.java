@@ -1,6 +1,6 @@
-package jetbrains.buildServer.filestorage.cloudfront;
+package jetbrains.buildServer.artifacts.s3.cloudfront;
 
-import jetbrains.buildServer.filestorage.S3Settings;
+import jetbrains.buildServer.artifacts.s3.S3Settings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

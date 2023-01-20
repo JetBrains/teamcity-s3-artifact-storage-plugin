@@ -2,8 +2,7 @@ package jetbrains.buildServer.artifacts.s3.publish;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -14,30 +13,24 @@ import org.jetbrains.annotations.Nullable;
 public class UploadStatistics {
   @NotNull
   private final String myObjectKey;
+  @Nullable
+  private Instant myStartTime;
   @NotNull
-  private final Instant myStartTime;
+  private final Instant myInitialStartTime;
+
   @NotNull
-  private final Duration myDuration;
+  private Duration myDuration = Duration.ZERO;
   @NotNull
-  private final List<String> myErrors;
+  private final List<String> myErrors = new ArrayList<>();
 
-  private final boolean mySuccessful;
+  private boolean mySuccessful;
+  @NotNull
+  private final Map<String, Duration> myAdditionalTimings = new HashMap<>();
 
-  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime,
-                          @NotNull Duration duration) {
-    this(objectKey, startTime, duration, new ArrayList<>(), true);
-  }
-
-  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime, @NotNull Duration duration, @NotNull List<String> errors) {
-    this(objectKey, startTime, duration, errors, false);
-  }
-
-  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime, @NotNull Duration duration, @NotNull List<String> errors, boolean successful) {
+  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime) {
     myObjectKey = objectKey;
     myStartTime = startTime;
-    myDuration = duration;
-    myErrors = errors;
-    mySuccessful = successful;
+    myInitialStartTime = startTime;
   }
 
   @NotNull
@@ -59,34 +52,45 @@ public class UploadStatistics {
     return !myErrors.isEmpty();
   }
 
-  /**
-   * Merges this statistics with statistics for another upload attempt for the same object
-   * keeps earliest start time, summarizes duration, and gathers all the errors
-   *
-   * @param other - statistics for other upload attempt
-   * @return - new statistics object that has information about both attempts
-   */
-  @NotNull
-  public UploadStatistics merge(@Nullable UploadStatistics other) {
-    if (other == null) {
-      return this;
-    }
-    if (!myObjectKey.equals(other.myObjectKey)) {
-      throw new IllegalArgumentException("Trying to merge statistics for different objects");
-    }
-    Duration duration = myDuration.plus(other.myDuration);
-
-    Instant startTime = myStartTime.isBefore(other.myStartTime) ? myStartTime : other.myStartTime;
-
-    final ArrayList<String> errors = new ArrayList<>();
-    errors.addAll(myErrors);
-    errors.addAll(other.myErrors);
-
-    boolean success = isSuccessful() || other.isSuccessful();
-    return new UploadStatistics(myObjectKey, startTime, duration, errors, success);
-  }
-
   public boolean isSuccessful() {
     return mySuccessful;
+  }
+
+  @NotNull
+  public Instant getInitialStartTime() {
+    return myInitialStartTime;
+  }
+
+  @NotNull
+  public Map<String, Duration> getAdditionalTimings() {
+    return Collections.unmodifiableMap(myAdditionalTimings);
+  }
+
+  public void setStartTime(@NotNull Instant startTime) {
+    myStartTime = startTime;
+  }
+
+  public UploadStatistics finish(Instant endTime) {
+    if (myStartTime != null) {
+      mySuccessful = true;
+      myDuration = myDuration.plus(Duration.between(myStartTime, endTime));
+      myStartTime = null;
+    }
+    return this;
+  }
+
+  public UploadStatistics fail(Instant failTime, String error) {
+    if (myStartTime != null) {
+      mySuccessful = false;
+      myDuration = myDuration.plus(Duration.between(myStartTime, failTime));
+      myErrors.add(error);
+      myStartTime = null;
+    }
+    return this;
+  }
+
+  public UploadStatistics addAditionalTiming(String timingKey, Duration duration) {
+    myAdditionalTimings.put(timingKey, duration);
+    return this;
   }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.filestorage;
+package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.HttpMethod;
 import com.amazonaws.services.s3.AmazonS3;
@@ -25,7 +25,6 @@ import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
-import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;

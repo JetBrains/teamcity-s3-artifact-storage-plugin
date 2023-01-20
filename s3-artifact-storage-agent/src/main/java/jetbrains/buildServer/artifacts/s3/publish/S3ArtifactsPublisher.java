@@ -23,6 +23,7 @@ import java.text.MessageFormat;
 import java.time.Duration;
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.ExtensionHolder;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
@@ -168,10 +169,19 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   private void logStatisticsForEach(@NotNull FlowLogger logger, @NotNull Collection<UploadStatistics> statistics) {
     for (UploadStatistics stat : statistics) {
-      logger.debug(String.format("Uploaded %s. Total upload time: %s. Number of errors: %d",
+      final Map<String, Duration> timings = stat.getAdditionalTimings();
+      String timingsInfo = "";
+      if (!timings.isEmpty()) {
+        timingsInfo = ". " + timings.entrySet()
+                                    .stream()
+                                    .map(t -> String.format("%s took: %s", t.getKey(), formatDuration(t.getValue())))
+                                    .collect(Collectors.joining(". "));
+      }
+      logger.debug(String.format("Uploaded %s. Total upload time: %s. Number of errors: %d%s",
                                  stat.getObjectKey(),
                                  formatDuration(stat.getDuration()),
-                                 stat.getErrors().size()
+                                 stat.getErrors().size(),
+                                 timingsInfo
       ));
     }
   }

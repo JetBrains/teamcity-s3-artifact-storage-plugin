@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.filestorage;
+package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.HttpMethod;
 import java.io.IOException;

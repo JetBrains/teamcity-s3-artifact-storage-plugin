@@ -1,6 +1,8 @@
 package jetbrains.buildServer.filestorage.cloudfront;
 
 import java.io.IOException;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontPresignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.serverSide.IOGuard;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;

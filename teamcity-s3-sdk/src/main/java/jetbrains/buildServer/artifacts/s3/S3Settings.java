@@ -1,4 +1,4 @@
-package jetbrains.buildServer.filestorage;
+package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.Map;

@@ -1,13 +1,12 @@
-package jetbrains.buildServer.filestorage.cloudfront;
+package jetbrains.buildServer.artifacts.s3.cloudfront;
 
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
-import jetbrains.buildServer.filestorage.S3PresignedUrlProvider;
-import jetbrains.buildServer.filestorage.S3Settings;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

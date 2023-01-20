@@ -1,4 +1,4 @@
-package jetbrains.buildServer.filestorage.cloudfront;
+package jetbrains.buildServer.artifacts.s3.cloudfront;
 
 import com.amazonaws.HttpMethod;
 import java.io.IOException;

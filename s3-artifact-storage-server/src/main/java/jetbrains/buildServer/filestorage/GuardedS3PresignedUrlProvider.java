@@ -3,6 +3,8 @@ package jetbrains.buildServer.filestorage;
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
+import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.artifacts.s3.util.S3RegionCorrector;
