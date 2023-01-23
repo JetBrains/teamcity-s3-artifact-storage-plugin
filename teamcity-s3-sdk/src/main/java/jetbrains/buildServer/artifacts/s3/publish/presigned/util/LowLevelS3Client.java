@@ -6,13 +6,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.*;
 import jetbrains.buildServer.http.HttpUserAgent;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.ThreadUtil;
+import jetbrains.buildServer.util.executors.ExecutorsFactory;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
@@ -37,7 +39,7 @@ public class LowLevelS3Client implements AutoCloseable {
   private final ExecutorService myExecutorService;
 
   public LowLevelS3Client(@NotNull final S3Configuration s3Config) {
-    myExecutorService = Executors.newFixedThreadPool(s3Config.getAdvancedConfiguration().getNThreads());
+    myExecutorService = ExecutorsFactory.newFixedDaemonExecutor(S3Constants.S3_STORAGE_TYPE, s3Config.getAdvancedConfiguration().getNThreads());
     int connectionTimeout = s3Config.getAdvancedConfiguration().getConnectionTimeout() * 1000;
     myHttpClient = HttpClients.custom()
                               .setDefaultRequestConfig(RequestConfig.custom()
@@ -90,6 +92,7 @@ public class LowLevelS3Client implements AutoCloseable {
 
   @Override
   public void close() {
+    ThreadUtil.shutdownGracefully(myExecutorService, S3Constants.S3_STORAGE_TYPE);
     HttpClientUtil.shutdown(myHttpClient);
   }
 }
