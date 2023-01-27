@@ -91,7 +91,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                    })
                                    .toArray(CompletableFuture[]::new);
 
-      CompletableFuture.allOf(myEtags).get();
+      allOfTerminateOnFailure(myEtags).get();
       final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
       String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
       myProgressListener.onFileUploadSuccess(strippedUrl);
@@ -104,6 +104,25 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
       throw e;
+    }
+  }
+
+  private CompletableFuture<?> allOfTerminateOnFailure(CompletableFuture<String>... futures){
+    CompletableFuture<?> failure = new CompletableFuture<>();
+    for (CompletableFuture<String> future: futures){
+      future.exceptionally(ex -> {
+        failure.completeExceptionally(ex);
+        cancelAll(futures);
+        return null;
+      });
+    }
+
+    return CompletableFuture.anyOf(failure, CompletableFuture.allOf(futures));
+  }
+
+  private static void cancelAll(CompletableFuture<String>[] futures) {
+    for (CompletableFuture<String> future: futures){
+      future.cancel(true);
     }
   }
 
