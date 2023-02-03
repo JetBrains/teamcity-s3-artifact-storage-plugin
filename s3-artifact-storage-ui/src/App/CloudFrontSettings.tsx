@@ -7,25 +7,18 @@ import Button from '@jetbrains/ring-ui/components/button/button';
 
 import {Size} from '@jetbrains/ring-ui/components/input/input';
 
-import HelpButton from '../FormComponents/HelpButton';
-import FormToggle from '../FormComponents/FormToggle';
-import {FormRow} from '../FormComponents/FormRow';
-import FormSelect, {Option} from '../FormComponents/FormSelect';
+import {HelpButton, FormToggle, FormRow, FormSelect, Option, MagicButton, SectionHeader, FieldRow, FieldColumn} from '@teamcity-cloud-integrations/react-ui-components';
+
 import {loadPublicKeyList} from '../Utilities/fetchPublicKeys';
 import {ResponseErrors} from '../Utilities/responseParser';
 import {loadDistributionList} from '../Utilities/fetchDistributions';
-import MagicButton from '../FormComponents/MagicButton';
 import {createDistribution} from '../Utilities/createDistribution';
-import {SectionHeader} from '../FormComponents/SectionHeader';
-import {FieldRow} from '../FormComponents/FieldRow';
-import {FieldColumn} from '../FormComponents/FieldColumn';
-import styles from '../FormComponents/styles.css';
-
 import useDistributionInfo from '../hooks/useDistributionInfo';
-
 import {Config, IFormInput} from '../types';
 
 import {FormFields} from './appConstants';
+
+import styles from './styles.css';
 
 export interface DistributionItem extends Option {
   publicKeys: string[] | null,

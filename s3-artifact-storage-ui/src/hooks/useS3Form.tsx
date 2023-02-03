@@ -2,11 +2,12 @@ import {useForm} from 'react-hook-form';
 
 import {useMemo} from 'react';
 
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+
 import {FormFields} from '../App/appConstants';
 import {AWS_ENV_TYPE_ARRAY} from '../App/AwsEnvironment';
 import {AWS_CREDENTIALS_TYPE_ARRAY} from '../App/AwsSecurityCredentials';
 import {S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY} from '../App/S3Parameters';
-import {Option} from '../FormComponents/FormSelect';
 import {Config, IFormInput} from '../types';
 
 export default function useS3Form(

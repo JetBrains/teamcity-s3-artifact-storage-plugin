@@ -4,16 +4,7 @@ import {useFormContext} from 'react-hook-form';
 
 import {useMemo, useState} from 'react';
 
-import FormRadio from '../FormComponents/FormRadio';
-import {FormRow} from '../FormComponents/FormRow';
-import FormToggle from '../FormComponents/FormToggle';
-import FormInput from '../FormComponents/FormInput';
-
-import {SectionHeader} from '../FormComponents/SectionHeader';
-
-import {Label} from '../FormComponents/Label';
-import {Field} from '../FormComponents/Field';
-import {Row} from '../FormComponents/Row';
+import {FormRadio, FormRow, FormToggle, FormInput, SectionHeader, Label, Field, Row} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {Config, IFormInput} from '../types';
 

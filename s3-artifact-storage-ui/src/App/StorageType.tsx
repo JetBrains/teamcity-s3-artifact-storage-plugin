@@ -2,8 +2,7 @@ import {React} from '@jetbrains/teamcity-api';
 import {SelectItem} from '@jetbrains/ring-ui/components/select/select';
 import {useFormContext} from 'react-hook-form';
 
-import {FormRow} from '../FormComponents/FormRow';
-import FormSelect, {Option} from '../FormComponents/FormSelect';
+import {FormRow, FormSelect, Option} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {IFormInput} from '../types';
 

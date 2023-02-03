@@ -23,6 +23,7 @@
     "@jetbrains/icons": "^3.19.1",
     "@jetbrains/ring-ui": "^5.0.37",
     "@jetbrains/teamcity-api": "^2022.4.1-v.1",
+    "@teamcity-cloud-integrations/react-ui-components": "^0.1.8",
     "classnames": "^2.3.2",
     "eslint-import-resolver-webpack": "^0.13.2",
     "fetch": "^1.1.0",

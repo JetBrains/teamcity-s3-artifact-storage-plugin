@@ -4,14 +4,10 @@ import {useFormContext} from 'react-hook-form';
 
 import {useEffect, useState} from 'react';
 
-import FormSelect, {Option} from '../FormComponents/FormSelect';
-import {FormRow} from '../FormComponents/FormRow';
+import {FormSelect, Option, FormRow, FormInput, SectionHeader} from '@teamcity-cloud-integrations/react-ui-components';
 
-
-import FormInput from '../FormComponents/FormInput';
 import {loadBucketList} from '../Utilities/fetchBucketNames';
 import {ResponseErrors} from '../Utilities/responseParser';
-import {SectionHeader} from '../FormComponents/SectionHeader';
 
 import {Config, IFormInput} from '../types';
 

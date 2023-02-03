@@ -1,7 +1,8 @@
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+
 import {FormFields, keyToFormDataName} from '../App/appConstants';
 import {DistributionItem} from '../App/CloudFrontSettings';
 import {Config, IFormInput} from '../types';
-import {Option} from '../FormComponents/FormSelect';
 
 function valueOrDefault(condition: () => boolean, getter: () => string, defaultVal: any = '') {
   let r;

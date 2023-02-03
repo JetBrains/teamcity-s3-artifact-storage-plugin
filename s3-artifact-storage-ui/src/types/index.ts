@@ -1,6 +1,7 @@
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+
 import {FormFields} from '../App/appConstants';
 import {DistributionItem} from '../App/CloudFrontSettings';
-import {Option} from '../FormComponents/FormSelect';
 
 export type ConfigWrapper = {
   config: Config

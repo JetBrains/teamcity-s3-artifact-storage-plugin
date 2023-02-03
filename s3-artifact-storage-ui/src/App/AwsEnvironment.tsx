@@ -3,9 +3,7 @@ import {useFormContext} from 'react-hook-form';
 
 import {useState} from 'react';
 
-import {FormRow} from '../FormComponents/FormRow';
-import FormSelect, {Option} from '../FormComponents/FormSelect';
-import FormInput from '../FormComponents/FormInput';
+import {FormRow, FormSelect, Option, FormInput} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {IFormInput} from '../types';
 

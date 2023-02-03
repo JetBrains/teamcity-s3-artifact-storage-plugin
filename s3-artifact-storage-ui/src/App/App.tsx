@@ -10,9 +10,7 @@ import {DevTool} from '@hookform/devtools';
 
 import Alert, {AlertType} from '@jetbrains/ring-ui/components/alert/alert';
 
-import {FormRow} from '../FormComponents/FormRow';
-
-import FormInput from '../FormComponents/FormInput';
+import {FormRow, FormInput, FieldRow, FieldColumn, Option} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {displayErrorsFromResponseIfAny, ResponseErrors} from '../Utilities/responseParser';
 
@@ -20,15 +18,9 @@ import {serializeParameters} from '../Utilities/parametersUtils';
 
 import {post} from '../Utilities/fetchHelper';
 
-import {FieldRow} from '../FormComponents/FieldRow';
-
-import {FieldColumn} from '../FormComponents/FieldColumn';
-
 import useS3Form from '../hooks/useS3Form';
 
 import useJspContainer from '../hooks/useJspContainer';
-
-import {Option} from '../FormComponents/FormSelect';
 
 import {ConfigWrapper, IFormInput} from '../types';
 

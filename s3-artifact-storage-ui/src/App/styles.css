@@ -17,3 +17,15 @@
   flex-basis: 25%;
   flex-direction: column;
 }
+
+.commentary {
+  inline-size: 240px;
+  overflow-wrap: break-word;
+  margin-block-start: 0;
+  margin-block-end: 0;
+
+  color: #737577;
+
+  font-size: 12px;
+  line-height: 16px;
+}

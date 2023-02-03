@@ -1,5 +1,7 @@
 import {useCallback, useEffect, useState} from 'react';
 
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+
 import {loadDistributionList} from '../Utilities/fetchDistributions';
 import {loadPublicKeyList} from '../Utilities/fetchPublicKeys';
 import {DistributionItem} from '../App/CloudFrontSettings';
@@ -7,7 +9,6 @@ import {FormFields} from '../App/appConstants';
 import {AWS_ENV_TYPE_ARRAY} from '../App/AwsEnvironment';
 import {AWS_CREDENTIALS_TYPE_ARRAY} from '../App/AwsSecurityCredentials';
 import {Config, IFormInput} from '../types';
-import {Option} from '../FormComponents/FormSelect';
 
 function configAsFormInput(config: Config): IFormInput {
   return {

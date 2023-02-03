@@ -2,20 +2,13 @@ import {React} from '@jetbrains/teamcity-api';
 
 import {useFormContext} from 'react-hook-form';
 
-import FormToggle from '../FormComponents/FormToggle';
-import {FormRow} from '../FormComponents/FormRow';
-
-
-import FormInput from '../FormComponents/FormInput';
-import HelpButton from '../FormComponents/HelpButton';
-import {SectionHeader} from '../FormComponents/SectionHeader';
-import {FieldRow} from '../FormComponents/FieldRow';
-import {FieldColumn} from '../FormComponents/FieldColumn';
-import styles from '../FormComponents/styles.css';
+import {FormToggle, FormRow, FormInput, HelpButton, SectionHeader, FieldRow, FieldColumn} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {Config, IFormInput} from '../types';
 
 import {FormFields} from './appConstants';
+
+import styles from './styles.css';
 
 type OwnProps = Config
 
