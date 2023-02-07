@@ -12,6 +12,8 @@ import Alert, {AlertType} from '@jetbrains/ring-ui/components/alert/alert';
 
 import {FormRow, FormInput, FieldRow, FieldColumn, Option} from '@teamcity-cloud-integrations/react-ui-components';
 
+import {ControlsHeight, ControlsHeightContext} from '@jetbrains/ring-ui/components/global/controls-height';
+
 import {displayErrorsFromResponseIfAny, ResponseErrors} from '../Utilities/responseParser';
 
 import {serializeParameters} from '../Utilities/parametersUtils';
@@ -126,55 +128,59 @@ function App({config}: ConfigWrapper) {
   return (
     <ThemeProvider className={styles.App} theme={Theme.LIGHT}>
       <FormProvider {...formMethods}>
-        <form
-          className="ring-form"
-          onSubmit={handleSubmit(onSubmit)}
-          autoComplete="off"
-        >
-          <section>
-            <StorageType data={storageOptions} onChange={doReset}/>
-            <FormRow
-              label="Storage name:"
-              labelFor={FormFields.STORAGE_NAME}
-            >
-              <FormInput control={control} name={FormFields.STORAGE_NAME}/>
-            </FormRow>
-            <FormRow
-              label="Storage ID:"
-              star
-              labelFor={`${FormFields.STORAGE_ID}_key`}
-            >
-              <FormInput
-                control={control}
-                name={FormFields.STORAGE_ID}
-                id={`${FormFields.STORAGE_ID}_key`}
-                rules={{required: 'Storage ID is mandatory'}}
-              />
-            </FormRow>
-          </section>
-          <AwsEnvironment/>
-          <AwsSecurityCredentials {...config}/>
-          <S3Parameters setErrors={setErrors} {...config}/>
-          {config.cloudfrontFeatureOn && (<CloudFrontSettings setErrors={setErrors} {...config}/>)}
-          <ConnectionSettings {...config}/>
-          <div className={styles.formControlButtons}>
-            <FieldRow>
-              <FieldColumn>
-                <Button type="submit" primary>{'Save'}</Button>
-              </FieldColumn>
-              <FieldColumn>
-                <Button onClick={close}>{'Cancel'}</Button>
-              </FieldColumn>
-            </FieldRow>
-          </div>
-        </form>
-        {alertError != null && (
-          <Alert
-            type={AlertType.ERROR}
-            onCloseRequest={() => setAlertError(null)}
-          >{alertError}</Alert>
-        )}
-        <DevTool control={formMethods.control}/>
+        <ControlsHeightContext.Provider value={ControlsHeight.S}>
+
+          <form
+            className="ring-form"
+            onSubmit={handleSubmit(onSubmit)}
+            autoComplete="off"
+          >
+            <section>
+              <StorageType data={storageOptions} onChange={doReset}/>
+              <FormRow
+                label="Storage name:"
+                labelFor={FormFields.STORAGE_NAME}
+              >
+                <FormInput control={control} name={FormFields.STORAGE_NAME}/>
+              </FormRow>
+              <FormRow
+                label="Storage ID:"
+                star
+                labelFor={`${FormFields.STORAGE_ID}_key`}
+              >
+                <FormInput
+                  control={control}
+                  name={FormFields.STORAGE_ID}
+                  id={`${FormFields.STORAGE_ID}_key`}
+                  rules={{required: 'Storage ID is mandatory'}}
+                />
+              </FormRow>
+            </section>
+            <AwsEnvironment/>
+            <AwsSecurityCredentials {...config}/>
+            <S3Parameters setErrors={setErrors} {...config}/>
+            {config.cloudfrontFeatureOn && (<CloudFrontSettings setErrors={setErrors} {...config}/>)}
+            <ConnectionSettings {...config}/>
+            <div className={styles.formControlButtons}>
+              <FieldRow>
+                <FieldColumn>
+                  <Button type="submit" primary>{'Save'}</Button>
+                </FieldColumn>
+                <FieldColumn>
+                  <Button onClick={close}>{'Cancel'}</Button>
+                </FieldColumn>
+              </FieldRow>
+            </div>
+          </form>
+          {alertError != null && (
+            <Alert
+              type={AlertType.ERROR}
+              onCloseRequest={() => setAlertError(null)}
+            >{alertError}</Alert>
+          )}
+          <DevTool control={formMethods.control}/>
+
+        </ControlsHeightContext.Provider>
       </FormProvider>
     </ThemeProvider>
   );
