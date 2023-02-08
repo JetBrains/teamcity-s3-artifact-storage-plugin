@@ -11,7 +11,7 @@ import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public interface PresignedUrlsProviderClient extends AutoCloseable {
+public interface PresignedUrlsProviderClient {
   @NotNull
   PresignedUrlDto getUrl(@NotNull final String objectKey, @Nullable final String digest, @Nullable Long ttl);
 
@@ -27,9 +27,6 @@ public interface PresignedUrlsProviderClient extends AutoCloseable {
 
   void startMultipartUpload(@NotNull MultipartUploadStartRequestDto multipartUploadStart);
 
-  @Override
-  void close();
-
   static class MisconfigurationException extends RuntimeException {
     public MisconfigurationException(@NotNull final Throwable cause) {
       super(cause);
@@ -42,6 +39,11 @@ public interface PresignedUrlsProviderClient extends AutoCloseable {
     public FetchFailedException(@NotNull final Throwable cause) {
       super(cause.getMessage(), cause);
       myIsRecoverable = RecoverableException.isRecoverable(cause);
+    }
+
+    public FetchFailedException(@NotNull final String message){
+      super(message);
+      myIsRecoverable = false;
     }
 
     @Override

@@ -7,11 +7,11 @@ import java.io.UnsupportedEncodingException;
 import org.apache.http.entity.AbstractHttpEntity;
 import org.jetbrains.annotations.NotNull;
 
-public class RepeatableFilePartRequestEntity extends AbstractHttpEntity {
+public class RepeatableFilePartRequestEntityApache43 extends AbstractHttpEntity {
   @NotNull
   private final FilePart myFilePart;
 
-  public RepeatableFilePartRequestEntity(@NotNull FilePart filePart, @NotNull String contentType) {
+  public RepeatableFilePartRequestEntityApache43(@NotNull FilePart filePart, @NotNull String contentType) {
     myFilePart = filePart;
     setContentType(contentType);
   }

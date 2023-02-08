@@ -16,24 +16,14 @@
 
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
-import com.intellij.openapi.diagnostic.Logger;
-import java.io.IOException;
-import java.net.UnknownHostException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import jetbrains.buildServer.artifacts.s3.publish.errors.HttpMethodResponseAdapter;
+import java.util.concurrent.Executors;
+import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
-import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseResponseAdapter;
-import jetbrains.buildServer.http.HttpUtil;
+import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpConnectionManager;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -41,92 +31,35 @@ import org.jetbrains.annotations.Nullable;
  * @author Dmitrii Bogdanov
  */
 public final class HttpClientUtil {
-  @NotNull
-  private static final Logger LOG = Logger.getInstance(HttpClientUtil.class.getName());
+  private static final ExecutorService myExecutorService = Executors.newCachedThreadPool();
+
 
   private HttpClientUtil() {
   }
 
-  public static void shutdown(@NotNull final HttpClient... httpClients) {
-    for (final HttpClient httpClient : httpClients) {
-      if (httpClient.getHttpConnectionManager() instanceof MultiThreadedHttpConnectionManager) {
-        try {
-          ((MultiThreadedHttpConnectionManager)httpClient.getHttpConnectionManager()).shutdown();
-        } catch (Exception e) {
-          LOG.infoAndDebugDetails("Got exception while shutting down httpClient " + httpClient + ".", e);
-        }
-      }
-    }
+
+  public static CompletableFuture<HttpResponseAdapter> executeAndReleaseConnection(@NotNull final HTTPRequestBuilder requestBuilder,
+                                                                                   @NotNull final HttpResponseErrorHandler errorHandler) {
+    return executeAndReleaseConnection(requestBuilder, errorHandler, myExecutorService);
   }
 
-  public static void shutdown(CloseableHttpClient... httpClients) {
-    for (final CloseableHttpClient httpClient : httpClients) {
+  public static CompletableFuture<HttpResponseAdapter> executeAndReleaseConnection(@NotNull final HTTPRequestBuilder requestBuilder,
+                                                                                   @NotNull final HttpResponseErrorHandler errorHandler, ExecutorService executorService) {
+    final CompletableFuture<HttpResponseAdapter> responseCompletableFuture = new CompletableFuture<>();
+    CompletableFuture.runAsync(() -> {
       try {
-        httpClient.close();
-      } catch (IOException e) {
-        LOG.infoAndDebugDetails("Got exception while shutting down httpClient " + httpClient + ".", e);
-      }
-    }
-  }
-
-  public static String executeAndReleaseConnection(@NotNull final HttpClient client,
-                                                   @NotNull final HttpMethod method,
-                                                   @NotNull final HttpResponseErrorHandler errorHandler) throws IOException {
-    return executeAndReleaseConnectionInternal(client, method, errorHandler);
-  }
-
-  private static String executeAndReleaseConnectionInternal(@NotNull final HttpClient client,
-                                                            @NotNull final HttpMethod method,
-                                                            @NotNull final HttpResponseErrorHandler errorHandler) throws IOException {
-    try {
-      final int code = client.executeMethod(method);
-      if (code != 200) {
-        throw errorHandler.handle(new HttpMethodResponseAdapter(method));
-      }
-      try {
-        return method.getResponseBodyAsString();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    } catch (UnknownHostException e) {
-      throw new RuntimeException("Host '" + e.getMessage() + "' not found", e);
-    } finally {
-      try {
-        method.releaseConnection();
+        final HTTPRequestBuilder.Request request = requestBuilder
+          .onException(e -> responseCompletableFuture.completeExceptionally(e))
+          .onErrorResponse(response -> responseCompletableFuture.completeExceptionally(errorHandler.handle(new HttpResponseAdapter(response))))
+          .onSuccess(response -> responseCompletableFuture.complete(new HttpResponseAdapter(response)))
+          .build();
+        new HTTPRequestBuilder.DelegatingRequestHandler().doRequest(request);
       } catch (Exception e) {
-        LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
-      }
-    }
-  }
-
-  public static CompletableFuture<HttpResponse> executeAndReleaseConnection(@NotNull final CloseableHttpClient client,
-                                                                            @NotNull final HttpRequestBase method,
-                                                                            @NotNull final HttpResponseErrorHandler errorHandler, ExecutorService executorService) {
-    return CompletableFuture.supplyAsync(() -> {
-      try {
-        HttpResponse response = client.execute(method);
-        if (response.getStatusLine().getStatusCode() != 200) {
-          throw errorHandler.handle(new HttpResponseResponseAdapter(response));
-        }
-        return response;
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      } finally {
-        try {
-          method.releaseConnection();
-        } catch (Exception e) {
-          LOG.infoAndDebugDetails("Got exception while trying to release connection for " + method, e);
-        }
+        responseCompletableFuture.completeExceptionally(e);
       }
     }, executorService);
-  }
 
-  @NotNull
-  public static HttpConnectionManager createConnectionManager(final int connectionTimeout, final int maxConnections) {
-    final HttpConnectionManager threadSafeConnectionManager = HttpUtil.createMultiThreadedHttpConnectionManager(connectionTimeout);
-    threadSafeConnectionManager.getParams().setMaxTotalConnections(maxConnections);
-    threadSafeConnectionManager.getParams().setDefaultMaxConnectionsPerHost(maxConnections);
-    return threadSafeConnectionManager;
+    return responseCompletableFuture;
   }
 
   public static class HttpErrorCodeException extends RecoverableException {

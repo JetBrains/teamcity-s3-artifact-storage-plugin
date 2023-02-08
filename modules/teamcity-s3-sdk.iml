@@ -30,5 +30,6 @@
     <orderEntry type="library" name="Guava" level="project" />
     <orderEntry type="module" module-name="xml-rpc-wrapper" />
     <orderEntry type="library" scope="TEST" name="org.mockito:mockito-core" level="project" />
+    <orderEntry type="library" name="commons-httpclient-4.1" level="project" />
   </component>
 </module>

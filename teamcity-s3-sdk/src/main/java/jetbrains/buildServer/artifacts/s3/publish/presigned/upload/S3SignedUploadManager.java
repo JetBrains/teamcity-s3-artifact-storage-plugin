@@ -20,7 +20,7 @@ import jetbrains.buildServer.util.amazon.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public class S3SignedUploadManager implements AutoCloseable {
+public class S3SignedUploadManager {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3SignedUploadManager.class);
   @NotNull
@@ -145,10 +145,5 @@ public class S3SignedUploadManager implements AutoCloseable {
   @Override
   public String toString() {
     return "PresignedUpload{correlationId: " + myCorrelationId + ", objectKeysSize: " + myS3ObjectKeys.size() + "}";
-  }
-
-  @Override
-  public void close() {
-    myPresignedUrlsProviderClient.close();
   }
 }

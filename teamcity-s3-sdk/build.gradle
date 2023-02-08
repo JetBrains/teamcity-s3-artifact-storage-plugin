@@ -10,6 +10,7 @@ dependencies {
   compileOnly 'commons-httpclient:commons-httpclient:3.1'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
   implementation "org.apache.httpcomponents:httpclient:4.5.13"
+  implementation 'org.apache.httpcomponents:httpmime:4.5.13'
   compileOnly 'com.google.guava:guava:13.0.1'
   implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
     changing = true

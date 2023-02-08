@@ -1,10 +1,9 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
+import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
-import org.apache.commons.httpclient.Credentials;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.UsernamePasswordCredentials;
 import org.jetbrains.annotations.NotNull;
 
 public class TeamCityConnectionConfiguration {
@@ -57,8 +56,8 @@ public class TeamCityConnectionConfiguration {
   }
 
   @NotNull
-  public Credentials getCredentials() {
-    return new UsernamePasswordCredentials(myAccessUser, myAccessCode);
+  public SimpleCredentials getCredentials() {
+    return new SimpleCredentials(myAccessUser, myAccessCode);
   }
 
   @NotNull

@@ -97,11 +97,12 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
 
     try (final CloseableForkJoinPoolAdapter forkJoinPool = new CloseableForkJoinPoolAdapter(myS3Configuration.getAdvancedConfiguration().getNThreads());
-         final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration);
-         final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
-                                                                               myS3Configuration.getAdvancedConfiguration(),
-                                                                               normalizedObjectPaths.keySet(),
-                                                                               precalculatedDigests)) {
+         final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration)) {
+      final S3SignedUploadManager uploadManager = new S3SignedUploadManager(myPresignedUrlsProviderClient.get(),
+                                                                            myS3Configuration.getAdvancedConfiguration(),
+                                                                            normalizedObjectPaths.keySet(),
+                                                                            precalculatedDigests);
+
 
       LOGGER.debug("Publishing [" + filesToUpload.keySet().stream().map(f -> f.getName()).collect(Collectors.joining(",")) + "] to S3");
       normalizedObjectPaths.entrySet()

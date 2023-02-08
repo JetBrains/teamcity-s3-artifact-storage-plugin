@@ -36,11 +36,12 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
                        nodeIdHolder,
                        60 * 1000,
                        1, 0);
-                     try (final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList())) {
+                     try {
+                       final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList());
                        client.completeMultipartUpload(new MultipartUploadCompleteRequestDto("testobject", "uploadId", Collections.emptyList()));
                      } catch (RuntimeException e) {
                        assertTrue(requestCount.get() > 1);
-                       assertEquals(SocketException.class, e.getCause().getClass());
+                       assertEquals(SocketException.class, e.getCause().getCause().getClass());
                      }
                    }
     );
@@ -61,11 +62,12 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
                        nodeIdHolder,
                        60 * 1000,
                        5, 0);
-                     try (final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList())) {
+                     try {
+                       final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList());
                        client.completeMultipartUpload(new MultipartUploadCompleteRequestDto("testobject", "uploadId", Collections.emptyList()));
                      } catch (RuntimeException e) {
                        assertEquals(1, requestCount.get());
-                       assertEquals(SocketException.class, e.getCause().getClass());
+                       assertEquals(SocketException.class, e.getCause().getCause().getClass());
                      }
                    }
     );

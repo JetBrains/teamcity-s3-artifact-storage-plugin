@@ -4,11 +4,11 @@ import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
@@ -28,7 +28,7 @@ import static org.mockito.Mockito.times;
 public class S3PresignedUploadTest extends BaseTestCase {
 
   @Test
-  public void repeatsUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, ExecutionException, InterruptedException {
+  public void repeatsUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
 
@@ -60,7 +60,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   }
 
   @Test
-  public void repeatsUploadWithSameTtlWhenErrorIsRepeatable() throws IOException, ExecutionException, InterruptedException {
+  public void repeatsUploadWithSameTtlWhenErrorIsRepeatable() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
 
@@ -91,7 +91,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   }
 
   @Test
-  public void failsWhenErrorIsNotRepeatable() throws IOException, ExecutionException, InterruptedException {
+  public void failsWhenErrorIsNotRepeatable() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
 
@@ -114,7 +114,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   }
 
   @Test
-  public void repeatsMultipartUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, ExecutionException, InterruptedException {
+  public void repeatsMultipartUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class);
     final PresignedUrlDto multipartDto = PresignedUrlDto.multiPart(
       "key",
@@ -163,7 +163,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   }
 
   @Test
-  public void failsMultipartUploadWhenErrorIsNotRepeatable() throws IOException, ExecutionException, InterruptedException {
+  public void failsMultipartUploadWhenErrorIsNotRepeatable() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class);
     final PresignedUrlDto multipartDto = PresignedUrlDto.multiPart(
       "key",
@@ -198,7 +198,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   }
 
   @Test
-  public void doesNotFailWhenFileNotFound() throws ExecutionException, InterruptedException {
+  public void doesNotFailWhenFileNotFound() throws URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
 
