@@ -46,5 +46,13 @@ subprojects {
 
   test.useTestNG()
   jar.version = null
+
+  dependencies{
+
+    implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+      changing = true
+      exclude group: 'org.apache.httpcomponents'
+    }
+  }
 }
 
