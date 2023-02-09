@@ -112,7 +112,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
       return deserializeResponseV2(responseBody).getPresignedUrls();
     } catch (HttpClientUtil.HttpErrorCodeException | URISyntaxException | ExecutionException e) {
-      LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL, got exception " + e.getMessage(), e);
+      LOGGER.warnAndDebugDetails("Failed resolving S3 pre-signed URL from " + myServerUrl + ", got exception " + e.getMessage(), e);
       throw new FetchFailedException(e);
     } catch (InterruptedException e) {
       throw new FetchFailedException("Resolving S3 pre-signed URL was interrupted");

@@ -18,12 +18,13 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.retry.RecoverableException;
+import jetbrains.buildServer.util.executors.ExecutorsFactory;
+import jetbrains.buildServer.util.impl.Lazy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,7 +32,13 @@ import org.jetbrains.annotations.Nullable;
  * @author Dmitrii Bogdanov
  */
 public final class HttpClientUtil {
-  private static final ExecutorService myExecutorService = Executors.newCachedThreadPool();
+  private static final Lazy<ExecutorService> myDefaultExecutorService = new Lazy<ExecutorService>() {
+    @NotNull
+    @Override
+    protected ExecutorService createValue() {
+      return ExecutorsFactory.newDaemonExecutor("S3HttpClientUtil");
+    }
+  };
 
 
   private HttpClientUtil() {
@@ -40,24 +47,24 @@ public final class HttpClientUtil {
 
   public static CompletableFuture<HttpResponseAdapter> executeAndReleaseConnection(@NotNull final HTTPRequestBuilder requestBuilder,
                                                                                    @NotNull final HttpResponseErrorHandler errorHandler) {
-    return executeAndReleaseConnection(requestBuilder, errorHandler, myExecutorService);
+    return executeAndReleaseConnection(requestBuilder, errorHandler, myDefaultExecutorService.get());
   }
 
   public static CompletableFuture<HttpResponseAdapter> executeAndReleaseConnection(@NotNull final HTTPRequestBuilder requestBuilder,
                                                                                    @NotNull final HttpResponseErrorHandler errorHandler, ExecutorService executorService) {
     final CompletableFuture<HttpResponseAdapter> responseCompletableFuture = new CompletableFuture<>();
     CompletableFuture.runAsync(() -> {
-      try {
-        final HTTPRequestBuilder.Request request = requestBuilder
-          .onException(e -> responseCompletableFuture.completeExceptionally(e))
-          .onErrorResponse(response -> responseCompletableFuture.completeExceptionally(errorHandler.handle(new HttpResponseAdapter(response))))
-          .onSuccess(response -> responseCompletableFuture.complete(new HttpResponseAdapter(response)))
-          .build();
-        new HTTPRequestBuilder.DelegatingRequestHandler().doRequest(request);
-      } catch (Exception e) {
-        responseCompletableFuture.completeExceptionally(e);
-      }
-    }, executorService);
+                       final HTTPRequestBuilder.Request request = requestBuilder
+                         .onException(e -> responseCompletableFuture.completeExceptionally(e))
+                         .onErrorResponse(response -> responseCompletableFuture.completeExceptionally(errorHandler.handle(new HttpResponseAdapter(response))))
+                         .onSuccess(response -> responseCompletableFuture.complete(new HttpResponseAdapter(response)))
+                         .build();
+                       new HTTPRequestBuilder.DelegatingRequestHandler().doRequest(request);
+                     }, executorService)
+                     .exceptionally(e -> {
+                       responseCompletableFuture.completeExceptionally(e);
+                       return null;
+                     });
 
     return responseCompletableFuture;
   }
