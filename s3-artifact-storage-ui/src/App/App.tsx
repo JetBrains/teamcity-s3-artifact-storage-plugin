@@ -178,7 +178,7 @@ function App({config}: ConfigWrapper) {
               onCloseRequest={() => setAlertError(null)}
             >{alertError}</Alert>
           )}
-          <DevTool control={formMethods.control}/>
+          {/*<DevTool control={formMethods.control}/>*/}
 
         </ControlsHeightContext.Provider>
       </FormProvider>
