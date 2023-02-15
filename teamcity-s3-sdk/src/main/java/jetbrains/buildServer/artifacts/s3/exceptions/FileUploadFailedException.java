@@ -21,7 +21,7 @@ public class FileUploadFailedException extends RecoverableException {
     super(msg, cause);
     RecoverableException recoverableException = ExceptionUtil.getCause(cause, RecoverableException.class);
     if (recoverableException != null) {
-      myRecoverable = ((RecoverableException)cause).isRecoverable();
+      myRecoverable = recoverableException.isRecoverable();
     } else {
       myRecoverable = recoverable;
     }
