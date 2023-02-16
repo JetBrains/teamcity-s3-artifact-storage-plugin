@@ -11,6 +11,7 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
@@ -64,7 +65,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
-                         new AbortingListener(SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
+                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
                            @Override
                            public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                              if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
