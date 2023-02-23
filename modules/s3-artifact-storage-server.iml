@@ -55,5 +55,6 @@
     <orderEntry type="library" scope="TEST" name="org.testcontainers:localstack:1.15.2" level="project" />
     <orderEntry type="library" name="Maven: org.bouncycastle:bcprov-jdk15on:1.70" level="project" />
     <orderEntry type="library" name="Maven: org.bouncycastle:bcutil-jdk15on:1.70" level="project" />
+    <orderEntry type="module" module-name="migration" />
   </component>
 </module>

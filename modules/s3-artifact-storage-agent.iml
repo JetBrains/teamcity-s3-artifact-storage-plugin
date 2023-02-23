@@ -25,6 +25,7 @@
     <orderEntry type="module" module-name="common" />
     <orderEntry type="module" module-name="common-vcs" />
     <orderEntry type="module" module-name="runtime-util" />
+    <orderEntry type="module" module-name="migration" />
     <orderEntry type="module" module-name="utils" />
     <orderEntry type="module" module-name="test-api" />
     <orderEntry type="library" name="testng" level="project" />
