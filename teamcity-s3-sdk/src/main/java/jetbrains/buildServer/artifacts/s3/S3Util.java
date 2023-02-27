@@ -250,8 +250,8 @@ public final class S3Util {
     }
     try {
       final long byteSetting = StringUtil.parseFileSize(value);
-      if (byteSetting <= MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES) {
-        return Pair.create(null, "[" + value + "], should be larger than " + MULTIPART_UPLOAD_MIN_VALUE);
+      if (byteSetting < MULTIPART_UPLOAD_MIN_VALUE_IN_BYTES) {
+        return Pair.create(null, "[" + value + "], should be at least " + MULTIPART_UPLOAD_MIN_VALUE);
       } else {
         return Pair.create(byteSetting, null);
       }
