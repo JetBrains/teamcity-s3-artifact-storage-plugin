@@ -155,7 +155,12 @@ public final class S3Util {
   @Nullable
   public static String getCloudFrontPrivateKey(@NotNull final Map<String, String> params) {
     String cloudFrontPrivateKey = params.get(CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY);
-    return END_MATCHER.matcher(BEGIN_MATCHER.matcher(cloudFrontPrivateKey).replaceAll("$1\n")).replaceAll("\n$1");
+
+    if (cloudFrontPrivateKey != null) {
+      return END_MATCHER.matcher(BEGIN_MATCHER.matcher(cloudFrontPrivateKey).replaceAll("$1\n")).replaceAll("\n$1");
+    } else {
+      return null;
+    }
   }
 
   @Nullable
