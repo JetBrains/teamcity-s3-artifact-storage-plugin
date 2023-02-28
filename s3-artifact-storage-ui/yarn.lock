@@ -1638,10 +1638,10 @@
     "@svgr/plugin-jsx" "^6.5.1"
     "@svgr/plugin-svgo" "^6.5.1"
 
-"@teamcity-cloud-integrations/react-ui-components@^0.1.8":
-  version "0.1.8"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.1.8.tgz#cb4fb2556a25b5272a18a1e7ca860aac3ab303dc"
-  integrity sha512-4Ouc+WuxOLgpTX+lQavElD+a3etm7VKO/S3DeaWhkT6LBc6eZPdLtf8k7hkMg5pVvfLoT0bjtFuN9FftWzzwnw==
+"@teamcity-cloud-integrations/react-ui-components@^0.1.11":
+  version "0.1.11"
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.1.11.tgz#769934d7832ae5534dcd2b8bb918802b6892cfee"
+  integrity sha512-UCjEJwhpVotkBwVBdu+sjMcesZ1FPa/3t8y7mgu1BMEu828qIDh18URG3nqexS8GLNir8ZU8biRxyIblUeb3Pg==
 
 "@trysound/sax@0.2.0":
   version "0.2.0"

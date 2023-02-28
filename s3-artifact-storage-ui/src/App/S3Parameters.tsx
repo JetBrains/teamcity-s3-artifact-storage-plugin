@@ -2,7 +2,7 @@ import {React} from '@jetbrains/teamcity-api';
 
 import {useFormContext} from 'react-hook-form';
 
-import {useEffect, useState} from 'react';
+import {FocusEventHandler, useEffect, useState} from 'react';
 
 import {FormSelect, Option, FormRow, FormInput, SectionHeader} from '@teamcity-cloud-integrations/react-ui-components';
 
@@ -11,13 +11,15 @@ import {ResponseErrors} from '../Utilities/responseParser';
 
 import {Config, IFormInput} from '../types';
 
+import {fetchBucketLocation} from '../Utilities/fetchBucketLocation';
+
 import {FormFields} from './appConstants';
 
 interface OwnProps extends Config {
   setErrors: (errors: (ResponseErrors | null)) => void
 }
 
-export const S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY = [
+export const S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY: Option<number>[] = [
   {label: 'Choose from list', key: 0},
   {label: 'Specify name', key: 1}
 ];
@@ -34,15 +36,46 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
     },
     [setValue, s3BucketListOrNameFieldName]
   );
+
+  const loadBucketLocation = React.useCallback(() => {
+    const values = getValues([FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN,
+      FormFields.ACCESS_KEY_ID,
+      FormFields.SECRET_ACCESS_KEY]);
+    return fetchBucketLocation(
+      {
+        appProps: config,
+        allValues: getValues(),
+        useDefaultCredentialProviderChain: values[0],
+        keyId: values[1],
+        keySecret: values[2]
+      }
+    ).then(({location, errors}) => {
+      if (errors) {
+        setErrors(errors);
+      }
+
+      if (location) {
+        setValue(FormFields.CUSTOM_AWS_REGION, location);
+      }
+    });
+  }, [config, getValues, setErrors, setValue]);
+
+  const updateDefaultRegionName = React.useCallback<FocusEventHandler<HTMLInputElement>>(
+    event => {
+      if (event?.target?.value) {
+        loadBucketLocation();
+      }
+    }, [loadBucketLocation]);
+
   const selectS3BucketNameListValue = React.useCallback(
-    (data: Option<number> | null) => {
-      setValue(FormFields.S3_BUCKET_NAME, data);
-    },
-    [setValue]
-  );
+    (selected: Option<number> | null) => {
+      loadBucketLocation();
+      setValue(FormFields.S3_BUCKET_NAME, selected);
+    }, [loadBucketLocation, setValue]);
 
   const [manualFlag, setManualFlag] = useState(
     getValues(s3BucketListOrNameFieldName)?.key === S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY[1].key);
+
   const [buckets, setBuckets] = useState<Option<number>[]>(
     (getValues(FormFields.S3_BUCKET_NAME) &&
      typeof getValues(FormFields.S3_BUCKET_NAME) === 'string')
@@ -85,8 +118,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
       const bucketsData = bucketNames.reduce((acc, cur) => {
         acc.push({label: cur, key: i++});
         return acc;
-      },
-                                             [] as Option<number>[]);
+      }, [] as Option<number>[]);
       setBuckets(bucketsData);
     }
     setBucketsListLoading(false);
@@ -104,11 +136,11 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
           name={s3BucketListOrNameFieldName}
           control={control}
           data={S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY}
-          onChange={(option: Option<number> | null) => {
-            if (option) {
-              selectS3BucketListOrName(option);
+          onChange={(selected: Option<number> | null) => {
+            if (selected) {
+              selectS3BucketListOrName(selected);
             }
-            if (option?.key === 1) {
+            if (selected?.key === 1) {
               setManualFlag(true);
             } else {
               setManualFlag(false);
@@ -126,7 +158,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
             <FormInput
               name={FormFields.S3_BUCKET_NAME}
               control={control}
-              rules={{required: 'S3 bucket name is mandatory'}}
+              rules={{required: 'S3 bucket name is mandatory', onBlur: updateDefaultRegionName}}
               details="Specify the bucket name"
             />
           </FormRow>

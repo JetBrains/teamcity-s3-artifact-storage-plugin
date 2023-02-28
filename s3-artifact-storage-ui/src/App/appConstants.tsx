@@ -47,7 +47,8 @@ export const responseErrorIdToFormField = (errorId: string): FormFields | null =
 export enum FetchResourceIds {
   BUCKETS = 'buckets',
   DISTRIBUTIONS = 'distributions',
-  PUBLIC_KEYS = 'publicKeys'
+  PUBLIC_KEYS = 'publicKeys',
+  BUCKET_LOCATION = 'bucketLocation'
 }
 
 export const errorIdToFieldName = (id: string): FormFields | FormFields[] | null => {
