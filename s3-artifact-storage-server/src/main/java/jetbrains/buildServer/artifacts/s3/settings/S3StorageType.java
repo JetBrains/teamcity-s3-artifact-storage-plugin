@@ -35,7 +35,8 @@ import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
 
@@ -107,11 +108,11 @@ public class S3StorageType extends ArtifactStorageType {
       final String bucketName = S3Util.getBucketName(params);
       if (bucketName != null) {
         try {
-          if (TeamCityProperties.getBoolean(S3_TRANSFER_ACCELERATION_FEATURE_ENABLED)) {
+          if (S3Util.isAccelerateModeEnabled(params)) {
             final BucketAccelerateConfiguration accelerateConfig = IOGuard.allowNetworkCall(() -> S3Util.withCorrectingRegionAndAcceleration(
               ParamUtil.putSslValues(myServerPaths, params), correctedClient -> correctedClient.getBucketAccelerateConfiguration(bucketName))
             );
-            if (S3Util.isAccelerateModeEnabled(params) && !accelerateConfig.isAccelerateEnabled()) {
+            if (!accelerateConfig.isAccelerateEnabled()) {
               invalids.add(new InvalidProperty(S3_ENABLE_ACCELERATE_MODE, "S3 Transfer Acceleration is not configured on this bucket"));
             }
           }
