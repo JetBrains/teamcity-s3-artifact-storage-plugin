@@ -85,8 +85,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
     myRetrier = Retrier.withRetries(myTeamCityConnectionConfiguration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
-                       .registerListener(new AbortingListener(ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class,
-                                                              InterruptedException.class))
+                       .registerListener(new AbortingListener(ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class))
                        .registerListener(new ExponentialDelayListener(myTeamCityConnectionConfiguration.getRetryDelay()));
   }
 

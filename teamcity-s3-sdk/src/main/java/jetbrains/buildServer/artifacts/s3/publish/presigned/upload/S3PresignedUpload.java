@@ -65,7 +65,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
-                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class) {
+                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class) {
                            @Override
                            public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                              if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {

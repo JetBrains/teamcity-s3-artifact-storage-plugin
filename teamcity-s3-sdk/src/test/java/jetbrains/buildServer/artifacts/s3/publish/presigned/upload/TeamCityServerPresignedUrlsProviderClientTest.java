@@ -5,6 +5,7 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadCompleteRequestDto;
@@ -46,8 +47,13 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
   }
 
   @NotNull
+  private String getTeamCityUrl(SimpleHttpServer server) {
+    return "http://localhost:" + server.getPort();
+  }
+
+  @NotNull
   private String getTeamCityUrl() {
-    return "http://localhost:" + mySimpleHttpServer.getPort();
+    return getTeamCityUrl(mySimpleHttpServer);
   }
 
   public void testMultipartCompletion() {
@@ -105,7 +111,49 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
       client.completeMultipartUpload(new MultipartUploadCompleteRequestDto(OBJECT_KEY, UPLOAD_ID, Collections.emptyList()));
     } catch (RuntimeException e) {
       assertTrue(mySimpleHttpServer.myRequests.size() > 1);
+      return;
     }
+
+    fail("Must throw exception");
+  }
+
+  public void retriesMultipartCompletionMessageOnLackOfResponseIfRetryEnabled() throws IOException {
+    setInternalProperty(S3_ENABLE_MULTIPART_COMPLETION_RETRY, true);
+
+    final AtomicInteger numRequests = new AtomicInteger(0);
+    final SimpleHttpServer nonResponsiveServer = new SimpleHttpServer() {
+      @Override
+      protected Response getResponse(String request) {
+        numRequests.incrementAndGet();
+        try {
+          Thread.sleep(10 * 1000);
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+        throw new RuntimeException("Error");
+      }
+    };
+    nonResponsiveServer.start();
+
+    final NodeIdHolder nodeIdHolder = Mockito.mock(NodeIdHolder.class, Mockito.RETURNS_DEEP_STUBS);
+
+    final TeamCityConnectionConfiguration config = new TeamCityConnectionConfiguration(
+      getTeamCityUrl(nonResponsiveServer),
+      ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML,
+      "testuser",
+      "testcode",
+      nodeIdHolder,
+      1 * 1000,
+      1, 0);
+    try {
+      final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList());
+      client.completeMultipartUpload(new MultipartUploadCompleteRequestDto(OBJECT_KEY, UPLOAD_ID, Collections.emptyList()));
+    } catch (RuntimeException e) {
+      assertTrue(numRequests.get() > 1);
+    }
+
+    nonResponsiveServer.stop();
+    myTestLogger.clearFailure();
   }
 
 
