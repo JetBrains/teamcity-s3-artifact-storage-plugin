@@ -82,10 +82,6 @@ public final class S3Util {
 
   @NotNull
   public static Map<String, String> validateParameters(@NotNull final Map<String, String> params, final boolean acceptReferences) {
-    final Map<String, String> commonErrors = AWSCommonParams.validate(params, acceptReferences);
-    if (!commonErrors.isEmpty()) {
-      return commonErrors;
-    }
     final Map<String, String> invalids = new HashMap<>();
     if (StringUtil.isEmptyOrSpaces(getBucketName(params))) {
       invalids.put(beanPropertyNameForBucketName(), "S3 bucket name must not be empty");
@@ -291,7 +287,7 @@ public final class S3Util {
                  .orElseThrow(() -> new IllegalArgumentException("Non-existent ACL provided: " + acl));
   }
 
-  private static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {
+  public static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {
     return Boolean.parseBoolean(properties.get(S3_FORCE_VIRTUAL_HOST_ADDRESSING));
   }
 
@@ -299,18 +295,22 @@ public final class S3Util {
     return TeamCityProperties.getBoolean(S3_TRANSFER_ACCELERATION_FEATURE_ENABLED) && Boolean.parseBoolean(properties.get(S3_ENABLE_ACCELERATE_MODE));
   }
 
+  @Deprecated
   public static <T, E extends Throwable> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
     return withS3Client(params, withClient, true);
   }
 
+  @Deprecated
   public static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params, @NotNull final WithS3<T, E> withClient) throws E {
     return withS3Client(params, withClient, false);
   }
 
+  @Deprecated
   public static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final WithCloudFront<T, E> withClient) throws E {
     return withCloudFrontClient(params, withClient, false);
   }
 
+  @Deprecated
   private static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params,
                                                                  @NotNull final WithCloudFront<T, E> withClient,
                                                                  boolean shutdownImmediately) throws E {
@@ -330,6 +330,7 @@ public final class S3Util {
     });
   }
 
+  @Deprecated
   private static <T, E extends Throwable> T withS3Client(@NotNull final Map<String, String> params,
                                                          @NotNull final WithS3<T, E> withClient,
                                                          boolean shutdownImmediately) throws E {
@@ -349,6 +350,7 @@ public final class S3Util {
     });
   }
 
+  @Deprecated
   public static <T extends Transfer> Collection<T> withTransferManagerCorrectingRegion(@NotNull final Map<String, String> s3Settings,
                                                                                        @NotNull final WithTransferManager<T> withTransferManager,
                                                                                        @NotNull final S3AdvancedConfiguration advancedConfiguration)
@@ -367,6 +369,7 @@ public final class S3Util {
     }
   }
 
+  @Deprecated
   private static <T extends Transfer> Collection<T> withTransferManager(@NotNull final Map<String, String> s3Settings,
                                                                         @NotNull final WithTransferManager<T> withTransferManager,
                                                                         @Nullable final S3AdvancedConfiguration advancedConfiguration)
@@ -378,6 +381,7 @@ public final class S3Util {
     });
   }
 
+  @Deprecated
   private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = OUR_SOCKET_FACTORY.socketFactory(params.get(SSL_CERT_DIRECTORY_PARAM));
     if (socketFactory != null) {
@@ -413,6 +417,7 @@ public final class S3Util {
     }
   }
 
+  @Deprecated
   public static <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
                                                           @NotNull final WithS3<T, AmazonS3Exception> action) {
     try {
@@ -438,6 +443,7 @@ public final class S3Util {
     }
   }
 
+  @Deprecated
   public static <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
                                                  @NotNull final Map<String, String> settings,
                                                  @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
@@ -456,6 +462,7 @@ public final class S3Util {
     }
   }
 
+  @Deprecated
   @Nullable
   private static String extractCorrectedRegion(@NotNull final Throwable e) {
     @Nullable final AmazonS3Exception awsException = e instanceof AmazonS3Exception ? (AmazonS3Exception)e : ExceptionUtil.getCause(e, AmazonS3Exception.class);
@@ -471,11 +478,13 @@ public final class S3Util {
     }
   }
 
+  @Deprecated
   public interface WithS3<T, E extends Throwable> {
     @Nullable
     T run(@NotNull AmazonS3 client) throws E;
   }
 
+  @Deprecated
   public interface WithCloudFront<T, E extends Throwable> {
     @Nullable
     T run(@NotNull AmazonCloudFront client) throws E;

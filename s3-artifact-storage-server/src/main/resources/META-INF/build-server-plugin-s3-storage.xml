@@ -20,6 +20,7 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.settings.S3CompatibleStorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>
@@ -35,4 +36,6 @@
   <bean class="jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProviderImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3CloudFrontDistributionCreationController"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3PreSignedUrlController"/>
+
+  <bean class="jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl"/>
 </beans>

@@ -25,7 +25,9 @@ import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
@@ -43,9 +45,11 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   private static final String TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION = "teamcity.s3.override.content.disposition.enabled";
   @NotNull
   private final TimeService myTimeService;
+  private final AmazonS3Provider myAmazonS3Provider;
 
-  public S3PresignedUrlProviderImpl(@NotNull final TimeService timeService) {
+  public S3PresignedUrlProviderImpl(@NotNull final TimeService timeService, @NotNull final AmazonS3Provider amazonS3Provider) {
     myTimeService = timeService;
+    myAmazonS3Provider = amazonS3Provider;
   }
 
   @NotNull
@@ -183,13 +187,24 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   }
 
   private <T> T callS3(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
-    return S3Util.withS3ClientShuttingDownImmediately(settings.toRawSettings(), client -> {
-      try {
-        return callable.apply(client);
-      } catch (final Throwable t) {
-        throw new IOException(t);
+    try {
+      String projectId = settings.getProjectId();
+      if (projectId == null) {
+        throw new ConnectionCredentialsException("Cannot generate PresignedUrl, project ID is not provided");
       }
-    });
+      return myAmazonS3Provider.withS3ClientShuttingDownImmediately(
+        settings.toRawSettings(),
+        projectId,
+        client -> {
+        try {
+          return callable.apply(client);
+        } catch (final Throwable t) {
+          throw new IOException(t);
+        }
+      });
+    } catch (ConnectionCredentialsException e) {
+      throw new IOException(e);
+    }
   }
 
   @NotNull

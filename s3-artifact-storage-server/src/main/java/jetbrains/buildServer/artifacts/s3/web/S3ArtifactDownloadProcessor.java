@@ -46,6 +46,7 @@ import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
 
 import static com.amazonaws.HttpMethod.valueOf;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 
 /**
  * @author vbedrosova
@@ -86,6 +87,8 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
     final String pathPrefix = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties());
 
     Map<String, String> projectParameters = new HashMap<>();
+    projectParameters.put(PROJECT_ID_PARAM, buildPromotion.getProjectId());
+
     final ProjectEx project = myProjectManager.findProjectById(buildPromotion.getProjectId());
     if (project != null) {
       projectParameters.putAll(project.getParameters());

@@ -20,42 +20,51 @@ import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.amazon.AWSRegions;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
+import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
 
 /**
  * Created by Nikita.Skvortsov
  * date: 24.02.2016.
  */
-public class S3StorageType extends ArtifactStorageType {
+public class S3CompatibleStorageType extends ArtifactStorageType {
 
   @NotNull private final String mySettingsJSP;
+  @NotNull private final ServerSettings myServerSettings;
 
-  public S3StorageType(@NotNull ArtifactStorageTypeRegistry registry,
-                       @NotNull PluginDescriptor descriptor) {
+  public S3CompatibleStorageType(@NotNull ArtifactStorageTypeRegistry registry,
+                                 @NotNull PluginDescriptor descriptor,
+                                 @NotNull ServerSettings serverSettings) {
     mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
+    myServerSettings = serverSettings;
     registry.registerStorageType(this);
   }
 
   @NotNull
   @Override
   public String getType() {
-    return S3Constants.S3_STORAGE_TYPE;
+    return S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
   }
 
   @NotNull
   @Override
   public String getName() {
-    return "AWS S3";
+    return "S3 compatible";
   }
 
   @NotNull
   @Override
   public String getDescription() {
-    return "Uses s3 bucket to store build artifacts";
+    return "Uses s3-compatible storage to save build artifacts";
   }
 
   @NotNull
@@ -67,7 +76,8 @@ public class S3StorageType extends ArtifactStorageType {
   @Nullable
   @Override
   public Map<String, String> getDefaultParameters() {
-    Map<String, String> result = new HashMap<>();
+    Map<String, String> result = new HashMap<>(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
+    result.put(AWSCommonParams.REGION_NAME_PARAM, AWSRegions.DEFAULT_REGION);
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
     return result;
   }
@@ -78,9 +88,16 @@ public class S3StorageType extends ArtifactStorageType {
     return new S3PropertiesProcessor();
   }
 
+
   @NotNull
   @Override
   public SettingsPreprocessor getSettingsPreprocessor() {
-    return input -> input;
+    return input -> {
+      final Map<String, String> output = new HashMap<>(input);
+      if (Boolean.parseBoolean(input.get(S3_USE_PRE_SIGNED_URL_FOR_UPLOAD))) {
+        output.remove(SECURE_SECRET_ACCESS_KEY_PARAM);
+      }
+      return output;
+    };
   }
 }

@@ -15,6 +15,7 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.CleanupLevel;
 import jetbrains.buildServer.serverSide.ProjectManager;
@@ -257,7 +258,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     projectManager.stubs().method("findProjectById").will(returnValue(null));
 
     return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths,
-                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES);
+                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, (AmazonS3Provider)mock(AmazonS3Provider.class));
   }
 
   @NotNull

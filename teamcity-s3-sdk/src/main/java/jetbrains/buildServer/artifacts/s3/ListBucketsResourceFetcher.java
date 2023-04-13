@@ -17,34 +17,45 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.Bucket;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
-
-import com.amazonaws.services.s3.model.Bucket;
 import jetbrains.buildServer.Used;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
-
-import static jetbrains.buildServer.artifacts.s3.S3Util.withClientCorrectingRegion;
 
 /**
  * Gets a list of buckets in S3 storage.
  */
 public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBucketsResourceFetcher.ListBucketsDto> {
+
+  private final AmazonS3Provider myAmazonS3Provider;
+
+  public ListBucketsResourceFetcher(@NotNull AmazonS3Provider amazonS3Provider) {
+    myAmazonS3Provider = amazonS3Provider;
+  }
+
   @Override
-  public ListBucketsDto fetchDto(final Map<String, String> parameters) {
-    return S3Util.withS3Client(parameters, s3Client -> {
-      AWSCommonParams.validate(parameters, true);
-      List<BucketDto> bucketList = withClientCorrectingRegion(s3Client, copyMap(parameters), AmazonS3::listBuckets)
-        .stream()
-        .map(Bucket::getName)
-        .map(BucketDto::new)
-        .collect(Collectors.toList());
-      return new ListBucketsDto(bucketList);
-    });
+  public ListBucketsDto fetchDto(final Map<String, String> parameters, @NotNull final String projectId) throws ConnectionCredentialsException {
+    return myAmazonS3Provider.withS3Client(
+      parameters,
+      projectId,
+      s3Client -> {
+        List<BucketDto> bucketList = myAmazonS3Provider.withClientCorrectingRegion(
+                                                         s3Client,
+                                                         copyMap(parameters),
+                                                         projectId,
+                                                         AmazonS3::listBuckets)
+                                                       .stream()
+                                                       .map(Bucket::getName)
+                                                       .map(BucketDto::new)
+                                                       .collect(Collectors.toList());
+        return new ListBucketsDto(bucketList);
+      });
   }
 
   @NotNull

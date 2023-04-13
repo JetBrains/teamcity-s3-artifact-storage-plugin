@@ -14,10 +14,20 @@ public class S3Configuration {
   private final Map<String, String> mySettingsMap;
   @Nullable
   private String myPathPrefix;
+  @Nullable
+  private String myProjectId;
 
   public S3Configuration(@NotNull final S3AdvancedConfiguration s3AdvancedConfiguration, @NotNull final Map<String, String> settingsMap) {
     myS3AdvancedConfiguration = s3AdvancedConfiguration;
     mySettingsMap = settingsMap;
+  }
+
+  public S3Configuration(@NotNull final S3AdvancedConfiguration s3AdvancedConfiguration,
+                         @NotNull final Map<String, String> settingsMap,
+                         @Nullable final String projectId) {
+    myS3AdvancedConfiguration = s3AdvancedConfiguration;
+    mySettingsMap = settingsMap;
+    myProjectId = projectId;
   }
 
   @NotNull
@@ -57,5 +67,10 @@ public class S3Configuration {
     if (!isUsePresignedUrls()) {
       S3Util.validateParameters(mySettingsMap);
     }
+  }
+
+  @Nullable
+  public String getProjectId() {
+    return myProjectId;
   }
 }

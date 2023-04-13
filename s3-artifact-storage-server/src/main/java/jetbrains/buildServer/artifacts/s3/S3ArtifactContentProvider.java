@@ -18,10 +18,15 @@ package jetbrains.buildServer.artifacts.s3;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.artifacts.ArtifactData;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
+import jetbrains.buildServer.serverSide.BuildsManager;
+import jetbrains.buildServer.serverSide.SBuild;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactContentProvider;
 import jetbrains.buildServer.serverSide.artifacts.StoredBuildArtifactInfo;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
+import jetbrains.buildServer.serverSide.impl.artifacts.ExternalBuildArtifactFile;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
@@ -37,9 +42,15 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
 
   private final static Logger LOG = Logger.getInstance(S3ArtifactContentProvider.class.getName());
   private final ServerPaths myServerPaths;
+  private final AmazonS3Provider myAmazonS3Provider;
+  private final BuildsManager myBuildsManager;
 
-  public S3ArtifactContentProvider(@NotNull ServerPaths serverPaths) {
+  public S3ArtifactContentProvider(@NotNull ServerPaths serverPaths,
+                                   @NotNull AmazonS3Provider amazonS3Provider,
+                                   @NotNull BuildsManager buildsManager) {
     myServerPaths = serverPaths;
+    myAmazonS3Provider = amazonS3Provider;
+    myBuildsManager = buildsManager;
   }
 
   @NotNull
@@ -68,8 +79,22 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
     final String key = S3Util.getPathPrefix(storedBuildArtifactInfo.getCommonProperties()) + artifactPath;
 
     try {
-      return S3Util.withS3Client(
+      //TODO: better approach - we need to slightly change the core to provide some information about build from StoredBuildArtifactInfo
+      long buildId = ((ExternalBuildArtifactFile)storedBuildArtifactInfo).getBuildId();
+      myBuildsManager.findBuildInstanceById(buildId);
+      SBuild build = myBuildsManager.findBuildInstanceById(buildId);
+      if (build == null) {
+        throw new ConnectionCredentialsException("Cannot find build with id: " + Long.toString(buildId) + " bucket: " + bucketName);
+      }
+
+      String projectId = build.getProjectId();
+      if (projectId == null) {
+        throw new ConnectionCredentialsException("There is no project information in the build : " + Long.toString(buildId) + " bucket: " + bucketName);
+      }
+
+      return myAmazonS3Provider.withS3Client(
         ParamUtil.putSslValues(myServerPaths, params),
+        projectId,
         client -> client.getObject(bucketName, key).getObjectContent()
       );
     } catch (Throwable t) {

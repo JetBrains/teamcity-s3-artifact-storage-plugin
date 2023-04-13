@@ -7,13 +7,18 @@ import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
 
 import jetbrains.buildServer.Used;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import org.jetbrains.annotations.NotNull;
 
 public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<ListCloudFrontPublicKeysFetcher.ListPublicKeysDto> {
 
+  private final AmazonS3Provider myAmazonS3Provider;
+  public ListCloudFrontPublicKeysFetcher(@NotNull final AmazonS3Provider amazonS3Provider) {
+    myAmazonS3Provider = amazonS3Provider;
+  }
   @Override
-  protected ListPublicKeysDto fetchDto(Map<String, String> parameters) throws Exception {
-    return S3Util.withCloudFrontClient(parameters, client -> {
+  protected ListPublicKeysDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws Exception {
+    return myAmazonS3Provider.withCloudFrontClient(parameters, projectId, client -> {
       ListPublicKeysResult result = client.listPublicKeys(new ListPublicKeysRequest());
       List<PublicKeyDto> keys = result.getPublicKeyList().getItems().stream()
         .map(key -> new PublicKeyDto(key.getId(), key.getName()))

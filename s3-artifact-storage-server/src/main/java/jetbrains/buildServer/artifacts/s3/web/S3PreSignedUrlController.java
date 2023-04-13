@@ -64,6 +64,7 @@ import org.springframework.web.servlet.ModelAndView;
 import static java.util.Base64.getDecoder;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.ERROR_SOURCE_HEADER_NAME;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 /**
@@ -209,6 +210,8 @@ public class S3PreSignedUrlController extends BaseController {
     String userAgent = WebUtil.getUserAgent(request);
 
     Map<String, String> projectParameters = new HashMap<>();
+    projectParameters.put(PROJECT_ID_PARAM, runningBuild.getProjectId());
+
     final ProjectEx project = myProjectManager.findProjectById(runningBuild.getProjectId());
     if (project != null) {
       projectParameters.putAll(project.getParameters());

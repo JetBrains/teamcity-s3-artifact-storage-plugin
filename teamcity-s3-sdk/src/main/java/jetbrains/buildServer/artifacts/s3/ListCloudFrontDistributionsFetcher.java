@@ -6,25 +6,36 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
 import jetbrains.buildServer.Used;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
 
 public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<ListCloudFrontDistributionsFetcher.ListDistributionsDto> {
+  private final AmazonS3Provider myAmazonS3Builder;
+
+  public ListCloudFrontDistributionsFetcher(@NotNull AmazonS3Provider amazonS3Builder) {
+    myAmazonS3Builder = amazonS3Builder;
+  }
 
   @Override
-  protected ListDistributionsDto fetchDto(Map<String, String> parameters) {
+  protected ListDistributionsDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws ConnectionCredentialsException {
     String bucketName = S3Util.getBucketName(parameters);
 
     if (bucketName == null) {
       throw new IllegalArgumentException("No S3 bucket specified");
     }
 
-    String bucketRegion = S3Util.withCorrectingRegionAndAcceleration(parameters, correctedClient -> correctedClient.getBucketLocation(bucketName));
+    String bucketRegion = myAmazonS3Builder.withCorrectingRegionAndAcceleration(
+      parameters,
+      projectId,
+      correctedClient -> correctedClient.getBucketLocation(bucketName)
+    );
 
     String domainPattern = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN, bucketName, bucketRegion);
     String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
 
-    return S3Util.withCloudFrontClient(parameters, client -> {
+    return myAmazonS3Builder.withCloudFrontClient(parameters, projectId, client -> {
       ListDistributionsRequest request = new ListDistributionsRequest();
       ListDistributionsResult result = client.listDistributions(request);
 
