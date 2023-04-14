@@ -11,7 +11,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.CachingSocketFactory;
-import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
@@ -28,7 +27,6 @@ import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCreden
 import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectionCredentialsManager;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.SystemTimeService;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
@@ -219,22 +217,6 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
         jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
       }
     }
-  }
-
-  private <T extends Transfer> Collection<T> withTransferManager(@NotNull final Map<String, String> s3Settings,
-                                                                 @NotNull final String projectId,
-                                                                 @NotNull final S3Util.WithTransferManager<T> withTransferManager,
-                                                                 @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
-    throws ConnectionCredentialsException {
-    final S3Util.S3AdvancedConfiguration configuration = advancedConfiguration != null ? advancedConfiguration : S3Util.S3AdvancedConfiguration.defaultConfiguration();
-
-    return withS3Client(s3Settings, projectId, s3Client -> {
-      try {
-        return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(s3Client, withTransferManager, configuration);
-      } catch (Throwable t) {
-        throw new ConnectionCredentialsException(t);
-      }
-    });
   }
 
   private <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
