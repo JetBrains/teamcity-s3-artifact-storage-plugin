@@ -56,6 +56,7 @@ dependencies {
       exclude group: 'org.apache.httpcomponents', module: 'httpcore'
       exclude group: 'commons-codec', module: 'commons-codec'
     }
+    compileOnly "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
 
     compile "org.bouncycastle:bcprov-jdk15on:1.70"
 
