@@ -258,7 +258,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     projectManager.stubs().method("findProjectById").will(returnValue(null));
 
     return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths,
-                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, (AmazonS3Provider)mock(AmazonS3Provider.class));
+                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, (AmazonS3Provider)mock(AmazonS3Provider.class).proxy());
   }
 
   @NotNull
