@@ -276,6 +276,7 @@ export default function CloudFrontSettings(props: OwnProps) {
           </FieldColumn>
           <FieldColumn>
             <MagicButton
+              className={styles.helpButtonShift}
               title="Create distribution"
               onClick={createDistributionMagic}
               disabled={distributionInfo.loading}
@@ -305,6 +306,7 @@ export default function CloudFrontSettings(props: OwnProps) {
           </FieldColumn>
           <FieldColumn>
             <MagicButton
+              className={styles.helpButtonShift}
               title="Create distribution"
               onClick={createDistributionMagic}
               disabled={distributionInfo.loading}

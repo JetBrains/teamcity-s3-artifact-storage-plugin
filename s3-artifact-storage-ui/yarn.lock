@@ -1985,8 +1985,8 @@
 
 "@teamcity-cloud-integrations/react-ui-components@^0.2.0":
   version "0.2.0"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.0.tgz#9037411a562afd9d437a737dce28011f24330998"
-  integrity sha512-WW84CnV5FjZCZMlfHndKIZDriqx+h99Wjm+f1WeSX2vwkqZ3HPtwZjQuvt61sHQdlcNrwofW45zqYSr7jTKQZQ==
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.0.tgz#5a4d1c592752aa41836159af0474e71ef5ace9a2"
+  integrity sha512-op7D5iiKTdYpj3BXPl4SQuqDLRX4BYmiQ9/43mzTs8oQyu1dN3P9xMKCcpcLlPEUX3pzIrpXwHilqHBgd0rfdg==
 
 "@trysound/sax@0.2.0":
   version "0.2.0"
