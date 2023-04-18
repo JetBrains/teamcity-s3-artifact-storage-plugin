@@ -36,7 +36,7 @@ export default function useS3Form(
       [FormFields.CUSTOM_AWS_ENDPOINT_URL]: config.serviceEndpointValue,
       [FormFields.CUSTOM_AWS_REGION]: config.awsRegionName,
       [FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN]: config.isDefaultCredentialsChain,
-      [FormFields.CREDENTIALS_TYPE]: config.credentialsTypeValue || AWS_CREDENTIALS_TYPE_ARRAY[0].value,
+      [FormFields.CREDENTIALS_TYPE]: config.credentialsTypeValue || AWS_CREDENTIALS_TYPE_ARRAY[0].keyData,
       [FormFields.ACCESS_KEY_ID]: config.accessKeyIdValue,
       [FormFields.SECRET_ACCESS_KEY]: config.secretAcessKeyValue,
       [FormFields.IAM_ROLE_ARN]: config.iamRoleArnValue,

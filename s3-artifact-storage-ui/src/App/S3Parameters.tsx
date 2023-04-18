@@ -4,29 +4,30 @@ import {useFormContext} from 'react-hook-form';
 
 import {FocusEventHandler, useEffect, useState} from 'react';
 
-import {FormSelect, Option, FormRow, FormInput, SectionHeader} from '@teamcity-cloud-integrations/react-ui-components';
+import {FormInput, FormRow, FormSelect, Option, SectionHeader, useErrorService} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {loadBucketList} from '../Utilities/fetchBucketNames';
-import {ResponseErrors} from '../Utilities/responseParser';
 
 import {Config, IFormInput} from '../types';
 
 import {fetchBucketLocation} from '../Utilities/fetchBucketLocation';
 
-import {FormFields} from './appConstants';
+import {errorIdToFieldName, FormFields} from './appConstants';
 
-interface OwnProps extends Config {
-  setErrors: (errors: (ResponseErrors | null)) => void
-}
+type OwnProps = Config
 
 export const S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY: Option<number>[] = [
   {label: 'Choose from list', key: 0},
   {label: 'Specify name', key: 1}
 ];
 
-export default function S3Parameters({setErrors, ...config}: OwnProps) {
+export default function S3Parameters({...config}: OwnProps) {
   const s3BucketListOrNameFieldName = FormFields.S3_BUCKET_LIST_OR_NAME;
-  const {control, setValue, getValues, trigger} = useFormContext<IFormInput>();
+  const {control, setError, setValue, getValues} = useFormContext<IFormInput>();
+  const {showErrorsOnForm, showErrorAlert} = useErrorService({
+    setError,
+    errorKeyToFieldNameConvertor: errorIdToFieldName
+  });
   const selectS3BucketListOrName = React.useCallback(
     (data: Option<number>) => {
       setValue(s3BucketListOrNameFieldName, data);
@@ -51,14 +52,14 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
       }
     ).then(({location, errors}) => {
       if (errors) {
-        setErrors(errors);
+        showErrorsOnForm(errors);
       }
 
       if (location) {
         setValue(FormFields.CUSTOM_AWS_REGION, location);
       }
-    });
-  }, [config, getValues, setErrors, setValue]);
+    }).catch((error: Error) => (showErrorAlert(error.message)));
+  }, [config, getValues, setValue, showErrorAlert, showErrorsOnForm]);
 
   const updateDefaultRegionName = React.useCallback<FocusEventHandler<HTMLInputElement>>(
     event => {
@@ -91,10 +92,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
         selectS3BucketNameListValue(buckets[0]);
       }
     }
-  }, [selectS3BucketNameListValue,
-    selectS3BucketListOrName,
-    trigger, buckets,
-    manualFlag, setValue]);
+  }, []); // we only need this effect to run once
 
   const [bucketsListLoading, setBucketsListLoading] = useState(false);
 
@@ -122,14 +120,16 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
       setBuckets(bucketsData);
     }
     setBucketsListLoading(false);
-    setErrors(errors);
+    if (errors) {
+      showErrorsOnForm(errors);
+    }
   };
 
   return (
     <section>
       <SectionHeader>{'S3 Parameters'}</SectionHeader>
       <FormRow
-        label="Specify S3 bucket:"
+        label="Specify S3 bucket"
         labelFor={s3BucketListOrNameFieldName}
       >
         <FormSelect
@@ -151,7 +151,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
       {manualFlag
         ? (
           <FormRow
-            label="S3 bucket name:"
+            label="S3 bucket name"
             star
             labelFor={FormFields.S3_BUCKET_NAME}
           >
@@ -165,7 +165,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
         )
         : (
           <FormRow
-            label="S3 bucket name:"
+            label="S3 bucket name"
             star
             labelFor={FormFields.S3_BUCKET_NAME}
           >
@@ -184,7 +184,7 @@ export default function S3Parameters({setErrors, ...config}: OwnProps) {
           </FormRow>
         )}
       <FormRow
-        label="S3 path prefix:"
+        label="S3 path prefix"
         labelFor={FormFields.S3_BUCHET_PATH_PREFIX}
       >
         <FormInput

@@ -1,62 +1,60 @@
 import {React} from '@jetbrains/teamcity-api';
-
 import {useFormContext} from 'react-hook-form';
-
-import {useMemo, useState} from 'react';
-
-import {FormRadio, FormRow, FormToggle, FormInput, SectionHeader, Label, Field, Row} from '@teamcity-cloud-integrations/react-ui-components';
-
+import {useCallback, useMemo, useState} from 'react';
+import {FormCheckbox, FormInput, FormRow, Option, SectionHeader, Switcher} from '@teamcity-cloud-integrations/react-ui-components';
+import {Caption} from '@jetbrains/ring-ui/components/button-group/button-group';
+import inputStyles from '@jetbrains/ring-ui/components/input/input.css';
 import {Config, IFormInput} from '../types';
 
 import {FormFields} from './appConstants';
 
-import styles from './styles.css';
 
 type OwnProps = Config
 
 const accessKeysType = 'aws.access.keys';
 const tempCredsType = 'aws.temp.credentials';
 
-export const AWS_CREDENTIALS_TYPE_ARRAY = [
-  {label: 'Access keys', value: accessKeysType, details: 'Use pre-configured AWS account access keys'},
-  {label: 'Temporary credentials', value: tempCredsType, details: 'Get temporary access keys via AWS STS'}
+interface CredentialType extends Option<number> {
+    keyData: string;
+    details: string;
+}
+export const AWS_CREDENTIALS_TYPE_ARRAY: CredentialType[] = [
+  {label: 'Access keys', key: 0, keyData: accessKeysType, details: 'Use pre-configured AWS account access keys'},
+  {label: 'Temporary credentials', key: 1, keyData: tempCredsType, details: 'Get temporary access keys via AWS STS'}
 ];
 
 export default function AwsSecurityCredentials({...config}: OwnProps) {
   const credentialTypesFieldName = FormFields.CREDENTIALS_TYPE;
   const defaultChainFlagFieldName = FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN;
-  const {control, getValues} = useFormContext<IFormInput>();
+  const {control, getValues, setValue, watch} = useFormContext<IFormInput>();
 
   const [credentialType, setCredentialType] = useState(getValues(credentialTypesFieldName));
   const [defaultCredsFlag, setDefaultCredsFlag] = useState(getValues(defaultChainFlagFieldName));
-
-  const credentialTypeChanged = (event: any) => {
-    setCredentialType(event.target.value);
-  };
 
   const useDefaultCredentialsChainFlagChanged = (event: any) => {
     setDefaultCredsFlag(event.target.value);
   };
 
+  const handleCredTypeChange = useCallback((option: CredentialType) => {
+    setValue(credentialTypesFieldName, option.keyData);
+    setCredentialType(option.keyData);
+  }, [credentialTypesFieldName, setValue]);
+
+  const currentCredentials = watch(credentialTypesFieldName);
+  const currentActiveCredentials = AWS_CREDENTIALS_TYPE_ARRAY.
+    find(cred => cred.keyData === currentCredentials)?.
+    key || 0;
+
   const credentialsTypeFormRow = useMemo(() => (
-    <Row>
-      <div className={styles.credTypesCustom}>
-        <Label required>{'Credentials type:'}</Label>
-        <a href="https://console.aws.amazon.com/iam" target="_blank" rel="noopener noreferrer">{'Open IAM Console'}</a>
-      </div>
-      <Field>
-        <FormRadio
-          data={AWS_CREDENTIALS_TYPE_ARRAY}
-          name={credentialTypesFieldName}
-          control={control}
-          rules={{
-            required: 'Credentials type is mandatory',
-            onChange: credentialTypeChanged
-          }}
-        />
-      </Field>
-    </Row>
-  ), [control, credentialTypesFieldName]);
+    <div>
+      <span className={inputStyles.label}>{'Credentials type:'}</span>
+      <Switcher
+        options={AWS_CREDENTIALS_TYPE_ARRAY}
+        active={currentActiveCredentials}
+        onClick={handleCredTypeChange}
+      />
+    </div>
+  ), [currentActiveCredentials, handleCredTypeChange]);
 
   return (
     <section>
@@ -65,7 +63,7 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
       {credentialType === tempCredsType && (
         <>
           <FormRow
-            label="IAM role ARN:"
+            label="IAM role ARN"
             star
             labelFor={FormFields.IAM_ROLE_ARN}
           >
@@ -77,7 +75,7 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
             />
           </FormRow>
           <FormRow
-            label="External ID:"
+            label="External ID"
             labelFor={FormFields.EXTERNAL_ID}
           >
             <FormInput
@@ -90,8 +88,8 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
       )
       }
       {config.showDefaultCredentialsChain && (
-        <FormRow label="Default Credential Provider Chain:">
-          <FormToggle
+        <FormRow label="Default Credential Provider Chain">
+          <FormCheckbox
             name={defaultChainFlagFieldName}
             control={control}
             rules={{onChange: useDefaultCredentialsChainFlagChanged}}
@@ -102,7 +100,7 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
       {!defaultCredsFlag && (
         <>
           <FormRow
-            label="Access key ID:"
+            label="Access key ID"
             star
             labelFor={FormFields.ACCESS_KEY_ID}
           >
@@ -114,7 +112,7 @@ export default function AwsSecurityCredentials({...config}: OwnProps) {
             />
           </FormRow>
           <FormRow
-            label="Secret access key:"
+            label="Secret access key"
             star
             labelFor={FormFields.SECRET_ACCESS_KEY}
           >

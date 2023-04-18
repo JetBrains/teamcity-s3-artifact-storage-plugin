@@ -45,7 +45,7 @@ export type Config = {
 }
 
 // Note: when changing types here fix related code in parametersUtils.tsx
-export interface IFormInput {
+export interface S3FormInput {
   [FormFields.STORAGE_TYPE]: Option | null;
   [FormFields.STORAGE_NAME]: string;
   [FormFields.STORAGE_ID]: string;
@@ -73,3 +73,5 @@ export interface IFormInput {
   [FormFields.CONNECTION_MULTIPART_THRESHOLD]: string | null | undefined;
   [FormFields.CONNECTION_MULTIPART_CHUNKSIZE]: string | null | undefined;
 }
+
+export type IFormInput = Partial<S3FormInput>;

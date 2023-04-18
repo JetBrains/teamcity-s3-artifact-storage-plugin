@@ -1,34 +1,18 @@
 import {React, utils} from '@jetbrains/teamcity-api';
-import {useCallback, useMemo, useState} from 'react';
+import {useMemo} from 'react';
 import {FormProvider} from 'react-hook-form';
-
 import Button from '@jetbrains/ring-ui/components/button/button';
-
 import Theme, {ThemeProvider} from '@jetbrains/ring-ui/components/global/theme';
-
-import {DevTool} from '@hookform/devtools';
-
-import Alert, {AlertType} from '@jetbrains/ring-ui/components/alert/alert';
-
-import {FormRow, FormInput, FieldRow, FieldColumn, Option} from '@teamcity-cloud-integrations/react-ui-components';
-
+import {FieldColumn, FieldRow, FormInput, FormRow, Option, SectionHeader, useErrorService, useJspContainer} from '@teamcity-cloud-integrations/react-ui-components';
 import {ControlsHeight, ControlsHeightContext} from '@jetbrains/ring-ui/components/global/controls-height';
 
 import {displayErrorsFromResponseIfAny, ResponseErrors} from '../Utilities/responseParser';
-
 import {serializeParameters} from '../Utilities/parametersUtils';
-
 import {post} from '../Utilities/fetchHelper';
-
 import useS3Form from '../hooks/useS3Form';
-
-import useJspContainer from '../hooks/useJspContainer';
-
 import {ConfigWrapper, IFormInput} from '../types';
 
 import StorageType from './StorageType';
-
-
 import AwsEnvironment from './AwsEnvironment';
 import AwsSecurityCredentials from './AwsSecurityCredentials';
 import S3Parameters from './S3Parameters';
@@ -49,20 +33,18 @@ function App({config}: ConfigWrapper) {
   }, []),
   [storageTypes, storageNames]);
 
-  const [halt, setHalt] = useState(false);
-  useJspContainer({halt, selector: '#storageParamsInner table.runnerFormTable'});
+  const resetUI = useJspContainer('#storageParamsInner table.runnerFormTable, #saveButtons');
 
   const formMethods = useS3Form(config, storageOptions);
 
   const {
     handleSubmit,
     control,
-    setError,
-    clearErrors
+    setError
   } = formMethods;
 
   const doReset = (option: Option | null) => {
-    setHalt(true);
+    resetUI();
     let ind = 0;
     if (option) {
       ind = storageOptions.findIndex(e => e.key === option.key);
@@ -81,30 +63,10 @@ function App({config}: ConfigWrapper) {
       `${utils.resolveRelativeURL('/admin/editProject.html')}?projectId=${config.projectId}&tab=artifactsStorage`;
   };
 
-  const [alertError, setAlertError] = useState<string | null>(null);
-
-  const setErrors = useCallback((errors: ResponseErrors | null) => {
-    setAlertError(null);
-    if (errors) {
-      Object.keys(errors).forEach(key => {
-        const message: string = errors[key].message;
-        const fieldName = errorIdToFieldName(key);
-        if (fieldName) {
-          if (Array.isArray(fieldName)) {
-            fieldName.forEach(fn => setError(fn, {type: 'custom', message}));
-          } else if (fieldName === FormFields.CLOUD_FRONT_PRIVATE_KEY) {
-            setAlertError(message);
-          } else {
-            setError(fieldName, {type: 'custom', message});
-          }
-        } else {
-          setAlertError(message);
-        }
-      });
-    } else {
-      clearErrors();
-    }
-  }, [setError, clearErrors]);
+  const {showErrorsOnForm} = useErrorService({
+    setError,
+    errorKeyToFieldNameConvertor: errorIdToFieldName
+  });
 
   const onSubmit = async (data: IFormInput) => {
     const payload = serializeParameters(data, config);
@@ -112,14 +74,14 @@ function App({config}: ConfigWrapper) {
       projectId: config.projectId,
       newStorage: config.isNewStorage.toString(),
       [FormFields.STORAGE_TYPE]: data[FormFields.STORAGE_TYPE]!.key,
-      [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]
+      [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]!
     };
     const queryComponents = new URLSearchParams(parameters).toString();
     const resp = await post(`/admin/storageParams.html?${queryComponents}`, payload);
     const response = window.$j(resp);
     const errors: ResponseErrors | null = displayErrorsFromResponseIfAny(response);
     if (errors) {
-      setErrors(errors);
+      showErrorsOnForm(errors);
     } else {
       close();
     }
@@ -136,15 +98,16 @@ function App({config}: ConfigWrapper) {
             autoComplete="off"
           >
             <section>
+              <SectionHeader>{'Storage'}</SectionHeader>
               <StorageType data={storageOptions} onChange={doReset}/>
               <FormRow
-                label="Storage name:"
+                label="Storage name"
                 labelFor={FormFields.STORAGE_NAME}
               >
                 <FormInput control={control} name={FormFields.STORAGE_NAME}/>
               </FormRow>
               <FormRow
-                label="Storage ID:"
+                label="Storage ID"
                 star
                 labelFor={`${FormFields.STORAGE_ID}_key`}
               >
@@ -158,8 +121,8 @@ function App({config}: ConfigWrapper) {
             </section>
             <AwsEnvironment/>
             <AwsSecurityCredentials {...config}/>
-            <S3Parameters setErrors={setErrors} {...config}/>
-            {config.cloudfrontFeatureOn && (<CloudFrontSettings setErrors={setErrors} {...config}/>)}
+            <S3Parameters {...config}/>
+            {config.cloudfrontFeatureOn && (<CloudFrontSettings {...config}/>)}
             <ConnectionSettings {...config}/>
             <div className={styles.formControlButtons}>
               <FieldRow>
@@ -172,12 +135,7 @@ function App({config}: ConfigWrapper) {
               </FieldRow>
             </div>
           </form>
-          {alertError != null && (
-            <Alert
-              type={AlertType.ERROR}
-              onCloseRequest={() => setAlertError(null)}
-            >{alertError}</Alert>
-          )}
+
           {/*<DevTool control={formMethods.control}/>*/}
 
         </ControlsHeightContext.Provider>

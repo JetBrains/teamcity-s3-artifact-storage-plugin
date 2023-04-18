@@ -105,7 +105,7 @@ export default function useDistributionInfo(config: Config) {
       setInitialDownloadDistribution(dld);
       setPublicKey(pk);
       setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   },
   [config, getDistributionsInfo]);
 

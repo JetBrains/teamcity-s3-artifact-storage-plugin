@@ -51,7 +51,7 @@ export enum FetchResourceIds {
   BUCKET_LOCATION = 'bucketLocation'
 }
 
-export const errorIdToFieldName = (id: string): FormFields | FormFields[] | null => {
+export const errorIdToFieldName = (id: string): string | string[] | null => {
   switch (id) {
     case FetchResourceIds.BUCKETS:
       return FormFields.S3_BUCKET_NAME;

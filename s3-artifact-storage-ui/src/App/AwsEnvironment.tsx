@@ -28,7 +28,7 @@ export default function AwsEnvironment() {
   return (
     <section>
       <FormRow
-        label="AWS environment:"
+        label="AWS environment"
         labelFor={FormFields.AWS_ENVIRONMENT_TYPE}
       >
         <FormSelect
@@ -50,7 +50,7 @@ export default function AwsEnvironment() {
       {customFlag && (
         <>
           <FormRow
-            label="Endpoint URL:"
+            label="Endpoint URL"
             star
             labelFor={FormFields.CUSTOM_AWS_ENDPOINT_URL}
           >
@@ -61,7 +61,7 @@ export default function AwsEnvironment() {
             />
           </FormRow>
           <FormRow
-            label="AWS region:"
+            label="AWS region"
             star
             labelFor={FormFields.CUSTOM_AWS_REGION}
           >

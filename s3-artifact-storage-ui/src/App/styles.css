@@ -1,5 +1,4 @@
 .App {
-  padding: calc(2 * var(--ring-unit));
   display: flex;
   flex-direction: column;
   font-family: var(--ring-font-family);
@@ -28,4 +27,8 @@
 
   font-size: 12px;
   line-height: 16px;
+}
+
+.helpButtonShift {
+  margin-top: 24px
 }

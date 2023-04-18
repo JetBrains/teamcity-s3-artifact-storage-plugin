@@ -7,16 +7,26 @@ import Button from '@jetbrains/ring-ui/components/button/button';
 
 import {Size} from '@jetbrains/ring-ui/components/input/input';
 
-import {HelpButton, FormToggle, FormRow, FormSelect, Option, MagicButton, SectionHeader, FieldRow, FieldColumn} from '@teamcity-cloud-integrations/react-ui-components';
+import {
+  FieldColumn,
+  FieldRow,
+  FormCheckbox,
+  FormRow,
+  FormSelect,
+  HelpButton,
+  MagicButton,
+  Option,
+  SectionHeader,
+  useErrorService
+} from '@teamcity-cloud-integrations/react-ui-components';
 
 import {loadPublicKeyList} from '../Utilities/fetchPublicKeys';
-import {ResponseErrors} from '../Utilities/responseParser';
 import {loadDistributionList} from '../Utilities/fetchDistributions';
 import {createDistribution} from '../Utilities/createDistribution';
 import useDistributionInfo from '../hooks/useDistributionInfo';
 import {Config, IFormInput} from '../types';
 
-import {FormFields} from './appConstants';
+import {errorIdToFieldName, FormFields} from './appConstants';
 
 import styles from './styles.css';
 
@@ -24,15 +34,12 @@ export interface DistributionItem extends Option {
   publicKeys: string[] | null,
 }
 
-interface OwnProps extends Config {
-  setErrors: (errors: (ResponseErrors | null)) => void
-}
+type OwnProps = Config
 
 export default function CloudFrontSettings(props: OwnProps) {
-  const {setErrors} = props;
   const distributionInfo = useDistributionInfo(props);
   const cloudFrontSettingsLink = 'https://www.jetbrains.com/help/teamcity/2022.10/?CloudFrontSettings';
-  const {control, setValue, getValues} = useFormContext<IFormInput>();
+  const {control, setError, setValue, getValues} = useFormContext<IFormInput>();
   const [publicKeyListData, setPublicKeyListData] = useState<Option[]>(
     getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID)
       ? [getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID) as Option]
@@ -45,6 +52,11 @@ export default function CloudFrontSettings(props: OwnProps) {
     getValues(FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION)
       ? [getValues(FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION) as DistributionItem]
       : []);
+
+  const {showErrorsOnForm} = useErrorService({
+    setError,
+    errorKeyToFieldNameConvertor: errorIdToFieldName
+  });
 
   const selectPublicKey = React.useCallback(
     (data: Option | null) => {
@@ -154,7 +166,9 @@ export default function CloudFrontSettings(props: OwnProps) {
       setPublicKeyListData(publicKeysData);
     }
     setPublicKeyDataLoading(false);
-    setErrors(errors);
+    if (errors) {
+      showErrorsOnForm(errors);
+    }
   };
 
   const [distributionsLoading, setDistributionsLoading] = useState(false);
@@ -196,7 +210,9 @@ export default function CloudFrontSettings(props: OwnProps) {
       setUploadDistributionData(distributionsData);
     }
     setDistributionsLoading(false);
-    setErrors(errors);
+    if (errors) {
+      showErrorsOnForm(errors);
+    }
   };
 
   const createDistributionMagic = async () => {
@@ -230,13 +246,15 @@ export default function CloudFrontSettings(props: OwnProps) {
       setPrivateKeyDetails('Key has been generated automatically');
     }
 
-    setErrors(errors);
+    if (errors) {
+      showErrorsOnForm(errors);
+    }
   };
 
   const distributionSection = () => (
     <>
       <FormRow
-        label="Distribution for uploads:"
+        label="Distribution for uploads"
         star
         labelFor={FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION}
       >
@@ -266,7 +284,7 @@ export default function CloudFrontSettings(props: OwnProps) {
         </FieldRow>
       </FormRow>
       <FormRow
-        label="Distribution for downloads:"
+        label="Distribution for downloads"
         star
         labelFor={FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION}
       >
@@ -295,7 +313,7 @@ export default function CloudFrontSettings(props: OwnProps) {
         </FieldRow>
       </FormRow>
       <FormRow
-        label="Public key:"
+        label="Public key"
         star
         labelFor={FormFields.CLOUD_FRONT_PUBLIC_KEY_ID}
       >
@@ -313,7 +331,7 @@ export default function CloudFrontSettings(props: OwnProps) {
         />
       </FormRow>
 
-      <FormRow label="Private key:" star>
+      <FormRow label="Private key" star>
         <>
           <FieldRow>
             <Button
@@ -340,10 +358,10 @@ export default function CloudFrontSettings(props: OwnProps) {
   return (
     <section>
       <SectionHeader>{'CloudFront Settings'}</SectionHeader>
-      <FormRow label="Use CloudFront to transport artifacts:">
+      <FormRow label="Use CloudFront to transport artifacts">
         <FieldRow>
           <FieldColumn>
-            <FormToggle
+            <FormCheckbox
               defaultChecked={useCloudFront || false}
               name={FormFields.CLOUD_FRONT_TOGGLE}
               control={control}

@@ -28,7 +28,7 @@ export default function StorageType({data, onChange: callback}: StorageTypeConfi
 
   return (
     <FormRow
-      label="Storage type:"
+      label="Storage type"
       labelFor={`${FormFields.STORAGE_TYPE}_key`}
     >
       <FormSelect
