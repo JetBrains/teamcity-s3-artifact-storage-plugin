@@ -16,6 +16,7 @@ import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
+import jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.CleanupLevel;
 import jetbrains.buildServer.serverSide.ProjectManager;
@@ -23,6 +24,7 @@ import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
+import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectionCredentialsManager;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.FinishedBuildEx;
 import jetbrains.buildServer.serverSide.impl.cleanup.CleanupProcessStateEx;
@@ -39,11 +41,13 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static jetbrains.buildServer.artifacts.ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
 import static org.testcontainers.containers.localstack.LocalStackContainer.Service.S3;
 
 @Test(groups = "testcontainers")
-public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
-  private static final int DOCKER_CONNECTION_TIMEOUT_SECONDS = 5;
+public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
+  private static final int DOCKER_CONNECTION_TIMEOUT_SECONDS = 15;
   @NotNull
   public static final String BUCKET_NAME = "foo";
   @NotNull
@@ -74,7 +78,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     super.setUpClass();
     // Testcontainers don't have setting for socket ping timeout.
     // Thus, the only way to not wait for the default timeout on local socket connection is to forcibly cancel the whole client creation via the future
-    final Future<Boolean> future = SINGLE_THREAD_EXECUTOR.submit(S3CleanupExtensionIntegrationTest::isDockerAvailable);
+    final Future<Boolean> future = SINGLE_THREAD_EXECUTOR.submit(S3CompatibleCleanupExtensionIntegrationTest::isDockerAvailable);
     try {
       if (BooleanUtils.isTrue(future.get(DOCKER_CONNECTION_TIMEOUT_SECONDS, TimeUnit.SECONDS))) {
         myLocalStack = new LocalStackContainer(LOCALSTACK_IMAGE).withServices(S3);
@@ -203,6 +207,7 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
   @NotNull
   private HashMap<String, String> getStorageSettings(AWSCredentialsProvider credentialsProvider, AwsClientBuilder.EndpointConfiguration endpointConfiguration) {
     HashMap<String, String> storageSettings = new HashMap<>();
+    storageSettings.put(TEAMCITY_STORAGE_TYPE_KEY, S3_COMPATIBLE_STORAGE_TYPE);
     storageSettings.put("aws.region.name", endpointConfiguration.getSigningRegion());
     storageSettings.put("secure:aws.secret.access.key", credentialsProvider.getCredentials().getAWSSecretKey());
     storageSettings.put("aws.access.key.id", credentialsProvider.getCredentials().getAWSAccessKeyId());
@@ -257,11 +262,11 @@ public class S3CleanupExtensionIntegrationTest extends BaseTestCase {
     Mock projectManager = mock(ProjectManager.class);
     projectManager.stubs().method("findProjectById").will(returnValue(null));
 
-    Mock amazonS3Provider = mock(AmazonS3Provider.class);
-    amazonS3Provider.stubs().method("withS3ClientShuttingDownImmediately").will(returnValue(null));
+    Mock projectConnectionCredentialsManager = mock(ProjectConnectionCredentialsManager.class);
+    AmazonS3Provider amazonS3Provider = new AmazonS3ProviderImpl((ProjectManager)projectManager.proxy(), (ProjectConnectionCredentialsManager)projectConnectionCredentialsManager.proxy());
 
     return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths,
-                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, (AmazonS3Provider)amazonS3Provider.proxy());
+                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, amazonS3Provider);
   }
 
   @NotNull

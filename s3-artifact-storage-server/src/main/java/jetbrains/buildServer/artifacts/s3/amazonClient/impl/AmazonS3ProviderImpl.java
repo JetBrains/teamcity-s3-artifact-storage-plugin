@@ -27,13 +27,15 @@ import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCreden
 import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectionCredentialsManager;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.SystemTimeService;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY;
 import static jetbrains.buildServer.artifacts.s3.BucketLocationFetcher.getRegionName;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.artifacts.s3.S3Util.*;
 import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants.REGION_NAME_PARAM;
 import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCommonParameters.SSL_CERT_DIRECTORY_PARAM;
@@ -195,26 +197,41 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                           @NotNull final String projectId,
                                                           @NotNull final WithCloudFrontClient<T, E> withClient,
                                                           final boolean shutdownImmediately) throws E, ConnectionCredentialsException {
+    if(S3_STORAGE_TYPE.equals(params.get(TEAMCITY_STORAGE_TYPE_KEY))) {
+      ClientConfiguration s3ClientConfig = getClientConfiguration(params);
+      AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(params, projectId);
 
-    SProject project = myProjectManager.findProjectById(projectId);
-    if (project == null) {
-      throw new ConnectionCredentialsException("Failed to find project with internal ID: " + projectId);
-    }
-
-    ClientConfiguration s3ClientConfig = getClientConfiguration(params);
-    AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(params, projectId);
-
-    final AmazonCloudFront client = AmazonCloudFrontClientBuilder
-      .standard()
-      .withRegion(awsConnectionCredentials.getAwsRegion())
-      .withClientConfiguration(s3ClientConfig)
-      .withCredentials(awsConnectionCredentials.toAWSCredentialsProvider())
-      .build();
-    try {
-      return withClient.execute(client);
-    } finally {
-      if (shutdownImmediately) {
-        jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+      final AmazonCloudFront client = AmazonCloudFrontClientBuilder
+        .standard()
+        .withRegion(awsConnectionCredentials.getAwsRegion())
+        .withClientConfiguration(s3ClientConfig)
+        .withCredentials(awsConnectionCredentials.toAWSCredentialsProvider())
+        .build();
+      try {
+        return withClient.execute(client);
+      } finally {
+        if (shutdownImmediately) {
+          jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+        }
+      }
+    } else {
+      try {
+        return AWSCommonParams.withAWSClients(params, clients -> {
+          clients.setS3SignerType(S3_SIGNER_TYPE);
+          clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
+          clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
+          patchAWSClientsSsl(clients, params);
+          final AmazonCloudFront client = clients.createCloudFrontClient();
+          try {
+            return withClient.execute(client);
+          } finally {
+            if (shutdownImmediately) {
+              jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+            }
+          }
+        });
+      } catch (Throwable t) {
+        throw new ConnectionCredentialsException(new Exception(t));
       }
     }
   }
@@ -223,14 +240,35 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                   @NotNull final String projectId,
                                                   @NotNull final WithS3Client<T, E> withS3Client,
                                                   boolean shutdownImmediately) throws ConnectionCredentialsException {
-    AmazonS3 s3Client = fromS3Settings(params, projectId);
-    try {
-      return withS3Client.execute(s3Client);
-    } catch (Throwable e) {
-      throw new ConnectionCredentialsException(e);
-    } finally {
-      if (shutdownImmediately) {
-        shutdownClient(s3Client);
+    if(S3_STORAGE_TYPE.equals(params.get(TEAMCITY_STORAGE_TYPE_KEY))) {
+      AmazonS3 s3Client = fromS3Settings(params, projectId);
+      try {
+        return withS3Client.execute(s3Client);
+      } catch (Exception e) {
+        throw new ConnectionCredentialsException(e);
+      } finally {
+        if (shutdownImmediately) {
+          shutdownClient(s3Client);
+        }
+      }
+    } else {
+      try {
+        return AWSCommonParams.withAWSClients(params, clients -> {
+          clients.setS3SignerType(S3_SIGNER_TYPE);
+          clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
+          clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
+          patchAWSClientsSsl(clients, params);
+          final AmazonS3 s3Client = clients.createS3Client();
+          try {
+            return withS3Client.execute(s3Client);
+          } finally {
+            if (shutdownImmediately) {
+              jetbrains.buildServer.util.amazon.S3Util.shutdownClient(s3Client);
+            }
+          }
+        });
+      } catch (Throwable t) {
+        throw new ConnectionCredentialsException(new Exception(t));
       }
     }
   }

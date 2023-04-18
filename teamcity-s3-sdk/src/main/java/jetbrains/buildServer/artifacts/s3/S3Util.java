@@ -382,7 +382,7 @@ public final class S3Util {
   }
 
   @Deprecated
-  private static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
+  public static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = OUR_SOCKET_FACTORY.socketFactory(params.get(SSL_CERT_DIRECTORY_PARAM));
     if (socketFactory != null) {
       clients.getClientConfiguration().getApacheHttpClientConfig().withSslSocketFactory(socketFactory);
