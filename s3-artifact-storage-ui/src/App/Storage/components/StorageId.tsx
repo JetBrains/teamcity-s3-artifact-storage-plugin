@@ -8,6 +8,7 @@ import { React } from '@jetbrains/teamcity-api';
 import { useFormContext } from 'react-hook-form';
 
 import { FormFields } from '../../appConstants';
+import { useAppContext } from '../../../contexts/AppContext';
 
 function StorageIdLabel() {
   return (
@@ -20,6 +21,7 @@ function StorageIdLabel() {
   );
 }
 export default function StorageId() {
+  const { isNewStorage } = useAppContext();
   const { control } = useFormContext();
 
   return (
@@ -32,6 +34,7 @@ export default function StorageId() {
         control={control}
         name={FormFields.STORAGE_ID}
         id={`${FormFields.STORAGE_ID}_key`}
+        disabled={!isNewStorage}
         rules={{ required: 'Storage ID is mandatory' }}
       />
     </FormRow>
