@@ -7,6 +7,7 @@ ext {
 
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
+  compileOnly "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
   compileOnly 'commons-httpclient:commons-httpclient:3.1'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.10.5'
   compileOnly 'com.google.guava:guava:13.0.1'

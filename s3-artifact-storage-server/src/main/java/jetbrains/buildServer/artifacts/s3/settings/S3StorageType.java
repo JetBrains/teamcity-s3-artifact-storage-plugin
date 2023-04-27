@@ -16,29 +16,15 @@
 
 package jetbrains.buildServer.artifacts.s3.settings;
 
-import com.amazonaws.services.s3.model.BucketAccelerateConfiguration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.artifacts.s3.S3Util;
-import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
-import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.artifacts.s3.web.S3StoragePropertiesUtil;
-import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
-import jetbrains.buildServer.util.amazon.AWSRegions;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD;
-import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
-import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM;
 
 /**
  * Created by Nikita.Skvortsov
@@ -47,18 +33,10 @@ import static jetbrains.buildServer.util.amazon.AWSCommonParams.SECURE_SECRET_AC
 public class S3StorageType extends ArtifactStorageType {
 
   @NotNull private final String mySettingsJSP;
-  @NotNull private final ServerSettings myServerSettings;
-  @NotNull private final ServerPaths myServerPaths;
-  @NotNull private final CloudFrontPropertiesProcessor myCloudFrontPropertiesProcessor;
 
   public S3StorageType(@NotNull ArtifactStorageTypeRegistry registry,
-                       @NotNull PluginDescriptor descriptor,
-                       @NotNull ServerSettings serverSettings,
-                       @NotNull ServerPaths serverPaths) {
+                       @NotNull PluginDescriptor descriptor) {
     mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
-    myServerSettings = serverSettings;
-    myServerPaths = serverPaths;
-    myCloudFrontPropertiesProcessor = new CloudFrontPropertiesProcessor();
     registry.registerStorageType(this);
   }
 
@@ -71,7 +49,7 @@ public class S3StorageType extends ArtifactStorageType {
   @NotNull
   @Override
   public String getName() {
-    return "S3 Storage";
+    return "AWS S3";
   }
 
   @NotNull
@@ -89,8 +67,7 @@ public class S3StorageType extends ArtifactStorageType {
   @Nullable
   @Override
   public Map<String, String> getDefaultParameters() {
-    Map<String, String> result = new HashMap<>(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
-    result.put(AWSCommonParams.REGION_NAME_PARAM, AWSRegions.DEFAULT_REGION);
+    Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
     return result;
   }
@@ -98,57 +75,12 @@ public class S3StorageType extends ArtifactStorageType {
   @Nullable
   @Override
   public PropertiesProcessor getParametersProcessor() {
-    return params -> {
-      S3StoragePropertiesUtil.processProperties(params);
-      final ArrayList<InvalidProperty> invalids = new ArrayList<>();
-      for (Map.Entry<String, String> e : S3Util.validateParameters(params, true).entrySet()) {
-        invalids.add(new InvalidProperty(e.getKey(), e.getValue()));
-      }
-
-      final String bucketName = S3Util.getBucketName(params);
-      if (bucketName != null) {
-        try {
-          if (S3Util.isAccelerateModeEnabled(params)) {
-            final BucketAccelerateConfiguration accelerateConfig = IOGuard.allowNetworkCall(() -> S3Util.withCorrectingRegionAndAcceleration(
-              ParamUtil.putSslValues(myServerPaths, params), correctedClient -> correctedClient.getBucketAccelerateConfiguration(bucketName))
-            );
-            if (!accelerateConfig.isAccelerateEnabled()) {
-              invalids.add(new InvalidProperty(S3_ENABLE_ACCELERATE_MODE, "S3 Transfer Acceleration is not configured on this bucket"));
-            }
-          }
-          final String location = IOGuard.allowNetworkCall(() -> S3Util.withS3ClientShuttingDownImmediately(
-            ParamUtil.putSslValues(myServerPaths, params),
-            client -> S3Util.withClientCorrectingRegion(client, params, correctedClient -> correctedClient.getBucketLocation(bucketName))
-          ));
-          if (location == null) {
-            invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), "Bucket does not exist"));
-          } else {
-            if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && !location.equalsIgnoreCase(params.get(REGION_NAME_PARAM))) {
-              params.put(REGION_NAME_PARAM, BucketLocationFetcher.getRegionName(location));
-            }
-          }
-        } catch (Throwable e) {
-          invalids.add(new InvalidProperty(S3Util.beanPropertyNameForBucketName(), e.getMessage()));
-        }
-
-        if (CloudFrontConstants.isEnabled() && S3Util.getCloudFrontEnabled(params)) {
-          invalids.addAll(myCloudFrontPropertiesProcessor.process(params));
-        }
-      }
-
-      return invalids;
-    };
+    return new S3PropertiesProcessor();
   }
 
   @NotNull
   @Override
   public SettingsPreprocessor getSettingsPreprocessor() {
-    return input -> {
-      final Map<String, String> output = new HashMap<>(input);
-      if (Boolean.parseBoolean(input.get(S3_USE_PRE_SIGNED_URL_FOR_UPLOAD))) {
-        output.remove(SECURE_SECRET_ACCESS_KEY_PARAM);
-      }
-      return output;
-    };
+    return input -> input;
   }
 }

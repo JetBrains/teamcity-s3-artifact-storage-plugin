@@ -5,17 +5,24 @@
       Amazon S3 Artifact Storage
     </description>
   </class>
+
   <init>
-    <param name="storage.type" dslName="storageType" value="S3_storage"/>
     <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
   </init>
+
   <function name="s3Storage">
     <description>
       Adds a Amazon S3 Artifact Storage project feature
       @see S3Storage
     </description>
   </function>
+
   <params>
+    <param name="storage.type" dslName="storageType" mandatory="true">
+      <description>
+        Storage type - AWS S3 or S3-compatible
+      </description>
+    </param>
     <param name="storage.name" dslName="storageName">
       <description>
         Storage name
@@ -82,6 +89,12 @@
     <param name="secure:storage.s3.cloudfront.privateKey" dslName="cloudFrontPrivateKey">
       <description>
         Private key that corresponds to chosen public key
+      </description>
+    </param>
+
+    <param name="awsConnectionId" dslName="awsConnectionId">
+      <description>
+        The ID of configured AWS Connection to access the AWS S3. @see AwsConnection
       </description>
     </param>
   </params>

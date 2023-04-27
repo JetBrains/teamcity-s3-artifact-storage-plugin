@@ -25,8 +25,10 @@
 <%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
 <%@ page import="jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType" %>
 <%@ page import="jetbrains.buildServer.util.amazon.AWSRegions" %>
+<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
+<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams" %>
 
-<c:set var="region_name_param" value="<%=AWSCommonParams.REGION_NAME_PARAM%>"/>
+<c:set var="region_name_param" value="<%=AwsCloudConnectorConstants.REGION_NAME_PARAM%>"/>
 <c:set var="region_name_default" value="<%=AWSRegions.DEFAULT_REGION%>"/>
 <c:set var="default_cred_chain_disabled" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_DISABLED_PARAM %>"/>
 <c:set var="default_cred_chain_hidden" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_HIDDEN_PARAM %>"/>
@@ -52,8 +54,13 @@
 <c:set var="external_id_value" value="${propertiesBean.properties[external_id_param]}"/>
 <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
 
+<c:set var="avail_connections_controller_url" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_CONTROLLER_URL%>"/>
+<c:set var="avail_connections_rest_resource_name" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_REST_RESOURCE_NAME%>"/>
+<c:set var="session_duration_default" value="<%=AwsSessionCredentialsParams.SESSION_DURATION_DEFAULT%>"/>
+
 <%--@elvariable id="availableStorages" type="java.util.List<jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType>"--%>
 <%--@elvariable id="newStorage" type="String"--%>
+<%--@elvariable id="selectedStorageType" type="jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType"--%>
 <%--@elvariable id="selectedStorageName" type="String"--%>
 <%--@elvariable id="storageSettingsId" type="String"--%>
 <%--@elvariable id="project" type="jetbrains.buildServer.serverSide.SProject"--%>
@@ -90,6 +97,7 @@
     isNewStorage: "<bs:forJs>${Boolean.parseBoolean(newStorage)}</bs:forJs>" === "true",
     cloudfrontFeatureOn: "<bs:forJs>${cloudfrontFeatureOn}</bs:forJs>" === "true",
 
+    selectedStorageType: "<bs:forJs>${selectedStorageType.type}</bs:forJs>",
     selectedStorageName: "<bs:forJs>${selectedStorageName}</bs:forJs>",
     storageSettingsId: "<bs:forJs>${storageSettingsId}</bs:forJs>",
 
@@ -122,6 +130,11 @@
     enableAccelerateMode: "<bs:forJs>${propertiesBean.properties[params.enableAccelerateMode]}</bs:forJs>" === "true",
     multipartUploadThreshold: "<bs:forJs>${propertiesBean.properties[params.multipartUploadThreshold]}</bs:forJs>",
     multipartUploadPartSize: "<bs:forJs>${propertiesBean.properties[params.multipartUploadPartSize]}</bs:forJs>",
+
+    availableAwsConnectionsControllerUrl: "<bs:forJs>${avail_connections_controller_url}</bs:forJs>",
+    availableAwsConnectionsControllerResource: "<bs:forJs>${avail_connections_rest_resource_name}</bs:forJs>",
+    chosenAwsConnectionId: "<bs:forJs>${propertiesBean.properties[params.chosenAwsConnectionId]}</bs:forJs>",
+    sessionDuration: "<bs:forJs>${empty propertiesBean.properties[params.sessionDuration] ? session_duration_default : propertiesBean.properties[params.sessionDuration]}</bs:forJs>",
   };
 
   var loadJS = function (url, implementationCode, location) {
@@ -136,4 +149,15 @@
   };
 
   loadJS("<bs:forJs>${frontendCode}</bs:forJs>", callback, document.body);
+
+  // collapse old UI in advance
+  function collapseOldUi(selector) {
+    const allWithClass = Array.from(document.querySelectorAll(selector));
+
+    allWithClass.forEach(element => {
+      element.setAttribute('style', 'visibility: collapse; display: none;');
+    });
+  }
+
+  collapseOldUi('#storageParamsInner table.runnerFormTable, #saveButtons');
 </script>

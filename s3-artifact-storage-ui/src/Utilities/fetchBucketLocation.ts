@@ -1,53 +1,42 @@
-import {Config, IFormInput} from '../types';
+import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
 
-import {FetchResourceIds} from '../App/appConstants';
+import { Config, IFormInput } from '../types';
+import { FetchResourceIds } from '../App/appConstants';
 
-import {displayErrorsFromResponseIfAny, parseResourceListFromResponse, ResponseErrors} from './responseParser';
-import {serializeParameters} from './parametersUtils';
-import {post} from './fetchHelper';
-
-type OwnProps = {
-    appProps: Config
-    allValues: IFormInput
-    useDefaultCredentialProviderChain?: boolean | null,
-    keyId?: string | null,
-    keySecret?: string | null,
-}
+import {
+  displayErrorsFromResponseIfAny,
+  parseResourceListFromResponse,
+} from './responseParser';
+import { serializeParameters } from './parametersUtils';
+import { post } from './fetchHelper';
 
 export type FetchBucketLoactionResponse = {
-    location: string | null
-    errors: ResponseErrors | null
-}
+  location: string | null;
+  errors: ResponseErrors | null;
+};
 
 export async function fetchBucketLocation(
-  {
-    appProps,
-    allValues,
-    useDefaultCredentialProviderChain,
-    keyId,
-    keySecret
-  }: OwnProps
+  config: Config,
+  data: IFormInput
 ): Promise<FetchBucketLoactionResponse> {
-  if (!useDefaultCredentialProviderChain && (!keyId || !keySecret)) {
-    return {location: null, errors: null};
-  }
-
   const parameters = {
-    ...serializeParameters(allValues, appProps),
-    resource: FetchResourceIds.BUCKET_LOCATION
+    ...serializeParameters(data, config),
+    resource: FetchResourceIds.BUCKET_LOCATION,
   };
 
-  return await post(appProps.containersPath, parameters).then(resp => {
+  return await post(config.containersPath, parameters).then((resp) => {
     const response = window.$j(resp);
-    const errors: ResponseErrors | null = displayErrorsFromResponseIfAny(response);
+    const errors: ResponseErrors | null =
+      displayErrorsFromResponseIfAny(response);
     if (errors) {
-      return {location: null, errors};
+      return { location: null, errors };
     }
 
-    const location = parseResourceListFromResponse(response, 'bucket:eq(0)').
-      map(it => window.$j(it)).
-      map(n => n.attr('location'))?.[0] ?? null;
+    const location =
+      parseResourceListFromResponse(response, 'bucket:eq(0)')
+        .map((it) => window.$j(it))
+        .map((n) => n.attr('location'))?.[0] ?? null;
 
-    return {location, errors: null};
+    return { location, errors: null };
   });
 }

@@ -1,9 +1,9 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.agent.BuildAgentConfiguration;
+import jetbrains.buildServer.agent.ServerProvidedProperties;
 import jetbrains.buildServer.agent.ssl.TrustedCertificatesDirectory;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
@@ -25,7 +25,10 @@ public class SettingsProcessor {
     final String certDirectory = TrustedCertificatesDirectory.getAllCertificatesDirectory(myBuildAgentConfiguration);
     final Map<String, String> storageSettings = new HashMap<>(SSLParamUtil.putSslDirectory(artifactStorageSettings, certDirectory));
     final S3Util.S3AdvancedConfiguration s3AdvancedConfiguration = configuration(sharedConfigParameters, storageSettings);
-    final S3Configuration s3Configuration = new S3Configuration(s3AdvancedConfiguration, storageSettings);
+
+    String projectId = sharedConfigParameters.get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM);
+
+    final S3Configuration s3Configuration = new S3Configuration(s3AdvancedConfiguration, storageSettings, projectId);
     s3Configuration.validate();
     return s3Configuration;
   }

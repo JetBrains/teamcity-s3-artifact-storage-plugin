@@ -6,23 +6,29 @@ import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
-import jetbrains.buildServer.artifacts.s3.util.S3RegionCorrector;
+import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 
 public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
   @NotNull
   private final S3PresignedUrlProvider myDelegate;
   @NotNull
   private final ServerPaths myServerPaths;
+  private final AmazonS3Provider myAmazonS3Provider;
 
   public GuardedS3PresignedUrlProvider(@NotNull S3PresignedUrlProvider s3PresignedUrlProvider,
-                                       @NotNull ServerPaths serverPaths) {
+                                       @NotNull ServerPaths serverPaths,
+                                       @NotNull AmazonS3Provider amazonS3Provider) {
     myDelegate = s3PresignedUrlProvider;
     myServerPaths = serverPaths;
+    myAmazonS3Provider = amazonS3Provider;
   }
 
   @NotNull
@@ -68,7 +74,18 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
   @Override
   public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     final Map<String, String> sslSettings = ParamUtil.putSslValues(myServerPaths, rawSettings);
-    final Map<String, String> correctedSettings = S3RegionCorrector.correctRegion(S3Util.getBucketName(sslSettings), sslSettings);
-    return myDelegate.settings(correctedSettings, projectSettings);
+    String projectId = projectSettings.get(PROJECT_ID_PARAM);
+    String bucketName = S3Util.getBucketName(sslSettings);
+    if (projectId != null && bucketName != null) {
+      final Map<String, String> correctedSettings = myAmazonS3Provider.correctRegion(
+        bucketName,
+        sslSettings,
+        projectId
+      );
+      return myDelegate.settings(correctedSettings, projectSettings);
+    } else {
+      Loggers.CLOUD.debug("Will not correct S3 region, no projectId parameter for bucket with name: " + bucketName);
+      return myDelegate.settings(sslSettings, projectSettings);
+    }
   }
 }

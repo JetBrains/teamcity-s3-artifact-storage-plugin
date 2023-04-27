@@ -1,133 +1,145 @@
-import {React, utils} from '@jetbrains/teamcity-api';
-import {useMemo} from 'react';
-import {FormProvider} from 'react-hook-form';
+import { React, utils } from '@jetbrains/teamcity-api';
+import { FormProvider } from 'react-hook-form';
 import Button from '@jetbrains/ring-ui/components/button/button';
-import Theme, {ThemeProvider} from '@jetbrains/ring-ui/components/global/theme';
-import {FieldColumn, FieldRow, FormInput, FormRow, Option, SectionHeader, useErrorService, useJspContainer} from '@teamcity-cloud-integrations/react-ui-components';
-import {ControlsHeight, ControlsHeightContext} from '@jetbrains/ring-ui/components/global/controls-height';
+import Theme, {
+  ThemeProvider,
+} from '@jetbrains/ring-ui/components/global/theme';
+import {
+  FieldColumn,
+  FieldRow,
+  Option,
+  useErrorService,
+  useJspContainer,
+} from '@teamcity-cloud-integrations/react-ui-components';
+import {
+  ControlsHeight,
+  ControlsHeightContext,
+} from '@jetbrains/ring-ui/components/global/controls-height';
 
-import {displayErrorsFromResponseIfAny, ResponseErrors} from '../Utilities/responseParser';
-import {serializeParameters} from '../Utilities/parametersUtils';
-import {post} from '../Utilities/fetchHelper';
+import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
+
+import Loader from '@jetbrains/ring-ui/components/loader/loader';
+
+import { useCallback } from 'react';
+
+import { displayErrorsFromResponseIfAny } from '../Utilities/responseParser';
+import { serializeParameters } from '../Utilities/parametersUtils';
+import { post } from '../Utilities/fetchHelper';
 import useS3Form from '../hooks/useS3Form';
-import {ConfigWrapper, IFormInput} from '../types';
+import { ConfigWrapper, IFormInput } from '../types';
 
-import StorageType from './StorageType';
-import AwsEnvironment from './AwsEnvironment';
-import AwsSecurityCredentials from './AwsSecurityCredentials';
-import S3Parameters from './S3Parameters';
-import {errorIdToFieldName, FormFields} from './appConstants';
-import CloudFrontSettings from './CloudFrontSettings';
-import ConnectionSettings from './ConnectionSettings';
+import useStorageOptions from '../hooks/useStorageOptions';
+
+import { AppContextProvider, useAppContext } from '../contexts/AppContext';
+
+import {
+  AwsConnectionsContextProvider,
+  useAwsConnectionsContext,
+} from '../contexts/AwsConnectionsContext';
+
+import { errorIdToFieldName, FormFields } from './appConstants';
 
 import styles from './styles.css';
+import { AWS_S3, S3_COMPATIBLE } from './Storage/components/StorageType';
+import StorageSection from './Storage/StorageSection';
+import S3Section from './S3Compatible/S3Section';
+import AwsS3 from './S3/AwsS3';
+import MultipartUploadSection from './MultipartUpload/MultipartUploadSection';
+import ProtocolSettings from './ProtocolSettings/ProtocolSettings';
 
-function App({config}: ConfigWrapper) {
-  const storageTypes = useMemo(() => config.storageTypes.split(/[\[\],]/).map(it => it.trim()).filter(it => !!it),
-    [config]);
-  const storageNames = useMemo(() => config.storageNames.split(/[\[\],]/).map(it => it.trim()).filter(it => !!it),
-    [config]);
-  const storageOptions = useMemo(() => storageTypes.reduce<Option[]>((acc, next, i) => {
-    acc.push({key: next, label: storageNames[i]});
-    return acc;
-  }, []),
-  [storageTypes, storageNames]);
+function Main() {
+  const config = useAppContext();
+  // console.log(config);
+  const resetUI = useJspContainer(
+    '#storageParamsInner table.runnerFormTable, #saveButtons'
+  );
+  const formMethods = useS3Form();
+  const storageOptions = useStorageOptions();
 
-  const resetUI = useJspContainer('#storageParamsInner table.runnerFormTable, #saveButtons');
+  const { handleSubmit, setError, watch } = formMethods;
 
-  const formMethods = useS3Form(config, storageOptions);
+  const doReset = useCallback(
+    (option: Option | null) => {
+      resetUI();
+      let ind = 0;
+      if (option) {
+        ind = storageOptions.findIndex((e) => e.key === option.key);
+        ind = ind < 0 ? 0 : ind;
+      }
+      // @ts-ignore
+      $('editStorageForm').storageType.selectedIndex = ind;
+      // @ts-ignore
+      $('editStorageForm')['-ufd-teamcity-ui-storageType'].value =
+        option?.label || storageOptions[0].label;
+      // @ts-ignore
+      $('storageParams').updateContainer();
+    },
+    [resetUI, storageOptions]
+  );
 
-  const {
-    handleSubmit,
-    control,
-    setError
-  } = formMethods;
+  const close = useCallback(() => {
+    document.location.href = `${utils.resolveRelativeURL(
+      '/admin/editProject.html'
+    )}?projectId=${config.projectId}&tab=artifactsStorage`;
+  }, [config.projectId]);
 
-  const doReset = (option: Option | null) => {
-    resetUI();
-    let ind = 0;
-    if (option) {
-      ind = storageOptions.findIndex(e => e.key === option.key);
-      ind = ind < 0 ? 0 : ind;
-    }
-    // @ts-ignore
-    $('editStorageForm').storageType.selectedIndex = ind;
-    // @ts-ignore
-    $('editStorageForm')['-ufd-teamcity-ui-storageType'].value = option?.label || storageOptions[0].label;
-    // @ts-ignore
-    $('storageParams').updateContainer();
-  };
-
-  const close = () => {
-    document.location.href =
-      `${utils.resolveRelativeURL('/admin/editProject.html')}?projectId=${config.projectId}&tab=artifactsStorage`;
-  };
-
-  const {showErrorsOnForm} = useErrorService({
+  const { showErrorsOnForm } = useErrorService({
     setError,
-    errorKeyToFieldNameConvertor: errorIdToFieldName
+    errorKeyToFieldNameConvertor: errorIdToFieldName,
   });
 
-  const onSubmit = async (data: IFormInput) => {
-    const payload = serializeParameters(data, config);
-    const parameters = {
-      projectId: config.projectId,
-      newStorage: config.isNewStorage.toString(),
-      [FormFields.STORAGE_TYPE]: data[FormFields.STORAGE_TYPE]!.key,
-      [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]!
-    };
-    const queryComponents = new URLSearchParams(parameters).toString();
-    const resp = await post(`/admin/storageParams.html?${queryComponents}`, payload);
-    const response = window.$j(resp);
-    const errors: ResponseErrors | null = displayErrorsFromResponseIfAny(response);
-    if (errors) {
-      showErrorsOnForm(errors);
-    } else {
-      close();
-    }
-  };
+  const onSubmit = useCallback(
+    async (data: IFormInput) => {
+      const payload = serializeParameters(data, config);
+      const parameters = {
+        projectId: config.projectId,
+        newStorage: config.isNewStorage.toString(),
+        [FormFields.STORAGE_TYPE]: data[FormFields.STORAGE_TYPE]!.key,
+        [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]!,
+      };
+      const queryComponents = new URLSearchParams(parameters).toString();
+      const resp = await post(
+        `/admin/storageParams.html?${queryComponents}`,
+        payload
+      );
+      const response = window.$j(resp);
+      const errors: ResponseErrors | null =
+        displayErrorsFromResponseIfAny(response);
+      if (errors) {
+        showErrorsOnForm(errors);
+      } else {
+        close();
+      }
+    },
+    [close, config, showErrorsOnForm]
+  );
+
+  const currentType = watch(FormFields.STORAGE_TYPE);
+  const isS3Compatible = currentType?.key === S3_COMPATIBLE;
+  const isAwsS3 = currentType?.key === AWS_S3;
 
   return (
     <ThemeProvider className={styles.App} theme={Theme.LIGHT}>
       <FormProvider {...formMethods}>
         <ControlsHeightContext.Provider value={ControlsHeight.S}>
-
           <form
             className="ring-form"
             onSubmit={handleSubmit(onSubmit)}
             autoComplete="off"
           >
-            <section>
-              <SectionHeader>{'Storage'}</SectionHeader>
-              <StorageType data={storageOptions} onChange={doReset}/>
-              <FormRow
-                label="Storage name"
-                labelFor={FormFields.STORAGE_NAME}
-              >
-                <FormInput control={control} name={FormFields.STORAGE_NAME}/>
-              </FormRow>
-              <FormRow
-                label="Storage ID"
-                star
-                labelFor={`${FormFields.STORAGE_ID}_key`}
-              >
-                <FormInput
-                  control={control}
-                  name={FormFields.STORAGE_ID}
-                  id={`${FormFields.STORAGE_ID}_key`}
-                  rules={{required: 'Storage ID is mandatory'}}
-                />
-              </FormRow>
-            </section>
-            <AwsEnvironment/>
-            <AwsSecurityCredentials {...config}/>
-            <S3Parameters {...config}/>
-            {config.cloudfrontFeatureOn && (<CloudFrontSettings {...config}/>)}
-            <ConnectionSettings {...config}/>
+            <StorageSection onReset={doReset} />
+
+            {isS3Compatible && <S3Section />}
+            {isAwsS3 && <AwsS3 />}
+
+            <MultipartUploadSection />
+            <ProtocolSettings />
             <div className={styles.formControlButtons}>
               <FieldRow>
                 <FieldColumn>
-                  <Button type="submit" primary>{'Save'}</Button>
+                  <Button type="submit" primary>
+                    {'Save'}
+                  </Button>
                 </FieldColumn>
                 <FieldColumn>
                   <Button onClick={close}>{'Cancel'}</Button>
@@ -136,11 +148,31 @@ function App({config}: ConfigWrapper) {
             </div>
           </form>
 
-          {/*<DevTool control={formMethods.control}/>*/}
-
+          {/*<DevTool control={formMethods.control} />*/}
         </ControlsHeightContext.Provider>
       </FormProvider>
     </ThemeProvider>
+  );
+}
+
+function AwaitConnections() {
+  const { isLoading } = useAwsConnectionsContext();
+
+  if (isLoading) {
+    return <Loader />;
+  }
+
+  return <Main />;
+}
+
+function App({ config }: ConfigWrapper) {
+  useJspContainer('#storageParamsInner table.runnerFormTable, #saveButtons');
+  return (
+    <AppContextProvider value={config}>
+      <AwsConnectionsContextProvider>
+        <AwaitConnections />
+      </AwsConnectionsContextProvider>
+    </AppContextProvider>
   );
 }
 

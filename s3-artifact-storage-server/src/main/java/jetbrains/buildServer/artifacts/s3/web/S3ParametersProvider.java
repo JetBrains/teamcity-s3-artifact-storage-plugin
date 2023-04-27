@@ -22,6 +22,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
+import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
+import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams;
 
 public class S3ParametersProvider {
   public String getBucketName() {
@@ -107,5 +109,13 @@ public class S3ParametersProvider {
 
   public String getEnabledReactUi() {
     return S3Constants.S3_ENABLE_REACT_UI;
+  }
+
+  public String getChosenAwsConnectionId() {
+    return AwsCloudConnectorConstants.CHOSEN_AWS_CONN_ID_PARAM;
+  }
+
+  public String getSessionDuration() {
+    return AwsSessionCredentialsParams.SESSION_DURATION_PARAM;
   }
 }

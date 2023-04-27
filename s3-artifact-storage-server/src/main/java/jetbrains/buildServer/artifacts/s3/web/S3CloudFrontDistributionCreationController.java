@@ -42,6 +42,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
@@ -51,7 +52,7 @@ import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.auth.AccessChecker;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -78,11 +79,15 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   @NotNull
   private final ProjectManager myProjectManager;
   private final AccessChecker myAccessChecker;
+  @NotNull
+  private final AmazonS3Provider myAmazonS3Provider;
 
   public S3CloudFrontDistributionCreationController(@NotNull final PluginDescriptor descriptor,
                                                     @NotNull WebControllerManager controllerManager,
                                                     @NotNull ProjectManager projectManager,
-                                                    @NotNull AccessChecker accessChecker) {
+                                                    @NotNull AccessChecker accessChecker,
+                                                    @NotNull AmazonS3Provider amazonS3Provider) {
+    myAmazonS3Provider = amazonS3Provider;
     myProjectManager = projectManager;
     myAccessChecker = accessChecker;
     final String path = descriptor.getPluginResourcesPath("cloudFront/createDistribution.html");
@@ -126,58 +131,57 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
             String privateKey = toPemString("PRIVATE KEY", keyPair.getPrivate().getEncoded());
             String publicKey = toPemString("PUBLIC KEY", keyPair.getPublic().getEncoded());
 
-            DistributionCreationResultDTO distributionCreationResultDTO = AWSCommonParams.withAWSClients(params, clients -> {
-              AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
-              AmazonS3 s3Client = clients.createS3Client();
+            DistributionCreationResultDTO distributionCreationResultDTO = myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
+              return myAmazonS3Provider.withS3Client(params, projectId, s3Client -> {
+                String comment;
 
-              String comment;
+                long distrCount =
+                  cloudFrontClient.listDistributions(new ListDistributionsRequest()).getDistributionList().getItems().stream()
+                                  .filter(d -> d.getComment().startsWith(String.format(COMMENT, projectName))).count();
+                if (distrCount > 0) {
+                  comment = String.format(NUMBERED_COMMENT, projectName, distrCount);
+                } else {
+                  comment = String.format(COMMENT, projectName);
+                }
 
-              long distrCount =
-                cloudFrontClient.listDistributions(new ListDistributionsRequest()).getDistributionList().getItems().stream()
-                                .filter(d -> d.getComment().startsWith(String.format(COMMENT, projectName))).count();
-              if (distrCount > 0) {
-                comment = String.format(NUMBERED_COMMENT, projectName, distrCount);
-              } else {
-                comment = String.format(COMMENT, projectName);
-              }
+                String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
+                String publicKeyId = null;
+                String keyGroupId = null;
+                try {
+                  publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
+                  keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
+                  Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
+                  final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
 
-              String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
-              String publicKeyId = null;
-              String keyGroupId = null;
-              try {
-                publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
-                keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
-                Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
-                final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
-
-                Distribution downloadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, false);
-                final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
-                return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
-              } catch (SdkClientException e) {
-                errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
-                if (keyGroupId != null) {
-                  try {
-                    cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
-                  } catch (SdkClientException clientException) {
-                    LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
+                  Distribution downloadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, false);
+                  final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
+                  return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
+                } catch (SdkClientException e) {
+                  errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
+                  if (keyGroupId != null) {
+                    try {
+                      cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
+                    } catch (SdkClientException clientException) {
+                      LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
+                    }
+                  }
+                  if (publicKeyId != null) {
+                    try {
+                      cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
+                    } catch (SdkClientException clientException) {
+                      LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
+                    }
                   }
                 }
-                if (publicKeyId != null) {
-                  try {
-                    cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
-                  } catch (SdkClientException clientException) {
-                    LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
-                  }
-                }
-              }
-              return null;
+                return null;
+              });
             });
             if (distributionCreationResultDTO != null) {
               Element element = S3XmlSerializerFactory.getInstance().serializeAsElement(distributionCreationResultDTO);
               xmlResponse.addContent(element);
             }
           }
-        } catch (IllegalArgumentException | SdkClientException | IOException | NoSuchAlgorithmException e) {
+        } catch (IllegalArgumentException | SdkClientException | IOException | NoSuchAlgorithmException | ConnectionCredentialsException e) {
           errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
         }
       });

@@ -23,18 +23,26 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.s3.*;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
 import jetbrains.buildServer.serverSide.IOGuard;
+import jetbrains.buildServer.serverSide.ProjectManager;
+import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.ServerPaths;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.web.servlet.ModelAndView;
+
+import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
+
 
 public class S3SettingsController extends BaseFormXmlController {
 
@@ -42,17 +50,23 @@ public class S3SettingsController extends BaseFormXmlController {
   private static final String FAILED_TO_PROCESS_REQUEST_FORMAT = "Failed to process '%s' request: ";
   private final Map<String, S3ClientResourceFetcher> myHandlers = new HashMap<>();
   private final ServerPaths myServerPaths;
+  private final ProjectManager myProjectManager;
 
   public S3SettingsController(@NotNull final WebControllerManager manager,
                               @NotNull final PluginDescriptor descriptor,
-                              @NotNull final ServerPaths serverPaths) {
+                              @NotNull final ServerPaths serverPaths,
+                              @NotNull final AmazonS3Provider amazonS3Provider,
+                              @NotNull final ProjectManager projectManager) {
     myServerPaths = serverPaths;
+    myProjectManager = projectManager;
     final String path = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".html");
     manager.registerController(path, this);
-    myHandlers.put("buckets", new ListBucketsResourceFetcher());
-    myHandlers.put("bucketLocation", new BucketLocationFetcher());
-    myHandlers.put("distributions", new ListCloudFrontDistributionsFetcher());
-    myHandlers.put("publicKeys", new ListCloudFrontPublicKeysFetcher());
+    myHandlers.put("buckets", new ListBucketsResourceFetcher(amazonS3Provider));
+    myHandlers.put("bucketLocation", new BucketLocationFetcher(amazonS3Provider));
+    myHandlers.put("distributions", new ListCloudFrontDistributionsFetcher(amazonS3Provider));
+    myHandlers.put("publicKeys", new ListCloudFrontPublicKeysFetcher(amazonS3Provider));
+    myHandlers.put("s3TransferAccelerationAvailability", new CheckS3TransferAccelerationAvailability(amazonS3Provider));
+    myHandlers.put("validateCfKeys", new ValidateCloudFrontKeys(amazonS3Provider));
   }
 
   @Override
@@ -71,13 +85,32 @@ public class S3SettingsController extends BaseFormXmlController {
     final String resource = request.getParameter("resource");
     if (resource == null) {
       errors.addError("resource", "Invalid request: resource parameter was not set");
+
     } else {
       final S3ClientResourceFetcher<?> handler = myHandlers.get(resource);
       if (handler == null) {
         errors.addError("resource", "Invalid request: unsupported resource " + resource);
       } else {
         try {
-          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters)));
+          final String projectId = getInternalProjectId(request);
+          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters, projectId)));
+        } catch (ConnectionCredentialsException e) {
+          switch (resource) {
+            case "buckets":
+              errors.addError(resource, "Failed to list buckets: " + e.getMessage());
+              break;
+            case "distributions":
+              errors.addError(resource, "Failed to list distributions: " + e.getMessage());
+              break;
+            case "publicKeys":
+              errors.addError(resource, "Failed to list public keys: " + e.getMessage());
+              break;
+            case "bucketLocation":
+              errors.addError(resource, "Failed to get bucket location: " + e.getMessage());
+              break;
+            default:
+              errors.addError(PROJECT_ID_PARAM, "Failed to fetch resource: " + e.getMessage());
+          }
         } catch (InvalidSettingsException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
           if (LOG.isDebugEnabled()) {
@@ -117,5 +150,22 @@ public class S3SettingsController extends BaseFormXmlController {
     final BasePropertiesBean propsBean = new BasePropertiesBean(null);
     S3StoragePropertiesUtil.bindPropertiesFromRequest(request, propsBean);
     return propsBean.getProperties();
+  }
+
+  @NotNull
+  private String getInternalProjectId(@NotNull final HttpServletRequest request) throws ConnectionCredentialsException {
+    String externalProjectId = request.getParameter(PROJECT_ID_PARAM);
+    if (externalProjectId == null) {
+      String errMsg = "Invalid request: projectId parameter was not set";
+      throw new ConnectionCredentialsException(errMsg);
+    }
+
+    SProject project = myProjectManager.findProjectByExternalId(externalProjectId);
+    if (project == null) {
+      String errMsg = "Invalid request: cannot find project with ID " + externalProjectId;
+      throw new ConnectionCredentialsException(errMsg);
+    }
+
+    return project.getProjectId();
   }
 }

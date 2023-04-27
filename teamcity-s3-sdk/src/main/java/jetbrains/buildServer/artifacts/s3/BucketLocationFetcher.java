@@ -23,9 +23,18 @@ import java.util.Map;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
 import jetbrains.buildServer.Used;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocationFetcher.BucketLocationDto> {
+
+  private final AmazonS3Provider myAmazonS3Builder;
+
+  public BucketLocationFetcher(@NotNull AmazonS3Provider amazonS3Provider) {
+    myAmazonS3Builder = amazonS3Provider;
+  }
 
   public static String getRegionName(@Nullable String location) {
     if (location == null) {
@@ -44,16 +53,24 @@ public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocatio
   }
 
   @Override
-  protected BucketLocationDto fetchDto(final Map<String, String> parameters) {
-    return S3Util.withS3Client(parameters, s3Client -> {
-      final String bucketName = S3Util.getBucketName(parameters);
-      if (bucketName == null) {
-        final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
-        throw new IllegalArgumentException(message);
-      }
-      return new BucketLocationDto(bucketName, S3Util.withClientCorrectingRegion(s3Client, parameters, correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName))));
-    });
-    }
+  protected BucketLocationDto fetchDto(final Map<String, String> parameters, @NotNull String projectId) throws ConnectionCredentialsException {
+    return myAmazonS3Builder.withS3Client(
+      parameters,
+      projectId,
+      s3Client -> {
+        final String bucketName = S3Util.getBucketName(parameters);
+        if (bucketName == null) {
+          final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
+          throw new IllegalArgumentException(message);
+        }
+        return new BucketLocationDto(bucketName, myAmazonS3Builder.withClientCorrectingRegion(
+          s3Client,
+          parameters,
+          projectId,
+          correctedClient -> getRegionName(correctedClient.getBucketLocation(bucketName)))
+        );
+      });
+  }
 
   @XmlRootElement(name = "bucket")
   public static class BucketLocationDto implements S3Dto {

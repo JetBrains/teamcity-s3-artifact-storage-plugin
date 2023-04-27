@@ -9,9 +9,12 @@ module.exports = {
     '@jetbrains/eslint-config/browser',
     '@jetbrains/eslint-config/react',
     '@jetbrains/eslint-config/test',
-    'plugin:import/typescript'
+    'plugin:import/typescript',
+    'prettier'
   ],
+  plugins: ['prettier'],
   rules: {
+    'prettier/prettier': error,
     'import/no-unresolved': 'off',
     'import/extensions': 'off',
     'valid-jsdoc': ignore,

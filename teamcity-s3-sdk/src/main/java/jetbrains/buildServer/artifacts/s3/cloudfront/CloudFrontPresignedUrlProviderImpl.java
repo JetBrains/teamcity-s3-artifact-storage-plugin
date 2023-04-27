@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
 import com.amazonaws.auth.PEM;
-import com.amazonaws.services.cloudfront.AmazonCloudFront;
 import com.amazonaws.services.cloudfront.CloudFrontUrlSigner;
 import com.amazonaws.services.cloudfront.model.AmazonCloudFrontException;
 import com.amazonaws.services.cloudfront.model.GetDistributionRequest;
@@ -23,9 +22,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.util.TimeService;
-import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.apache.http.client.utils.URIBuilder;
 import org.jetbrains.annotations.NotNull;
@@ -45,8 +45,12 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
                                                                     .expireAfterWrite(TeamCityProperties.getInteger(S3_CLOUDFRONT_DOMAIN_NAME_CACHE_EXPIRATION_HOURS, 1),
                                                                                       TimeUnit.HOURS)
                                                                     .build();
+  @NotNull
+  private final AmazonS3Provider myAmazonS3Provider;
 
-  public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService) {
+  public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService,
+                                            @NotNull final AmazonS3Provider amazonS3Provider) {
+    myAmazonS3Provider = amazonS3Provider;
     myTimeService = timeService;
   }
 
@@ -129,11 +133,12 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   @Nullable
   private String getDomainName(@NotNull CloudFrontSettings settings, String distribution) throws IOException {
     Map<String, String> params = settings.toRawSettings();
+    String projectId = settings.getProjectId();
 
     String name = null;
     try {
       if (distribution != null) {
-        name = domainNameCache.get(distribution, () -> getDistribution(distribution, params));
+        name = domainNameCache.get(distribution, () -> getDistribution(distribution, params, projectId));
       }
     } catch (ExecutionException e) {
       Throwable cause = e;
@@ -146,15 +151,11 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
   }
 
   @Nullable
-  private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params) throws AmazonCloudFrontException {
-    return AWSCommonParams.withAWSClients(params, clients -> {
-      AmazonCloudFront cloudFrontClient = clients.createCloudFrontClient();
-
+  private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params, String projectId) throws AmazonCloudFrontException, ConnectionCredentialsException {
+    return myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
       return cloudFrontClient.getDistribution(new GetDistributionRequest(distributionName))
                              .getDistribution()
                              .getDomainName();
     });
   }
-
-
 }

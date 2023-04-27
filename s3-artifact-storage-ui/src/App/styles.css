@@ -19,7 +19,7 @@
 }
 
 .commentary {
-  inline-size: 240px;
+  inline-size: 400px;
   overflow-wrap: break-word;
   margin-block-start: 0;
   margin-block-end: 0;
@@ -32,4 +32,17 @@
 
 .helpButtonShift {
   margin-top: 24px
+}
+
+.magicButtonShift {
+  margin-top: 22px
+}
+
+.uploadButton {
+  margin-top: 8px;
+}
+
+.cfLoader {
+  display: inline-flex;
+  margin-left: 100px;
 }

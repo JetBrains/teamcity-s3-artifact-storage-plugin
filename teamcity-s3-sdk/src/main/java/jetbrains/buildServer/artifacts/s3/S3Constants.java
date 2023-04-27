@@ -28,6 +28,7 @@ public class S3Constants {
   public static final String S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING = "storage.s3.bucket.name.wasProvidedAsString";
 
   public static final String S3_STORAGE_TYPE = "S3_storage";
+  public static final String S3_COMPATIBLE_STORAGE_TYPE = "S3_compatible_storage";
   public static final String S3_SETTINGS_PATH = "s3_storage_settings";
   public static final String S3_PLUGIN_PATH = "/plugins/s3-artifact-storage/";
 
@@ -71,6 +72,10 @@ public class S3Constants {
   public static final String S3_ENABLE_MULTIPART_COMPLETION_RETRY =
     "teamcity.internal.storage.s3.multipart.completion.enableRetry";
   public static final String S3_ENABLE_REACT_UI = "teamcity.internal.storage.s3.ui.react.enabled";
+
+  public static final String PROJECT_ID_PARAM = "projectId";
+
+  public static final String TEAMCITY_STORAGE_TYPE_KEY = "storage.type";
 
   public enum ErrorSource {
     S3,

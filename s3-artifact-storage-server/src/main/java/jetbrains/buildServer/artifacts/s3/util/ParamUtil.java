@@ -16,13 +16,12 @@
 
 package jetbrains.buildServer.artifacts.s3.util;
 
+import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.SSLParamUtil;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.serverSide.TrustedCertificatesDirectory;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Map;
 
 /**
  * Util class for some work with parameters.
