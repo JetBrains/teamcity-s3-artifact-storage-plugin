@@ -1,9 +1,6 @@
 import { React, utils } from '@jetbrains/teamcity-api';
 import { FormProvider } from 'react-hook-form';
 import Button from '@jetbrains/ring-ui/components/button/button';
-import Theme, {
-  ThemeProvider,
-} from '@jetbrains/ring-ui/components/global/theme';
 import {
   FieldColumn,
   FieldRow,
@@ -119,39 +116,37 @@ function Main() {
   const isAwsS3 = currentType?.key === AWS_S3;
 
   return (
-    <ThemeProvider className={styles.App} theme={Theme.LIGHT}>
-      <FormProvider {...formMethods}>
-        <ControlsHeightContext.Provider value={ControlsHeight.S}>
-          <form
-            className="ring-form"
-            onSubmit={handleSubmit(onSubmit)}
-            autoComplete="off"
-          >
-            <StorageSection onReset={doReset} />
+    <FormProvider {...formMethods}>
+      <ControlsHeightContext.Provider value={ControlsHeight.S}>
+        <form
+          className="ring-form"
+          onSubmit={handleSubmit(onSubmit)}
+          autoComplete="off"
+        >
+          <StorageSection onReset={doReset} />
 
-            {isS3Compatible && <S3Section />}
-            {isAwsS3 && <AwsS3 />}
+          {isS3Compatible && <S3Section />}
+          {isAwsS3 && <AwsS3 />}
 
-            <MultipartUploadSection />
-            <ProtocolSettings />
-            <div className={styles.formControlButtons}>
-              <FieldRow>
-                <FieldColumn>
-                  <Button type="submit" primary>
-                    {'Save'}
-                  </Button>
-                </FieldColumn>
-                <FieldColumn>
-                  <Button onClick={close}>{'Cancel'}</Button>
-                </FieldColumn>
-              </FieldRow>
-            </div>
-          </form>
+          <MultipartUploadSection />
+          <ProtocolSettings />
+          <div className={styles.formControlButtons}>
+            <FieldRow>
+              <FieldColumn>
+                <Button type="submit" primary>
+                  {'Save'}
+                </Button>
+              </FieldColumn>
+              <FieldColumn>
+                <Button onClick={close}>{'Cancel'}</Button>
+              </FieldColumn>
+            </FieldRow>
+          </div>
+        </form>
 
-          {/*<DevTool control={formMethods.control} />*/}
-        </ControlsHeightContext.Provider>
-      </FormProvider>
-    </ThemeProvider>
+        {/*<DevTool control={formMethods.control} />*/}
+      </ControlsHeightContext.Provider>
+    </FormProvider>
   );
 }
 
