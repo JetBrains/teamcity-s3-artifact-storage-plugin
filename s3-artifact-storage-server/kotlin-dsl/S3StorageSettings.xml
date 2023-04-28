@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<dsl-extension kind="projectFeature" type="storage_settings" generateDslJar="true" applicable="params['storage.type'] == 'S3_storage'">
+<dsl-extension
+    kind="projectFeature"
+    type="storage_settings"
+    generateDslJar="true"
+    applicable="params['storage.type'] == 'S3_storage' || params['storage.type'] == 'S3_compatible_storage'">
   <class name="S3Storage">
     <description>
       Amazon S3 Artifact Storage
@@ -18,11 +22,6 @@
   </function>
 
   <params>
-    <param name="storage.type" dslName="storageType" mandatory="true">
-      <description>
-        Storage type - AWS S3 or S3-compatible
-      </description>
-    </param>
     <param name="storage.name" dslName="storageName">
       <description>
         Storage name
