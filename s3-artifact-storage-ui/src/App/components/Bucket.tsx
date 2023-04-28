@@ -156,7 +156,10 @@ export default function Bucket() {
   );
 
   useEffect(() => {
-    loadBucketLocation();
+    Promise.all([
+      loadBucketLocation(),
+      validateS3TransferAccelerationAvailability(),
+    ]);
   }, []); // run once
 
   return (
