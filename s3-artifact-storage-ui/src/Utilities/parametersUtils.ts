@@ -72,7 +72,10 @@ export function serializeParameters(
     formData[FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION] = undefined;
     formData[FormFields.CLOUD_FRONT_PUBLIC_KEY_ID] = undefined;
   }
-  if (formData[FormFields.STORAGE_TYPE]?.key === AWS_S3) {
+  if (
+    formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 &&
+    formData[FormFields.AWS_CONNECTION_ID]?.key !== 'fake'
+  ) {
     formData[FormFields.ACCESS_KEY_ID] = undefined;
     formData[FormFields.SECRET_ACCESS_KEY] = undefined;
   }
