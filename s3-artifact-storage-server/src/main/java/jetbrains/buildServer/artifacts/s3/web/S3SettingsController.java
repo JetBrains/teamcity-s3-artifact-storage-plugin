@@ -41,7 +41,6 @@ import org.jetbrains.annotations.NotNull;
 import org.springframework.web.servlet.ModelAndView;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
 
 
 public class S3SettingsController extends BaseFormXmlController {
@@ -107,6 +106,12 @@ public class S3SettingsController extends BaseFormXmlController {
               break;
             case "bucketLocation":
               errors.addError(resource, "Failed to get bucket location: " + e.getMessage());
+              break;
+            case "validateCfKeys":
+              errors.addError(resource, "CloudFront keys validation failed: " + e.getMessage());
+              break;
+            case "s3TransferAccelerationAvailability":
+              errors.addError(resource, "Failed to check S3 Transfer Acceleration availability: " + e.getMessage());
               break;
             default:
               errors.addError(PROJECT_ID_PARAM, "Failed to fetch resource: " + e.getMessage());

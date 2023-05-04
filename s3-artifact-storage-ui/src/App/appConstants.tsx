@@ -1,6 +1,6 @@
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
 
-import { CredentialType } from '../types';
+import {CredentialType} from '../types';
 
 export enum FormFields {
   STORAGE_TYPE = 'storageType',
@@ -79,9 +79,10 @@ export enum FetchResourceIds {
 export const errorIdToFieldName = (id: string): string | string[] | null => {
   switch (id) {
     case FetchResourceIds.BUCKETS:
-      return FormFields.S3_BUCKET_NAME;
-    case FetchResourceIds.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION:
-      return FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION;
+      case FetchResourceIds.S3_TRANSFER_ACCELERATION_AVAILABILITY:
+          return FormFields.S3_BUCKET_NAME;
+      case FetchResourceIds.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION:
+          return FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION;
     case FetchResourceIds.S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION:
       return FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION;
     case FetchResourceIds.DISTRIBUTIONS:
