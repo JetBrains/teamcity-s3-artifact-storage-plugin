@@ -1,9 +1,9 @@
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
 
-import { FormFields, keyToFormDataName } from '../App/appConstants';
-import { Config, DistributionItem, IFormInput } from '../types';
-import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';
-import { AWS_S3, S3_COMPATIBLE } from '../App/Storage/components/StorageType';
+import {FormFields, keyToFormDataName} from '../App/appConstants';
+import {Config, DistributionItem, IFormInput} from '../types';
+import {AwsConnection} from '../App/AwsConnection/AvailableAwsConnectionsConstants';
+import {AWS_S3, S3_COMPATIBLE} from '../App/Storage/components/StorageType';
 
 function valueOrDefault(
   condition: () => boolean,

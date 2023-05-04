@@ -1,6 +1,6 @@
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import {Option} from '@teamcity-cloud-integrations/react-ui-components';
 
-import { CredentialType } from '../types';
+import {CredentialType} from '../types';
 
 export enum FormFields {
   STORAGE_TYPE = 'storageType',
@@ -10,8 +10,8 @@ export enum FormFields {
   AWS_CONNECTION_ID = 'prop:awsConnectionId',
   SESSION_DURATION = 'prop:awsSessionDuration',
   CUSTOM_AWS_ENDPOINT_URL = 'prop:aws_service_endpoint',
-  CUSTOM_AWS_REGION = 'prop:awsRegionName',
-  // CUSTOM_AWS_REGION = 'prop:aws_region_name',
+  // CUSTOM_AWS_REGION = 'prop:awsRegionName',
+  CUSTOM_AWS_REGION = 'prop:aws_region_name',
   CREDENTIALS_TYPE = 'prop:aws_credentials_type',
   USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN = 'prop:aws_use_default_credential_provider_chain',
   ACCESS_KEY_ID = 'prop:aws_access_key_id',
