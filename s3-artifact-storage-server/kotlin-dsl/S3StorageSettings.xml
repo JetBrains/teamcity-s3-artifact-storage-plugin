@@ -3,7 +3,7 @@
     kind="projectFeature"
     type="storage_settings"
     generateDslJar="true"
-    applicable="params['storage.type'] == 'S3_storage' || params['storage.type'] == 'S3_compatible_storage'">
+    applicable="params['storage.type'] == 'S3_storage'">
   <class name="S3Storage">
     <description>
       Amazon S3 Artifact Storage
@@ -11,7 +11,7 @@
   </class>
 
   <init>
-    <param name="storage.type" dslName="storageType" value="S3_storage"/>
+    <param name="storage.type" value="S3_storage"/>
     <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
   </init>
 
@@ -23,47 +23,9 @@
   </function>
 
   <params>
-    <param name="storage.name" dslName="storageName">
-      <description>
-        Storage name
-      </description>
-    </param>
-    <param name="storage.s3.bucket.name" dslName="bucketName" mandatory="true">
-      <description>
-        Bucket name
-      </description>
-    </param>
-    <param name="storage.s3.bucket.prefix" dslName="bucketPrefix">
-      <description>
-        Bucket path prefix
-      </description>
-    </param>
-    <param name="storage.s3.upload.presignedUrl.enabled" dslName="enablePresignedURLUpload" type="boolean" trueValue="true" falseValue="">
-      <description>
-        Whether to use Pre-Signed URLs to upload
-      </description>
-    </param>
-    <param name="storage.s3.forceVirtualHostAddressing" dslName="forceVirtualHostAddressing" type="boolean">
-      <description>
-        Whether to force Virtual Host Addressing
-      </description>
-    </param>
     <param name="storage.s3.accelerateModeEnabled" dslName="enableTransferAcceleration" type="boolean">
       <description>
         Whether to enable Transfer Acceleration
-      </description>
-    </param>
-    <param name="storage.s3.upload.multipart_threshold" dslName="multipartThreshold">
-      <description>
-        Initiates multipart upload for files larger than the specified value.
-        Minimum value is 5MB. Allowed suffixes: KB, MB, GB, TB.
-        Leave empty to use the default value.
-      </description>
-    </param>
-    <param name="storage.s3.upload.multipart_chunksize" dslName="multipartChunksize">
-      <description>
-        Specify the maximum allowed part size. Minimum value is 5MB.
-        Allowed suffixes: KB, MB, GB, TB. Leave empty to use the default value.
       </description>
     </param>
     <param name="storage.s3.cloudfront.enabled" dslName="cloudFrontEnabled" type="boolean" trueValue="true" falseValue="">
