@@ -300,7 +300,10 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     throws ConnectionCredentialsException {
     SProject project = myProjectManager.findProjectById(projectId);
     if (project == null) {
-      throw new ConnectionCredentialsException("Failed to find project with internal ID: " + projectId);
+      project = myProjectManager.findProjectByExternalId(projectId);
+      if (project == null) {
+        throw new ConnectionCredentialsException("Failed to find project with internal ID: " + projectId);
+      }
     }
 
     ConnectionCredentials connectionCredentials = getConnectionCredentials(project, params);
