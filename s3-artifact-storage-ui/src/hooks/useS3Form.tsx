@@ -11,6 +11,8 @@ import { IFormInput } from '../types';
 import { useAppContext } from '../contexts/AppContext';
 import { useAwsConnectionsContext } from '../contexts/AwsConnectionsContext';
 
+import { S3_COMPATIBLE } from '../App/Storage/components/StorageType';
+
 import useStorageOptions from './useStorageOptions';
 
 export default function useS3Form() {
@@ -29,9 +31,13 @@ export default function useS3Form() {
     }
   }, [config]);
 
-  const storageTypeValue = storageOptions.find(
-    (st) => st.key === config.selectedStorageType
-  );
+  const storageTypeValue = useMemo(() => {
+    let selectedStorageType = config.selectedStorageType;
+    if (config.serviceEndpointValue) {
+      selectedStorageType = S3_COMPATIBLE;
+    }
+    return storageOptions.find((st) => st.key === selectedStorageType);
+  }, [config, storageOptions]);
 
   const awsConnectionValue = useMemo(() => {
     if (connectionOptions) {
@@ -45,7 +51,13 @@ export default function useS3Form() {
     }
 
     return undefined;
-  }, [config, connectionOptions]);
+  }, [
+    config.chosenAwsConnectionId,
+    config.isNewStorage,
+    connectionOptions,
+    withFake,
+  ]);
+
   const multipartCustomizeFlagValue = !!(
     config.multipartUploadThreshold || config.multipartUploadPartSize
   );
