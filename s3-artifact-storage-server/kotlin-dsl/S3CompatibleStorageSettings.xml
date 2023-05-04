@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dsl-extension
+    kind="projectFeature"
+    type="storage_settings"
+    generateDslJar="true"
+    applicable="params['storage.type'] == 'S3_compatible_storage'">
+  <class name="S3CompatibleStorage">
+    <description>
+      S3 Compatible Artifact Storage
+    </description>
+  </class>
+
+  <init>
+    <param name="storage.type" value="S3_compatible_storage"/>
+    <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
+  </init>
+
+  <function name="s3CompatibleStorage">
+    <description>
+      Adds a S3 Compatible Artifact Storage project feature
+      @see S3CompatibleStorage
+    </description>
+  </function>
+
+
+  <params>
+    <param name="aws.access.key.id" dslName="accessKeyID">
+      <description>
+        Account access key ID
+      </description>
+    </param>
+
+    <param name="secure:aws.secret.access.key" dslName="accessKey">
+      <description>
+        Account secret access key
+      </description>
+    </param>
+
+    <param name="aws.service.endpoint" dslName="endpoint" mandatory="true">
+      <description>
+        Endpoint URL
+      </description>
+    </param>
+  </params>
+
+  <examples>
+
+    <example>
+      <description>
+        Adds new storage that allows TeamCity to store build artifacts in S3
+      </description>
+      <code>
+        s3CompatibleStorage {
+          id = "S3_STORAGE_ID"
+          storageName = "Storage Name"
+
+          bucketName = "Bucket Name"
+          bucketPrefix = "path prefix inside the bucket"
+
+          forceVirtualHostAddressing = true
+          enableTransferAcceleration = false
+          multipartThreshold = "8MB"
+          multipartChunksize = "8MB"
+
+          // Storage also requires configured Credentials
+          accessKeyID = "AWS Access key ID"
+          accessKey = "Link to credentialsJSON property containing AWS access key"
+        }
+      </code>
+    </example>
+
+    <example>
+      <description>
+        Credentials. Specifies credentials using access key
+      </description>
+      <code>
+        connection = customConnection {
+          accessKeyID = "AWS Access key ID"
+          accessKey = "Link to credentialsJSON property containing AWS access key"
+        }
+      </code>
+    </example>
+  </examples>
+</dsl-extension>

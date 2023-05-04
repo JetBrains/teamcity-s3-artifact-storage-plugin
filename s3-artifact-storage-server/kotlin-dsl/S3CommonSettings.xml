@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dsl-add-on kind="projectFeature">
+  <extends>
+    <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_storage'" />
+    <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_compatible_storage'" />
+  </extends>
+  <params>
+    <param name="storage.name" dslName="storageName">
+      <description>
+        Storage name
+      </description>
+    </param>
+    <param name="storage.s3.bucket.name" dslName="bucketName" mandatory="true">
+      <description>
+        Bucket name
+      </description>
+    </param>
+    <param name="storage.s3.bucket.prefix" dslName="bucketPrefix">
+      <description>
+        Bucket path prefix
+      </description>
+    </param>
+    <param name="storage.s3.upload.presignedUrl.enabled" dslName="enablePresignedURLUpload" type="boolean" trueValue="true" falseValue="">
+      <description>
+        Whether to use Pre-Signed URLs to upload
+      </description>
+    </param>
+    <param name="storage.s3.forceVirtualHostAddressing" dslName="forceVirtualHostAddressing" type="boolean">
+      <description>
+        Whether to force Virtual Host Addressing
+      </description>
+    </param>
+    <param name="storage.s3.upload.multipart_threshold" dslName="multipartThreshold">
+      <description>
+        Initiates multipart upload for files larger than the specified value.
+        Minimum value is 5MB. Allowed suffixes: KB, MB, GB, TB.
+        Leave empty to use the default value.
+      </description>
+    </param>
+    <param name="storage.s3.upload.multipart_chunksize" dslName="multipartChunksize">
+      <description>
+        Specify the maximum allowed part size. Minimum value is 5MB.
+        Allowed suffixes: KB, MB, GB, TB. Leave empty to use the default value.
+      </description>
+    </param>
+  </params>
+</dsl-add-on>
