@@ -133,47 +133,47 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
 
             DistributionCreationResultDTO distributionCreationResultDTO = myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
               return myAmazonS3Provider.withS3Client(params, projectId, s3Client -> {
-                String comment;
+                  String comment;
 
-                long distrCount =
-                  cloudFrontClient.listDistributions(new ListDistributionsRequest()).getDistributionList().getItems().stream()
-                                  .filter(d -> d.getComment().startsWith(String.format(COMMENT, projectName))).count();
-                if (distrCount > 0) {
-                  comment = String.format(NUMBERED_COMMENT, projectName, distrCount);
-                } else {
-                  comment = String.format(COMMENT, projectName);
-                }
+                  long distrCount =
+                    cloudFrontClient.listDistributions(new ListDistributionsRequest()).getDistributionList().getItems().stream()
+                                    .filter(d -> d.getComment().startsWith(String.format(COMMENT, projectName))).count();
+                  if (distrCount > 0) {
+                    comment = String.format(NUMBERED_COMMENT, projectName, distrCount);
+                  } else {
+                    comment = String.format(COMMENT, projectName);
+                  }
 
-                String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
-                String publicKeyId = null;
-                String keyGroupId = null;
-                try {
-                  publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
-                  keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
-                  Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
-                  final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
+                  String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
+                  String publicKeyId = null;
+                  String keyGroupId = null;
+                  try {
+                    publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
+                    keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
+                    Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
+                    final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
 
-                  Distribution downloadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, false);
-                  final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
-                  return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
-                } catch (SdkClientException e) {
-                  errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
-                  if (keyGroupId != null) {
-                    try {
-                      cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
-                    } catch (SdkClientException clientException) {
-                      LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
+                    Distribution downloadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, false);
+                    final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
+                    return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
+                  } catch (SdkClientException e) {
+                    errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
+                    if (keyGroupId != null) {
+                      try {
+                        cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
+                      } catch (SdkClientException clientException) {
+                        LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
+                      }
+                    }
+                    if (publicKeyId != null) {
+                      try {
+                        cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
+                      } catch (SdkClientException clientException) {
+                        LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
+                      }
                     }
                   }
-                  if (publicKeyId != null) {
-                    try {
-                      cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
-                    } catch (SdkClientException clientException) {
-                      LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
-                    }
-                  }
-                }
-                return null;
+                  return null;
               });
             });
             if (distributionCreationResultDTO != null) {

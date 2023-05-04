@@ -28,11 +28,6 @@ public interface AmazonS3Provider {
                                           @NotNull final String projectId,
                                           @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException;
 
-  <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
-                                   @NotNull final Map<String, String> settings,
-                                   @NotNull final String projectId,
-                                   @NotNull final WithS3Client<T, AmazonS3Exception> withCorrectedClient) throws ConnectionCredentialsException;
-
   <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
                                             @NotNull final String projectId,
                                             @NotNull final WithS3Client<T, AmazonS3Exception> action) throws ConnectionCredentialsException;

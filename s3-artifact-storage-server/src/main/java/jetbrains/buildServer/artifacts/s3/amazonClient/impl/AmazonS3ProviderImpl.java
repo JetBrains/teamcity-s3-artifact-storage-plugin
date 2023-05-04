@@ -32,12 +32,9 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY;
 import static jetbrains.buildServer.artifacts.s3.BucketLocationFetcher.getRegionName;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 import static jetbrains.buildServer.artifacts.s3.S3Util.*;
-import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants.REGION_NAME_PARAM;
 import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCommonParameters.SSL_CERT_DIRECTORY_PARAM;
 
 public class AmazonS3ProviderImpl implements AmazonS3Provider {
@@ -77,28 +74,38 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
                                                                         @NotNull final String projectId,
                                                                         @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
-    return withS3Client(params, projectId, withClient, true);
+    return withS3Client(params, projectId,
+                        s3Client -> {
+                          return withClientCorrectingRegion(s3Client, params, projectId, withClient);
+                        },
+                        true);
   }
 
   public <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
                                                  @NotNull final String projectId,
                                                  @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
-    return withS3Client(params, projectId, withClient, false);
+    return withS3Client(params, projectId,
+                        s3Client -> {
+                          return withClientCorrectingRegion(s3Client, params, projectId, withClient);
+                        },
+                        false);
   }
 
-  @Override
-  public <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
-                                          @NotNull final Map<String, String> settings,
-                                          @NotNull final String projectId,
-                                          @NotNull final WithS3Client<T, AmazonS3Exception> withCorrectedClient) throws ConnectionCredentialsException {
+  private <T, E extends Exception> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
+                                                                @NotNull final Map<String, String> settings,
+                                                                @NotNull final String projectId,
+                                                                @NotNull final WithS3Client<T, E> withCorrectedClient) throws ConnectionCredentialsException, E {
     try {
       return withCorrectedClient.execute(s3Client);
-    } catch (AmazonS3Exception awsException) {
+    } catch (Exception awsException) {
+      // if it is region mismatch, try to correct it.
+      // in case of any other exception, just rethrow it
+      // this will protect us from endless recursion (see withS3ClientShuttingDownImmediately)
       final String correctRegion = extractCorrectedRegion(awsException);
       if (correctRegion != null) {
         Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
         final HashMap<String, String> correctedSettings = new HashMap<>(settings);
-        correctedSettings.put(REGION_NAME_PARAM, correctRegion);
+        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctRegion);
         return withS3ClientShuttingDownImmediately(correctedSettings, projectId, withCorrectedClient);
       } else {
         throw awsException;
@@ -121,9 +128,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                    @NotNull final WithS3Client<T, AmazonS3Exception> action) throws ConnectionCredentialsException {
     try {
       return withS3ClientShuttingDownImmediately(settings, projectId, action);
-    } catch (AmazonS3Exception s3Exception) {
+    } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
       final String correctedRegion = extractCorrectedRegion(s3Exception);
-      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getErrorMessage()).matches();
+      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
       final boolean isRegionException = correctedRegion != null;
 
       final HashMap<String, String> correctedSettings = new HashMap<>(settings);
@@ -134,7 +141,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
         return withCorrectingRegionAndAcceleration(correctedSettings, projectId, action);
       } else if (isRegionException) {
         Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
-        correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
+        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
         return withCorrectingRegionAndAcceleration(correctedSettings, projectId, action);
       } else {
         throw s3Exception;
@@ -143,7 +150,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @Override
-  public <T, E extends Exception> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final String projectId, @NotNull final WithCloudFrontClient<T, E> withClient)
+  public <T, E extends Exception> T withCloudFrontClient(@NotNull final Map<String, String> params,
+                                                         @NotNull final String projectId,
+                                                         @NotNull final WithCloudFrontClient<T, E> withClient)
     throws E, ConnectionCredentialsException {
     return withCloudFrontClient(params, projectId, withClient, false);
   }
@@ -153,7 +162,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                            @NotNull final Map<String, String> storageSettings,
                                            @NotNull final String projectId) {
     if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")) {
-      final String initialRegion = storageSettings.get(REGION_NAME_PARAM);
+      final String initialRegion = storageSettings.get(AWSCommonParams.REGION_NAME_PARAM);
       final String correctedRegion = IOGuard.allowNetworkCall(() -> {
         try {
           return withCorrectingRegionAndAcceleration(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
@@ -163,7 +172,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       });
       if (!correctedRegion.equalsIgnoreCase(initialRegion)) {
         final HashMap<String, String> correctedSettings = new HashMap<>(storageSettings);
-        correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
+        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
         Loggers.CLOUD.debug(() -> "Bucket [" + bucketName + "] location is corrected: [" + initialRegion + "] -> [" + correctedRegion + "]");
         return correctedSettings;
       }
@@ -184,8 +193,8 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(s3Settings, projectId);
 
     String regionName = awsConnectionCredentials.getAwsRegion();
-    if (StringUtils.isNotBlank(s3Settings.get(REGION_NAME_PARAM))) {
-      regionName = s3Settings.get(REGION_NAME_PARAM);
+    if (StringUtils.isNotBlank(s3Settings.get(AWSCommonParams.REGION_NAME_PARAM))) {
+      regionName = s3Settings.get(AWSCommonParams.REGION_NAME_PARAM);
     }
 
     return AmazonS3ClientBuilder
@@ -202,7 +211,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                           @NotNull final String projectId,
                                                           @NotNull final WithCloudFrontClient<T, E> withClient,
                                                           final boolean shutdownImmediately) throws E, ConnectionCredentialsException {
-    if(ParamUtil.withAwsConnectionId(params)) {
+    if (ParamUtil.withAwsConnectionId(params)) {
       AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(params, projectId);
 
       final AmazonCloudFront client = AmazonCloudFrontClientBuilder
@@ -244,7 +253,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                   @NotNull final String projectId,
                                                   @NotNull final WithS3Client<T, E> withS3Client,
                                                   boolean shutdownImmediately) throws ConnectionCredentialsException {
-    if(ParamUtil.withAwsConnectionId(params)) {
+    if (ParamUtil.withAwsConnectionId(params)) {
       AmazonS3 s3Client = fromS3Settings(params, projectId);
       try {
         return withS3Client.execute(s3Client);

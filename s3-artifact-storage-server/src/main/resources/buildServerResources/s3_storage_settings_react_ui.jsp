@@ -21,14 +21,13 @@
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
-<%@ page import="jetbrains.buildServer.util.StringUtil" %>
-<%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
-<%@ page import="jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType" %>
-<%@ page import="jetbrains.buildServer.util.amazon.AWSRegions" %>
 <%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
 <%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams" %>
+<%@ page import="jetbrains.buildServer.util.StringUtil" %>
+<%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
+<%@ page import="jetbrains.buildServer.util.amazon.AWSRegions" %>
 
-<c:set var="region_name_param" value="<%=AwsCloudConnectorConstants.REGION_NAME_PARAM%>"/>
+<c:set var="region_name_param" value="<%=AWSCommonParams.REGION_NAME_PARAM%>"/>
 <c:set var="region_name_default" value="<%=AWSRegions.DEFAULT_REGION%>"/>
 <c:set var="default_cred_chain_disabled" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_DISABLED_PARAM %>"/>
 <c:set var="default_cred_chain_hidden" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_HIDDEN_PARAM %>"/>

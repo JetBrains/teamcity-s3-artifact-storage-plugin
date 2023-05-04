@@ -16,7 +16,6 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.Bucket;
 import java.util.HashMap;
 import java.util.List;
@@ -45,15 +44,11 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
       parameters,
       projectId,
       s3Client -> {
-        List<BucketDto> bucketList = myAmazonS3Provider.withClientCorrectingRegion(
-                                                         s3Client,
-                                                         copyMap(parameters),
-                                                         projectId,
-                                                         AmazonS3::listBuckets)
-                                                       .stream()
-                                                       .map(Bucket::getName)
-                                                       .map(BucketDto::new)
-                                                       .collect(Collectors.toList());
+        List<BucketDto> bucketList = s3Client.listBuckets()
+                                             .stream()
+                                             .map(Bucket::getName)
+                                             .map(BucketDto::new)
+                                             .collect(Collectors.toList());
         return new ListBucketsDto(bucketList);
       });
   }
@@ -71,7 +66,7 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
 
     @Used("xml-serialization")
     public ListBucketsDto() {
-      this.buckets = null;
+      buckets = null;
     }
 
     public ListBucketsDto(@NotNull final List<BucketDto> buckets) {
@@ -93,7 +88,7 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
 
     @Used("xml-serialization")
     public BucketDto() {
-      this.name = null;
+      name = null;
     }
 
     public BucketDto(@NotNull String name) {

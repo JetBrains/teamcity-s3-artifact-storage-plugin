@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
-import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.*;
 import jetbrains.buildServer.util.amazon.AWSClients;
@@ -46,7 +45,6 @@ import org.jetbrains.annotations.Nullable;
 
 import static com.amazonaws.ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
-import static jetbrains.buildServer.util.amazon.AWSCommonParams.REGION_NAME_PARAM;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 import static jetbrains.buildServer.util.amazon.S3Util.*;
 
@@ -132,7 +130,7 @@ public final class S3Util {
 
   @NotNull
   public static String getBucketRegion(@NotNull final Map<String, String> params) {
-    return params.get(AwsCloudConnectorConstants.REGION_NAME_PARAM);
+    return params.get(AWSCommonParams.REGION_NAME_PARAM);
   }
 
   public static boolean getCloudFrontEnabled(@NotNull final Map<String, String> params) {
@@ -362,7 +360,7 @@ public final class S3Util {
       final String correctRegion = extractCorrectedRegion(e);
       if (correctRegion != null) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", e);
-        s3Settings.put(REGION_NAME_PARAM, correctRegion);
+        s3Settings.put(AWSCommonParams.REGION_NAME_PARAM, correctRegion);
         return withTransferManager(s3Settings, withTransferManager, advancedConfiguration);
       } else {
         throw e;
@@ -436,7 +434,7 @@ public final class S3Util {
         return withCorrectingRegionAndAcceleration(correctedSettings, action);
       } else if (isRegionException) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
-        correctedSettings.put(REGION_NAME_PARAM, correctedRegion);
+        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
         return withCorrectingRegionAndAcceleration(correctedSettings, action);
       } else {
         throw s3Exception;
@@ -455,7 +453,7 @@ public final class S3Util {
       if (correctRegion != null) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
         final HashMap<String, String> correctedSettings = new HashMap<>(settings);
-        correctedSettings.put(REGION_NAME_PARAM, correctRegion);
+        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctRegion);
         return withS3ClientShuttingDownImmediately(correctedSettings, withCorrectedClient);
       } else {
         throw awsException;
