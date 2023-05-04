@@ -1,5 +1,5 @@
 import { React } from '@jetbrains/teamcity-api';
-import { ReactNode, useContext, useEffect, useState } from 'react';
+import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 import { Option } from '@teamcity-cloud-integrations/react-ui-components';
 
@@ -27,19 +27,29 @@ interface OwnProps {
 }
 
 function AwsConnectionsContextProvider({ children }: OwnProps) {
-  const { chosenAwsConnectionId, accessKeyIdValue, secretAcessKeyValue } =
-    useAppContext();
+  const {
+    chosenAwsConnectionId,
+    accessKeyIdValue,
+    secretAcessKeyValue,
+    isDefaultCredentialsChain,
+  } = useAppContext();
   const value = useAwsConnections();
-  const connectionOptions = value.connectionOptions || [];
+  const connectionOptions = useMemo(
+    () => value.connectionOptions || [],
+    [value.connectionOptions]
+  );
   const [withFake, setWithFake] = useState(false);
   // meaning that we have outdated configuration with secrets
   // or migrating from S3 Compatible
   useEffect(() => {
-    if (!chosenAwsConnectionId && accessKeyIdValue && secretAcessKeyValue) {
+    if (
+      !chosenAwsConnectionId &&
+      ((accessKeyIdValue && secretAcessKeyValue) || isDefaultCredentialsChain)
+    ) {
       // create a fake connection
       const fake = {
         key: 'fake',
-        label: 'Static access key',
+        label: 'Access keys',
       } as Option<AwsConnection>;
       connectionOptions.unshift(fake);
       setWithFake(true);
@@ -48,6 +58,7 @@ function AwsConnectionsContextProvider({ children }: OwnProps) {
     accessKeyIdValue,
     chosenAwsConnectionId,
     connectionOptions,
+    isDefaultCredentialsChain,
     secretAcessKeyValue,
   ]);
 

@@ -15,8 +15,7 @@ const availAwsConnectionsDropDownStyle: CSSProperties = {
 };
 
 export default function AvailableAwsConnections() {
-  const { connectionOptions, error, isLoading} =
-    useAwsConnectionsContext();
+  const { connectionOptions, error, isLoading } = useAwsConnectionsContext();
   const { control, setValue, setError, clearErrors } =
     useFormContext<IFormInput>();
 

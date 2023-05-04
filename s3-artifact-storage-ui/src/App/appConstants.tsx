@@ -1,6 +1,6 @@
-import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@teamcity-cloud-integrations/react-ui-components';
 
-import {CredentialType} from '../types';
+import { CredentialType } from '../types';
 
 export enum FormFields {
   STORAGE_TYPE = 'storageType',

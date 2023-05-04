@@ -7,7 +7,7 @@ import {
   useErrorService,
 } from '@teamcity-cloud-integrations/react-ui-components';
 import { useFormContext } from 'react-hook-form';
-import {ReactNode, useCallback} from 'react';
+import { ReactNode, useCallback } from 'react';
 
 import { errorIdToFieldName } from '../../../appConstants';
 import useCfDistributions from '../../../../hooks/useCfDistributions';

@@ -15,11 +15,16 @@ import { FormFields } from '../appConstants';
 import { IFormInput } from '../../types';
 
 import TransferSpeedUp from './TransferSpeedUp/TransferSpeedUp';
+import DefaultProviderChain from './components/DefaultProviderChain';
+import IAMRole from './components/IAMRole';
 
 export default function AwsS3() {
   const { watch } = useFormContext<IFormInput>();
   const { withFake } = useAwsConnectionsContext();
   const currentConnectionKey = watch(FormFields.AWS_CONNECTION_ID)?.key;
+  const defaultProviderChain =
+    watch(FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN) ?? false;
+
   return (
     <>
       <section>
@@ -27,8 +32,14 @@ export default function AwsS3() {
         <AvailableAwsConnections />
         {withFake && currentConnectionKey === 'fake' && (
           <>
-            <AccessKeyId />
-            <SecretAccessKey />
+            <DefaultProviderChain />
+            {!defaultProviderChain && (
+              <>
+                <AccessKeyId />
+                <SecretAccessKey />
+              </>
+            )}
+            <IAMRole />
           </>
         )}
         <Bucket />
