@@ -11,6 +11,7 @@
   </class>
 
   <init>
+    <param name="storage.type" dslName="storageType" value="S3_storage"/>
     <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
   </init>
 
