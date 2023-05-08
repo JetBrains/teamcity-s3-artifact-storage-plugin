@@ -7,7 +7,6 @@ import { AWS_ENV_TYPE_ARRAY, FormFields } from '../../../appConstants';
 import { useAppContext } from '../../../../contexts/AppContext';
 import { Config, DistributionItem, IFormInput } from '../../../../types';
 import useCfDistributions from '../../../../hooks/useCfDistributions';
-import { useAwsConnectionsContext } from '../../../../contexts/AwsConnectionsContext';
 import { AwsConnection } from '../../../AwsConnection/AvailableAwsConnectionsConstants';
 
 type CfState = {
@@ -97,8 +96,7 @@ interface OwnProps {
 }
 
 function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
-  const { connectionOptions } = useAwsConnectionsContext();
-  const { setValue, watch } = useFormContext<IFormInput>();
+  const { setValue, watch, getValues } = useFormContext<IFormInput>();
   const config = useAppContext();
   const { cfDistributions, reloadDistributions, reloadPublicKeys } =
     useCfDistributions();
@@ -112,8 +110,8 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
   useEffect(() => {
     setIsInitialized(false);
     // priming using parameters from configuration
-    const data = configAsFormInput(config, connectionOptions ?? []);
-    Promise.all([reloadDistributions(data), reloadPublicKeys(data)])
+    const formData = getValues();
+    Promise.all([reloadDistributions(formData), reloadPublicKeys(formData)])
       .then(([distributionsInfo, pkInfo]) => {
         const uld = distributionsInfo?.find(
           (it) => it.key === config.cloudFrontUploadDistribution
@@ -224,6 +222,22 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
       { shouldValidate: true, shouldTouch: true, shouldDirty: true }
     );
   }, [setValue, state?.privateKey]);
+
+  useEffect(() => {
+    if (
+      state?.downloadDistribution &&
+      !cfDistributions?.includes(state?.downloadDistribution)
+    ) {
+      setDownloadDistribution(null);
+    }
+
+    if (
+      state?.uploadDistribution &&
+      !cfDistributions?.includes(state?.uploadDistribution)
+    ) {
+      setUploadDistribution(null);
+    }
+  }, [cfDistributions, setDownloadDistribution, setUploadDistribution, state]);
 
   return (
     <Provider
