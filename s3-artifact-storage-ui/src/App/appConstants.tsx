@@ -77,22 +77,22 @@ export enum FetchResourceIds {
 }
 
 export const errorIdToFieldName = (id: string): string | string[] | null => {
-  switch (id) {
-    case FetchResourceIds.BUCKETS:
-      case FetchResourceIds.S3_TRANSFER_ACCELERATION_AVAILABILITY:
-          return FormFields.S3_BUCKET_NAME;
-      case FetchResourceIds.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION:
-          return FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION;
-    case FetchResourceIds.S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION:
-      return FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION;
-    case FetchResourceIds.DISTRIBUTIONS:
-    case FetchResourceIds.S3_CLOUDFRONT_CREATE_DISTRIBUTIONS:
-      return [
-        FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION,
-        FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION,
-      ];
-    case FetchResourceIds.PUBLIC_KEYS:
-    case FetchResourceIds.S3_CLOUDFRONT_PRIVATE_KEY:
+    switch (id) {
+        case FetchResourceIds.BUCKETS:
+        case FetchResourceIds.S3_TRANSFER_ACCELERATION_AVAILABILITY:
+            return FormFields.S3_BUCKET_NAME;
+        case FetchResourceIds.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION:
+            return FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION;
+        case FetchResourceIds.S3_CLOUDFRONT_DOWNLOAD_DISTRIBUTION:
+            return FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION;
+        case FetchResourceIds.DISTRIBUTIONS:
+        case FetchResourceIds.S3_CLOUDFRONT_CREATE_DISTRIBUTIONS:
+            return [
+                FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION,
+                FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION,
+            ];
+        case FetchResourceIds.PUBLIC_KEYS:
+        case FetchResourceIds.S3_CLOUDFRONT_PRIVATE_KEY:
     case FetchResourceIds.S3_CLOUDFRONT_PUBLIC_KEY_ID:
     case FetchResourceIds.VALIDATE_CLOUD_FRONT_KEYS:
       return FormFields.CLOUD_FRONT_PUBLIC_KEY_ID;
