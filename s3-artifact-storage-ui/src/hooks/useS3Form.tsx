@@ -66,6 +66,14 @@ export default function useS3Form() {
     ? true
     : config.forceVirtualHostAddressing;
 
+  const environmentTypeValue = useMemo(() => {
+    if (storageTypeValue?.key === S3_COMPATIBLE) {
+      return AWS_ENV_TYPE_ARRAY[1];
+    } else {
+      return AWS_ENV_TYPE_ARRAY[0];
+    }
+  }, [storageTypeValue?.key]);
+
   const defaultValues = useMemo<IFormInput>(
     () => ({
       [FormFields.STORAGE_TYPE]: storageTypeValue,
@@ -73,9 +81,7 @@ export default function useS3Form() {
       [FormFields.STORAGE_ID]: config.storageSettingsId || 'newS3Storage',
       [FormFields.AWS_CONNECTION_ID]: awsConnectionValue,
       [FormFields.SESSION_DURATION]: config.sessionDuration,
-      [FormFields.AWS_ENVIRONMENT_TYPE]: config.environmentNameValue
-        ? AWS_ENV_TYPE_ARRAY[1]
-        : AWS_ENV_TYPE_ARRAY[0],
+      [FormFields.AWS_ENVIRONMENT_TYPE]: environmentTypeValue,
       [FormFields.CUSTOM_AWS_ENDPOINT_URL]: config.serviceEndpointValue,
       [FormFields.CUSTOM_AWS_REGION]: config.awsRegionName,
       [FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN]:
