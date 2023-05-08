@@ -1,9 +1,9 @@
-import {Option} from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@teamcity-cloud-integrations/react-ui-components';
 
-import {FormFields, keyToFormDataName} from '../App/appConstants';
-import {Config, DistributionItem, IFormInput} from '../types';
-import {AwsConnection} from '../App/AwsConnection/AvailableAwsConnectionsConstants';
-import {AWS_S3, S3_COMPATIBLE} from '../App/Storage/components/StorageType';
+import { FormFields, keyToFormDataName } from '../App/appConstants';
+import { Config, DistributionItem, IFormInput } from '../types';
+import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';
+import { AWS_S3, S3_COMPATIBLE } from '../App/Storage/components/StorageType';
 
 function valueOrDefault(
   condition: () => boolean,
@@ -73,8 +73,8 @@ export function serializeParameters(
     formData[FormFields.CLOUD_FRONT_PUBLIC_KEY_ID] = undefined;
   }
   if (
-      formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 &&
-      (formData[FormFields.AWS_CONNECTION_ID]?.key ?? 'fake') !== 'fake'
+    formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 &&
+    (formData[FormFields.AWS_CONNECTION_ID]?.key ?? 'fake') !== 'fake'
   ) {
     formData[FormFields.ACCESS_KEY_ID] = undefined;
     formData[FormFields.SECRET_ACCESS_KEY] = undefined;
