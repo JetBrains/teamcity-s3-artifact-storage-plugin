@@ -12,7 +12,7 @@ import { useMemo, useCallback } from 'react';
 
 import useStorageOptions from '../../../hooks/useStorageOptions';
 import { IFormInput } from '../../../types';
-import { FormFields } from '../../appConstants';
+import { AWS_ENV_TYPE_ARRAY, FormFields } from '../../appConstants';
 
 type StorageTypeConfig = {
   onChange: (option: Option | null) => void | undefined | null;
@@ -35,6 +35,12 @@ export default function StorageType({ onChange: callback }: StorageTypeConfig) {
           shouldTouch: true,
           shouldDirty: true,
         });
+
+        if (option.key === S3_COMPATIBLE) {
+          setValue(FormFields.AWS_ENVIRONMENT_TYPE, AWS_ENV_TYPE_ARRAY[1]);
+        } else {
+          setValue(FormFields.AWS_ENVIRONMENT_TYPE, AWS_ENV_TYPE_ARRAY[0]);
+        }
       } else if (callback) {
         callback(option);
       }
