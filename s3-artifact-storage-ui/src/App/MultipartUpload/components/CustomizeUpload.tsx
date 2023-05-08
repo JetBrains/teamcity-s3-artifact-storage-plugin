@@ -10,8 +10,7 @@ export default function CustomizeUpload() {
     <FormCheckbox
       name={FormFields.CONNECTION_MULTIPART_CUSTOMIZE_FLAG}
       control={control}
-      label="Customize"
-      details="Use this option to specify threshold and part size"
+      label="Customize threshold and part size"
     />
   );
 }
