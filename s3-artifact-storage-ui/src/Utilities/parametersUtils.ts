@@ -71,6 +71,7 @@ export function serializeParameters(
     formData[FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION] = undefined;
     formData[FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION] = undefined;
     formData[FormFields.CLOUD_FRONT_PUBLIC_KEY_ID] = undefined;
+    formData[FormFields.CLOUD_FRONT_PRIVATE_KEY] = undefined;
   }
   if (
     formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 &&
