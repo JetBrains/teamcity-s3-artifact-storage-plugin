@@ -1983,10 +1983,12 @@
     "@svgr/plugin-jsx" "^6.5.1"
     "@svgr/plugin-svgo" "^6.5.1"
 
-"@teamcity-cloud-integrations/react-ui-components@^0.2.18":
-  version "0.2.18"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.18.tgz#5962a46e5452aea366ed8bed1b0c15c7dc2396c7"
-  integrity sha512-1WQbPqPAvHWeLC+0948n1h2KIJvvdvnzv1JJqPQh+aKX4fzYpb0D2ygN3SuYCRie8oOMFyYFeNBjc2MR57aBGQ==
+"@teamcity-cloud-integrations/react-ui-components@^0.2.24":
+  version "0.2.24"
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.24.tgz#81d36d4debe4626e4f60229a971e8b7cdaf7349f"
+  integrity sha512-U+WP2b1vLJenwNeyhdsLPIGrdz1xM3qfOfqB8jEApOfcEdLy4iYe6tAgcCSIlYHD9J3CAwdgHADyFmiNTq4yJA==
+  dependencies:
+    classnames "^2.3.2"
 
 "@trysound/sax@0.2.0":
   version "0.2.0"
@@ -3560,6 +3562,11 @@ domhandler@^4.2.0, domhandler@^4.3.1:
   integrity sha512-GrwoxYN+uWlzO8uhUXRl0P+kHE4GtVPfYzVLcUxPL7KNdHKj66vvlhiweIHqYYXWlw+T8iLMp42Lm67ghw4WMQ==
   dependencies:
     domelementtype "^2.2.0"
+
+dompurify@^3.0.3:
+  version "3.0.3"
+  resolved "https://registry.yarnpkg.com/dompurify/-/dompurify-3.0.3.tgz#4b115d15a091ddc96f232bcef668550a2f6f1430"
+  integrity sha512-axQ9zieHLnAnHh0sfAamKYiqXMJAVwu+LM/alQ7WDagoWessyWvMSFyW65CqF3owufNu8HBcE4cM2Vflu7YWcQ==
 
 domutils@^2.8.0:
   version "2.8.0"

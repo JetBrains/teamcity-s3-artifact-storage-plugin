@@ -110,6 +110,7 @@ export default function useS3Form() {
         multipartCustomizeFlagValue,
     }),
     [
+      environmentTypeValue,
       storageTypeValue,
       config,
       s3BucketListOrNameOption,
