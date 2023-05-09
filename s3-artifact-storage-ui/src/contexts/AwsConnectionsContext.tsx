@@ -49,7 +49,7 @@ function AwsConnectionsContextProvider({ children }: OwnProps) {
       // create a fake connection
       const fake = {
         key: 'fake',
-        label: 'Access keys',
+        label: '',
       } as Option<AwsConnection>;
       connectionOptions.unshift(fake);
       setWithFake(true);
