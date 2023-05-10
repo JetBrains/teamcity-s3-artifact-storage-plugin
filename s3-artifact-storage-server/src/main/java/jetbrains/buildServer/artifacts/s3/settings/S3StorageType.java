@@ -19,9 +19,12 @@ package jetbrains.buildServer.artifacts.s3.settings;
 import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageTypeRegistry;
+import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -33,10 +36,13 @@ import org.jetbrains.annotations.Nullable;
 public class S3StorageType extends ArtifactStorageType {
 
   @NotNull private final String mySettingsJSP;
+  @NotNull private final ServerSettings myServerSettings;
 
   public S3StorageType(@NotNull ArtifactStorageTypeRegistry registry,
-                       @NotNull PluginDescriptor descriptor) {
+                       @NotNull PluginDescriptor descriptor,
+                       @NotNull ServerSettings serverSettings) {
     mySettingsJSP = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".jsp");
+    myServerSettings = serverSettings;
     registry.registerStorageType(this);
   }
 
@@ -69,6 +75,8 @@ public class S3StorageType extends ArtifactStorageType {
   public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
+    result.put(AwsSessionCredentialsParams.SESSION_DURATION_PARAM, AwsSessionCredentialsParams.SESSION_DURATION_DEFAULT);
+    result.put(AWSCommonParams.EXTERNAL_ID_PARAM, "TeamCity-server-" + myServerSettings.getServerUUID());
     return result;
   }
 

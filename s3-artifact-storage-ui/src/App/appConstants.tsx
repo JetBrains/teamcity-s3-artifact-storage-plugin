@@ -6,6 +6,7 @@ export enum FormFields {
   STORAGE_TYPE = 'storageType',
   STORAGE_ID = 'storageSettingsId',
   STORAGE_NAME = 'prop:storage_name',
+  AWS_CONNECTION_TYPE = 'prop:aws_connection',
   AWS_ENVIRONMENT_TYPE = 'prop:aws_environment',
   AWS_CONNECTION_ID = 'prop:awsConnectionId',
   SESSION_DURATION = 'prop:awsSessionDuration',
