@@ -53,12 +53,6 @@
         Private key that corresponds to chosen public key
       </description>
     </param>
-
-    <param name="awsConnectionId" dslName="awsConnectionId">
-      <description>
-        The ID of configured AWS Connection to access the AWS S3. @see AwsConnection
-      </description>
-    </param>
   </params>
 
   <examples>
@@ -86,8 +80,9 @@
           }
 
           // Storage also requires configured Credentials
-          accessKeyID = "AWS Access key ID"
-          accessKey = "Link to credentialsJSON property containing AWS access key"
+          connection = awsConnection {
+            connectionId = "AWS Connection ID"
+          }
         }
       </code>
     </example>
@@ -119,8 +114,10 @@
           }
 
           // Storage also requires configured Credentials
-          accessKeyID = "AWS Access key ID"
-          accessKey = "Link to credentialsJSON property containing AWS access key"
+          connection = customConnection {
+            accessKeyID = "AWS Access key ID"
+            accessKey = "Link to credentialsJSON property containing AWS access key"
+          }
         }
       </code>
     </example>
@@ -149,11 +146,23 @@
     </example>
     <example>
       <description>
+        Credentials. Specifies credentials using an ID of configured AWS Connection. @see AwsConnection
+      </description>
+      <code>
+        connection = awsConnection {
+            connectionId = "AWS Connection ID"
+        }
+      </code>
+    </example>
+    <example>
+      <description>
         Credentials. Specifies credentials using access key
       </description>
       <code>
-        accessKeyID = "AWS Access key ID"
-        accessKey = "Link to credentialsJSON property containing AWS access key"
+        connection = customConnection {
+          accessKeyID = "AWS Access key ID"
+          accessKey = "Link to credentialsJSON property containing AWS access key"
+        }
       </code>
     </example>
     <example>

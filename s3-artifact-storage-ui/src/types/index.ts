@@ -54,6 +54,7 @@ export interface S3FormInput {
   [FormFields.STORAGE_TYPE]: Option;
   [FormFields.STORAGE_NAME]: string;
   [FormFields.STORAGE_ID]: string;
+  [FormFields.AWS_CONNECTION_TYPE]: string;
   [FormFields.AWS_ENVIRONMENT_TYPE]: Option<number>;
   [FormFields.AWS_CONNECTION_ID]: Option<AwsConnection>;
   [FormFields.SESSION_DURATION]: string;
