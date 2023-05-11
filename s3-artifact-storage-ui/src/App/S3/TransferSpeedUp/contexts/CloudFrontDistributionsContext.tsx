@@ -95,14 +95,27 @@ interface OwnProps {
   children: ReactNode;
 }
 
+function isDistributionInState(cfDistributions: DistributionItem[], downloadDistribution: DistributionItem) {
+    return cfDistributions?.find(distribution => distribution.key === downloadDistribution?.key);
+}
+
 function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
   const { setValue, watch, getValues } = useFormContext<IFormInput>();
   const config = useAppContext();
   const { cfDistributions, reloadDistributions, reloadPublicKeys } =
     useCfDistributions();
 
+  const cfState: CfState = {
+      downloadDistribution: getValues(FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION),
+      uploadDistribution: getValues(FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION),
+      publicKey: getValues(FormFields.CLOUD_FRONT_PUBLIC_KEY_ID),
+      privateKey: getValues(FormFields.CLOUD_FRONT_PRIVATE_KEY),
+      privateKeyDetails: ""
+  };
+
+
   const [isInitialized, setIsInitialized] = useState(false);
-  const [state, setState] = useState<CfState | undefined>(undefined);
+  const [state, setState] = useState<CfState>(cfState);
   const [isMagicHappening, setIsMagicHappening] = useState(false);
   const awsConnection = watch(FormFields.AWS_CONNECTION_ID);
   const isConnectionSelected = !!awsConnection;
@@ -225,15 +238,15 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
 
   useEffect(() => {
     if (
-      state?.downloadDistribution &&
-      !cfDistributions?.includes(state?.downloadDistribution)
+        state?.downloadDistribution &&
+        !isDistributionInState(cfDistributions, state.downloadDistribution)
     ) {
       setDownloadDistribution(null);
     }
 
     if (
       state?.uploadDistribution &&
-      !cfDistributions?.includes(state?.uploadDistribution)
+      !isDistributionInState(cfDistributions, state.uploadDistribution)
     ) {
       setUploadDistribution(null);
     }
