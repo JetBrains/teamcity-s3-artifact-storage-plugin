@@ -10,6 +10,7 @@ import jetbrains.buildServer.clouds.amazon.connector.featureDevelopment.ChosenAw
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.ParamUtil;
 import jetbrains.buildServer.serverSide.InvalidProperty;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
 
 public class S3PropertiesProcessor implements PropertiesProcessor {
@@ -22,7 +23,9 @@ public class S3PropertiesProcessor implements PropertiesProcessor {
       invalids.addAll(new ChosenAwsConnPropertiesProcessor().process(params));
     } else {
       final Map<String, String> awsErrors = new HashMap<>();
-      AWSCommonParams.verifyAccessKeys(params, awsErrors);
+      if (!StringUtil.isTrue(params.get(AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM))){
+        AWSCommonParams.verifyAccessKeys(params, awsErrors);
+      }
       for (Map.Entry<String, String> e : awsErrors.entrySet()) {
         invalids.add(new InvalidProperty(e.getKey(), e.getValue()));
       }
