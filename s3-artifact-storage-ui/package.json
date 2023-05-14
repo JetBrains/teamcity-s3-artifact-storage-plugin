@@ -46,6 +46,7 @@
     "@jetbrains/eslint-config": "^5.4.1",
     "@svgr/webpack": "^6.5.0",
     "@tsconfig/recommended": "^1.0.1",
+    "@types/dompurify": "^3.0.2",
     "@types/jquery": "^3.5.14",
     "@types/react": "^18.0.21",
     "@typescript-eslint/eslint-plugin": "^5.45.1",
