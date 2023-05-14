@@ -82,11 +82,14 @@ export function serializeParameters(
     formData[FormFields.CREDENTIALS_TYPE] = undefined;
     formData[FormFields.CUSTOM_AWS_ENDPOINT_URL] = undefined;
   } else if (formData[FormFields.STORAGE_TYPE]?.key === S3_COMPATIBLE) {
-      formData[FormFields.AWS_CONNECTION_ID] = undefined;
-      formData[FormFields.CUSTOM_AWS_REGION] = undefined;
-      formData[FormFields.SESSION_DURATION] = undefined;
-  } else if (formData[FormFields.AWS_CONNECTION_ID]?.key === "fake" && formData[FormFields.CUSTOM_AWS_ENDPOINT_URL]?.length === 0){
-      formData[FormFields.CUSTOM_AWS_ENDPOINT_URL] = undefined;
+    formData[FormFields.AWS_CONNECTION_ID] = undefined;
+    formData[FormFields.CUSTOM_AWS_REGION] = undefined;
+    formData[FormFields.SESSION_DURATION] = undefined;
+  } else if (
+    formData[FormFields.AWS_CONNECTION_ID]?.key === 'fake' &&
+    formData[FormFields.CUSTOM_AWS_ENDPOINT_URL]?.length === 0
+  ) {
+    formData[FormFields.CUSTOM_AWS_ENDPOINT_URL] = undefined;
   }
 
   return Object.keys(formData)

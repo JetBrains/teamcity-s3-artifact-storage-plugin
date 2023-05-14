@@ -98,7 +98,7 @@ export default function TrustedKeyGroup() {
       <FormRow
         label={
           <LabelWithHelp
-            label="Trusted key group"
+            label="Public key"
             helpText="Public key part that CDN uses to verify a signed requests to artifacts"
           />
         }
