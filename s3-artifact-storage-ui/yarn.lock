@@ -1985,8 +1985,8 @@
 
 "@teamcity-cloud-integrations/react-ui-components@^0.2.24":
   version "0.2.24"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.24.tgz#81d36d4debe4626e4f60229a971e8b7cdaf7349f"
-  integrity sha512-U+WP2b1vLJenwNeyhdsLPIGrdz1xM3qfOfqB8jEApOfcEdLy4iYe6tAgcCSIlYHD9J3CAwdgHADyFmiNTq4yJA==
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@teamcity-cloud-integrations/react-ui-components/-/react-ui-components-0.2.24.tgz#e4d1e6b3157c09966ba9e67f6b801a0c272087ef"
+  integrity sha512-xd48GGq6IpIgIP9ytF2uDSztJrJ6sNaDMZ863GTOdEK9cRx0iIc+xaoFGrKbSUSKIzQJOX52uDhv9HubJIZ9dw==
   dependencies:
     classnames "^2.3.2"
 
@@ -2046,6 +2046,13 @@
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/@types/deep-equal/-/deep-equal-1.0.1.tgz#71cfabb247c22bcc16d536111f50c0ed12476b03"
   integrity sha512-mMUu4nWHLBlHtxXY17Fg6+ucS/MnndyOWyOe7MmwkoMYxvfQU2ajtRaEvqSUv+aVkMqH/C0NCI8UoVfRNQ10yg==
+
+"@types/dompurify@^3.0.2":
+  version "3.0.2"
+  resolved "https://registry.yarnpkg.com/@types/dompurify/-/dompurify-3.0.2.tgz#c1cd33a475bc49c43c2a7900e41028e2136a4553"
+  integrity sha512-YBL4ziFebbbfQfH5mlC+QTJsvh0oJUrWbmxKMyEdL7emlHJqGR2Qb34TEFKj+VCayBvjKy3xczMFNhugThUsfQ==
+  dependencies:
+    "@types/trusted-types" "*"
 
 "@types/element-resize-detector@^1.1.3":
   version "1.1.3"
@@ -2248,6 +2255,11 @@
   integrity sha512-f0KEEe05NvUnat+boPTZ0dgaLZ4SfSouXUgv5noUiefG2ajgKjmETo9ZJyuqsl7dfl2aHlLJUiki6B4ZYldiiw==
   dependencies:
     "@types/node" "*"
+
+"@types/trusted-types@*":
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/@types/trusted-types/-/trusted-types-2.0.3.tgz#a136f83b0758698df454e328759dbd3d44555311"
+  integrity sha512-NfQ4gyz38SL8sDNrSixxU2Os1a5xcdFxipAFxYEuLUlvU2uDwS4NUpsImcf1//SlWItCVMMLiylsxbmNMToV/g==
 
 "@types/unist@*", "@types/unist@^2.0.0":
   version "2.0.6"
