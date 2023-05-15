@@ -22,6 +22,7 @@
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityServerPresignedUrlsProviderClientFactory"/>
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisher"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.publish.S3CompatibleArtifactsPublisher"/>
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3FileUploaderFactoryImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3AdditionalHeadersProvider"/>
 </beans>
