@@ -31,12 +31,20 @@ export default function Distribution({ label, fieldName, onChange }: OwnProps) {
   });
   const { isLoading, errors, reloadDistributions, cfDistributions } =
     useCfDistributions();
-  const { isMagicHappening, disabled } = useCloudFrontDistributionsContext();
+  const { isMagicHappening, disabled, setCfDistributions } =
+    useCloudFrontDistributionsContext();
 
   const reloadCloudDistributions = useCallback(async () => {
     clearErrors(fieldName);
-    await reloadDistributions(getValues());
-  }, [clearErrors, fieldName, reloadDistributions, getValues]);
+    const result = await reloadDistributions(getValues());
+    result && setCfDistributions(result);
+  }, [
+    clearErrors,
+    fieldName,
+    reloadDistributions,
+    getValues,
+    setCfDistributions,
+  ]);
 
   if (errors) {
     showErrorsOnForm(errors);

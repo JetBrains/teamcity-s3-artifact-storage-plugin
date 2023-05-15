@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import {
   errorMessage,
@@ -19,6 +19,8 @@ export default function useCfDistributions() {
   const [responseErrors, setResponseErrors] = useState<
     ResponseErrors | undefined
   >(undefined);
+  // this state conflicts with CloudFrontDistributionsContext's state
+  // FIXME: refactor to use only one state
   const [publicKeyOptions, setPublicKeyOptions] = useState<Option[]>([]);
   const [cfDistributions, setCfDistributions] = useState<DistributionItem[]>(
     []
@@ -46,7 +48,7 @@ export default function useCfDistributions() {
           const selDD = data[FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION];
           const selUD = data[FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION];
           const publicKeysData = publicKeys
-            // if Download Distribution is selected filter keys that are compatible with it
+            // if Download Distribution is selected, filter keys that are compatible with it
             .filter((pk) =>
               selDD
                 ? (selDD as DistributionItem).publicKeys?.find(
@@ -54,7 +56,7 @@ export default function useCfDistributions() {
                   ) !== undefined
                 : true
             )
-            // if Upload Distribution is selected filter keys that are compatible with it
+            // if Upload Distribution is selected, filter keys that are compatible with it
             .filter((pk) =>
               selUD
                 ? (selUD as DistributionItem).publicKeys?.find(
@@ -118,12 +120,22 @@ export default function useCfDistributions() {
     [config, publicKeyOptions]
   );
 
-  return {
-    isLoading,
-    errors: responseErrors,
-    cfDistributions,
-    publicKeyOptions,
-    reloadDistributions,
-    reloadPublicKeys,
-  };
+  return useMemo(
+    () => ({
+      isLoading,
+      errors: responseErrors,
+      cfDistributions,
+      publicKeyOptions,
+      reloadDistributions,
+      reloadPublicKeys,
+    }),
+    [
+      cfDistributions,
+      isLoading,
+      publicKeyOptions,
+      reloadDistributions,
+      reloadPublicKeys,
+      responseErrors,
+    ]
+  );
 }

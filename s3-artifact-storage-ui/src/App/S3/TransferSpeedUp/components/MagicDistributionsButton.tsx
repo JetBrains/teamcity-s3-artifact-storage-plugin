@@ -35,6 +35,7 @@ export default function MagicDistributionsButton() {
   const { getValues, setError } = useFormContext<IFormInput>();
   const { isLoading } = useCfDistributions();
   const {
+    setCfDistributions,
     setDownloadDistribution,
     setUploadDistribution,
     setPublicKey,
@@ -93,10 +94,17 @@ export default function MagicDistributionsButton() {
   const createDistributionMagic = useCallback(async () => {
     setIsMagicHappening(true);
     try {
-      const { result, errors } = await createDistributions(getValues());
+      const formData = getValues();
+      const { result, errors } = await createDistributions(formData);
+
       if (errors) {
         showErrorsOnForm(errors);
       } else if (result) {
+        setCfDistributions((prevState) => [
+          ...prevState,
+          result.downloadDistribution,
+          result.uploadDistribution,
+        ]);
         setDownloadDistribution(result.downloadDistribution);
         setUploadDistribution(result.uploadDistribution);
         setPublicKey(result.publicKey);
