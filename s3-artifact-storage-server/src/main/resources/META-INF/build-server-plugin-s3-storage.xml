@@ -20,7 +20,6 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd"
        default-autowire="constructor">
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3StorageType"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.settings.S3CompatibleStorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>

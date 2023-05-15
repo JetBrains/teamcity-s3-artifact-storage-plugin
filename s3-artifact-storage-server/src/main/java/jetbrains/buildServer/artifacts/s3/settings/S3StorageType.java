@@ -55,7 +55,7 @@ public class S3StorageType extends ArtifactStorageType {
   @NotNull
   @Override
   public String getName() {
-    return "AWS S3";
+    return "S3 Storage";
   }
 
   @NotNull
