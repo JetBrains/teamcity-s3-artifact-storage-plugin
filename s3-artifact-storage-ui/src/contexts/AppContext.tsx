@@ -42,7 +42,6 @@ const AppContext = React.createContext<Config>({
   chosenAwsConnectionId: '',
   availableAwsConnectionsControllerUrl: '',
   availableAwsConnectionsControllerResource: '',
-  sessionDuration: '',
 });
 
 const { Provider } = AppContext;
