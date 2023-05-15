@@ -84,7 +84,6 @@ export function serializeParameters(
   } else if (formData[FormFields.STORAGE_TYPE]?.key === S3_COMPATIBLE) {
     formData[FormFields.AWS_CONNECTION_ID] = undefined;
     formData[FormFields.CUSTOM_AWS_REGION] = undefined;
-    formData[FormFields.SESSION_DURATION] = undefined;
   } else if (
     formData[FormFields.AWS_CONNECTION_ID]?.key === 'fake' &&
     formData[FormFields.CUSTOM_AWS_ENDPOINT_URL]?.length === 0

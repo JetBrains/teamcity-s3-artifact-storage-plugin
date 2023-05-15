@@ -46,7 +46,6 @@ export type Config = {
   chosenAwsConnectionId: string;
   availableAwsConnectionsControllerUrl: string;
   availableAwsConnectionsControllerResource: string;
-  sessionDuration: string;
 };
 
 // Note: when changing types here fix related code in parametersUtils.tsx
@@ -57,7 +56,6 @@ export interface S3FormInput {
   [FormFields.AWS_CONNECTION_TYPE]: string;
   [FormFields.AWS_ENVIRONMENT_TYPE]: Option<number>;
   [FormFields.AWS_CONNECTION_ID]: Option<AwsConnection>;
-  [FormFields.SESSION_DURATION]: string;
   [FormFields.CUSTOM_AWS_ENDPOINT_URL]: string;
   [FormFields.CUSTOM_AWS_REGION]: string;
   [FormFields.CREDENTIALS_TYPE]: string;

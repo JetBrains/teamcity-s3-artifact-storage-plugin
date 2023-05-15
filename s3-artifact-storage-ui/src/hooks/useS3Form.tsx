@@ -80,7 +80,6 @@ export default function useS3Form() {
       [FormFields.STORAGE_NAME]: config.selectedStorageName,
       [FormFields.STORAGE_ID]: config.storageSettingsId || 'newS3Storage',
       [FormFields.AWS_CONNECTION_ID]: awsConnectionValue,
-      [FormFields.SESSION_DURATION]: config.sessionDuration,
       [FormFields.AWS_ENVIRONMENT_TYPE]: environmentTypeValue,
       [FormFields.CUSTOM_AWS_ENDPOINT_URL]: config.serviceEndpointValue,
       [FormFields.CUSTOM_AWS_REGION]: config.awsRegionName,

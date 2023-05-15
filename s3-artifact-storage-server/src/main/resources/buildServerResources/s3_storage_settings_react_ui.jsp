@@ -22,7 +22,6 @@
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
 <%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
-<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams" %>
 <%@ page import="jetbrains.buildServer.util.StringUtil" %>
 <%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
 <%@ page import="jetbrains.buildServer.util.amazon.AWSRegions" %>
@@ -55,7 +54,6 @@
 
 <c:set var="avail_connections_controller_url" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_CONTROLLER_URL%>"/>
 <c:set var="avail_connections_rest_resource_name" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_REST_RESOURCE_NAME%>"/>
-<c:set var="session_duration_default" value="<%=AwsSessionCredentialsParams.SESSION_DURATION_DEFAULT%>"/>
 
 <%--@elvariable id="availableStorages" type="java.util.List<jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType>"--%>
 <%--@elvariable id="newStorage" type="String"--%>
@@ -133,7 +131,6 @@
     availableAwsConnectionsControllerUrl: "<bs:forJs>${avail_connections_controller_url}</bs:forJs>",
     availableAwsConnectionsControllerResource: "<bs:forJs>${avail_connections_rest_resource_name}</bs:forJs>",
     chosenAwsConnectionId: "<bs:forJs>${propertiesBean.properties[params.chosenAwsConnectionId]}</bs:forJs>",
-    sessionDuration: "<bs:forJs>${empty propertiesBean.properties[params.sessionDuration] ? session_duration_default : propertiesBean.properties[params.sessionDuration]}</bs:forJs>",
   };
 
   var loadJS = function (url, implementationCode, location) {

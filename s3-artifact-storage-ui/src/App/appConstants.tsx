@@ -9,7 +9,6 @@ export enum FormFields {
   AWS_CONNECTION_TYPE = 'prop:aws_connection',
   AWS_ENVIRONMENT_TYPE = 'prop:aws_environment',
   AWS_CONNECTION_ID = 'prop:awsConnectionId',
-  SESSION_DURATION = 'prop:awsSessionDuration',
   CUSTOM_AWS_ENDPOINT_URL = 'prop:aws_service_endpoint',
   // CUSTOM_AWS_REGION = 'prop:awsRegionName',
   CUSTOM_AWS_REGION = 'prop:aws_region_name',

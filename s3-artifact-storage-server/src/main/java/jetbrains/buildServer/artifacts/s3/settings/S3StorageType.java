@@ -19,7 +19,6 @@ package jetbrains.buildServer.artifacts.s3.settings;
 import java.util.HashMap;
 import java.util.Map;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
-import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsSessionCredentialsParams;
 import jetbrains.buildServer.serverSide.PropertiesProcessor;
 import jetbrains.buildServer.serverSide.ServerSettings;
 import jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType;
@@ -75,7 +74,6 @@ public class S3StorageType extends ArtifactStorageType {
   public Map<String, String> getDefaultParameters() {
     Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
-    result.put(AwsSessionCredentialsParams.SESSION_DURATION_PARAM, AwsSessionCredentialsParams.SESSION_DURATION_DEFAULT);
     result.put(AWSCommonParams.EXTERNAL_ID_PARAM, "TeamCity-server-" + myServerSettings.getServerUUID());
     return result;
   }
