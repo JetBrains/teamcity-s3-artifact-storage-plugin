@@ -65,16 +65,14 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
-                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class) {
+                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class,
+                                              InterruptedIOException.class, InterruptedException.class, IOException.class) {
                            @Override
                            public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
                              if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
                                throw new AbortRetriesException(e);
                              }
                              if (e instanceof HttpClientUtil.HttpErrorCodeException) {
-                               if (!isRecoverable(e)) {
-                                 return;
-                               }
                                if (((HttpClientUtil.HttpErrorCodeException)e).getResponseCode() == 403 && e.getMessage().contains("Request has expired")) {
                                  myTtl.getAndUpdate(prev -> {
                                    if (prev == null) {
@@ -83,8 +81,12 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                                      return 2L * prev;
                                    }
                                  });
-                                 throw new AbortRetriesException(e);
                                }
+                               if (isRecoverable(e)) {
+                                 // recoverable error, retry
+                                 return;
+                               }
+                               throw new AbortRetriesException(e);
                              }
 
                              super.onFailure(callable, retry, e);

@@ -34,7 +34,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
-           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
+           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", false))
            .thenReturn(CompletableFuture.completedFuture("digest"));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
@@ -48,7 +48,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
     } catch (FileUploadFailedException e) {
       try {
         Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", null);
-        assertTrue(e.isRecoverable());
+        assertFalse(e.isRecoverable());
         upload.call();
         Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
@@ -66,7 +66,9 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
-           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Unrelated auth exception", true))
+           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Unrelated auth exception retriable", true))
+           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Unrelated auth exception failure", false))
+           // Note: this return is necessary for second upload.call() to succeed
            .thenReturn(CompletableFuture.completedFuture("digest"));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
@@ -79,7 +81,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     } catch (FileUploadFailedException e) {
       try {
-        assertTrue(e.isRecoverable());
+        assertFalse(e.isRecoverable());
         upload.call();
         Mockito.verify(uploadManager, times(2)).getUrlWithDigest("key", null);
         return;
@@ -130,10 +132,12 @@ public class S3PresignedUploadTest extends BaseTestCase {
            .thenReturn(multipartDto);
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
+    final CompletableFuture<String> failedFuture = new CompletableFuture<>();
+    failedFuture.completeExceptionally(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", false));
     Mockito.when(s3client.uploadFilePart(anyString(), any()))
            .thenReturn(
              CompletableFuture.completedFuture(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8))))
-           .thenThrow(new HttpClientUtil.HttpErrorCodeException(403, "Request has expired", true))
+           .thenReturn(failedFuture)
            .thenReturn(
              CompletableFuture.completedFuture(Hex.encodeHexString("etag".getBytes(StandardCharsets.UTF_8))));
 
@@ -147,11 +151,11 @@ public class S3PresignedUploadTest extends BaseTestCase {
     final S3PresignedMultipartUpload upload = new S3PresignedMultipartUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
     try {
       upload.call();
-
+      // FileUploadFailedException will be thrown only when we encounter a non-recoverable error
     } catch (FileUploadFailedException e) {
       try {
         Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null);
-        assertTrue(e.isRecoverable());
+        assertFalse(e.isRecoverable());
         upload.call();
         Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
@@ -177,6 +181,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFilePart(anyString(), any()))
+           // Note: this throw will prevent instaniation of the CompletableFuture, hense finish upload with an exceptional case without retry possibility verification
            .thenThrow(new HttpClientUtil.HttpErrorCodeException(503, "Nonrecoverable request", false));
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
