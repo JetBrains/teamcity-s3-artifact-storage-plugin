@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -17,7 +18,9 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Clien
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.S3MultipartUploadFileSplitter;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
+import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
+import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -78,7 +81,13 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                      myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
                                      final String url = partDto.getUrl();
                                      final FilePart filePart = fileParts.get(partIndex);
-                                     return myRetrier.execute(() -> myLowLevelS3Client.uploadFilePart(url, filePart))
+                                     return myRetrier.executeAsync(() -> {
+                                                       try {
+                                                         return myLowLevelS3Client.uploadFilePart(url, filePart);
+                                                       } catch (URISyntaxException e) {
+                                                         throw new AbortRetriesException(e);
+                                                       }
+                                                     })
                                                      .thenApply(etag -> {
                                                        myRemainingBytes.getAndAdd(-filePart.getLength());
                                                        myProgressListener.onPartUploadSuccess(stripQuery(url));
@@ -86,7 +95,8 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                      })
                                                      .exceptionally(e -> {
                                                        myProgressListener.onPartUploadFailed(e);
-                                                       throw new RuntimeException(e);
+                                                       ExceptionUtil.rethrowAsRuntimeException(e);
+                                                       return null;
                                                      });
                                    })
                                    .toArray(CompletableFuture[]::new);
@@ -98,8 +108,19 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       return DigestUtil.multipartDigest(getEtags());
     } catch (InterruptedException | ExecutionException e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
-      throw new RuntimeException(e);
+
+      // ExecutionException wraps the real reason for termination or failure.
+      // see this::allOfTerminateOnFailure for details
+      if (e instanceof ExecutionException && e.getCause() != null) {
+        Throwable cause = e.getCause();
+        myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable((Exception)cause));
+        ExceptionUtil.rethrowAsRuntimeException(cause);
+      } else {
+        myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
+        ExceptionUtil.rethrowAsRuntimeException(e);
+      }
+
+      return null;
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
@@ -107,9 +128,9 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
     }
   }
 
-  private CompletableFuture<?> allOfTerminateOnFailure(CompletableFuture<String>... futures){
+  private CompletableFuture<?> allOfTerminateOnFailure(CompletableFuture<String>... futures) {
     CompletableFuture<?> failure = new CompletableFuture<>();
-    for (CompletableFuture<String> future: futures){
+    for (CompletableFuture<String> future : futures) {
       future.exceptionally(ex -> {
         failure.completeExceptionally(ex);
         cancelAll(futures);
@@ -121,7 +142,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
   }
 
   private static void cancelAll(CompletableFuture<String>[] futures) {
-    for (CompletableFuture<String> future: futures){
+    for (CompletableFuture<String> future : futures) {
       future.cancel(true);
     }
   }
