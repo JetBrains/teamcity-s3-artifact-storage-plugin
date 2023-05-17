@@ -136,7 +136,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
         if (statistics.size() > MAX_UPLOAD_LOG_MESSAGES) {
           final StatisticsLogger.SummaryStatistics stats = getSummaryStatistics(statistics);
           logger.debug(
-            String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for first %d files",
+            String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for the first %d files",
                           stats.getFileCount(),
                           formatDuration(stats.getTotalDuration()),
                           formatDuration(stats.getAverageDuration()),
