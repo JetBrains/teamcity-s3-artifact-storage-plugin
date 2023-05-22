@@ -75,6 +75,8 @@ public class S3StorageType extends ArtifactStorageType {
     Map<String, String> result = new HashMap<>();
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
     result.put(AWSCommonParams.EXTERNAL_ID_PARAM, "TeamCity-server-" + myServerSettings.getServerUUID());
+    // Ensures backwards compatibility with old S3 configurations and fixes TW-81457
+    result.put(AWSCommonParams.SERVICE_ENDPOINT_PARAM, "");
     return result;
   }
 
