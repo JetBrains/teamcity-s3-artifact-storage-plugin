@@ -2,7 +2,7 @@ import { React } from '@jetbrains/teamcity-api';
 import {
   FormCheckbox,
   FormRow,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 
 import { useFormContext } from 'react-hook-form';
 

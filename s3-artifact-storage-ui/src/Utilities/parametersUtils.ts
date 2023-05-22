@@ -1,4 +1,4 @@
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { FormFields, keyToFormDataName } from '../App/appConstants';
 import { Config, DistributionItem, IFormInput } from '../types';

@@ -1,4 +1,4 @@
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { FormFields } from '../App/appConstants';
 import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';

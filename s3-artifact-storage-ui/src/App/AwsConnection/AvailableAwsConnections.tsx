@@ -3,7 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import {
   FormRow,
   FormSelect,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import { CSSProperties, useCallback, useEffect } from 'react';
 
 import { IFormInput } from '../../types';

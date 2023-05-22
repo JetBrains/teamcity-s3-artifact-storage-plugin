@@ -1,7 +1,7 @@
 import {
   Option,
   SectionHeader,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 
 import { React } from '@jetbrains/teamcity-api';
 

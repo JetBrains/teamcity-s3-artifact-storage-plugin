@@ -6,7 +6,7 @@ import {
   FormRow,
   FormSelect,
   Option,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 
 import { useMemo, useCallback } from 'react';
 

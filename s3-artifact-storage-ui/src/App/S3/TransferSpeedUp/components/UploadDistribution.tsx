@@ -1,6 +1,6 @@
 import { React } from '@jetbrains/teamcity-api';
 
-import { LabelWithHelp } from '@teamcity-cloud-integrations/react-ui-components';
+import { LabelWithHelp } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { FormFields } from '../../../appConstants';
 import { useCloudFrontDistributionsContext } from '../contexts/CloudFrontDistributionsContext';

@@ -1,4 +1,4 @@
-import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
+import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
 
 import { FetchResourceIds } from '../App/appConstants';
 
