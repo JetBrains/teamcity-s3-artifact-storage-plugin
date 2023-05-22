@@ -1,6 +1,6 @@
 import { React } from '@jetbrains/teamcity-api';
 import { ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 import { useFormContext } from 'react-hook-form';
 
 import { FormFields } from '../../../appConstants';

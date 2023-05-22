@@ -1,7 +1,7 @@
 import { React } from '@jetbrains/teamcity-api';
 import { ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
-import { Option } from '@teamcity-cloud-integrations/react-ui-components';
+import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 
 import useAwsConnections from '../hooks/useAwsConnections';
 import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';

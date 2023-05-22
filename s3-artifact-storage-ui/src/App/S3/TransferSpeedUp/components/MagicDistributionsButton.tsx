@@ -3,9 +3,9 @@ import {
   MagicButton,
   Option,
   useErrorService,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import { React } from '@jetbrains/teamcity-api';
-import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
+import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
 
 import { useFormContext } from 'react-hook-form';
 
@@ -117,6 +117,7 @@ export default function MagicDistributionsButton() {
       setIsMagicHappening(false);
     }
   }, [
+    setCfDistributions,
     createDistributions,
     getValues,
     setDownloadDistribution,

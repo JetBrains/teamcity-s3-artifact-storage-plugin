@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   errorMessage,
   Option,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 
 import { useAppContext } from '../contexts/AppContext';
 import { post } from '../Utilities/fetchHelper';

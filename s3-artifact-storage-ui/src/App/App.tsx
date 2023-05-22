@@ -7,13 +7,13 @@ import {
   Option,
   useErrorService,
   useJspContainer,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import {
   ControlsHeight,
   ControlsHeightContext,
 } from '@jetbrains/ring-ui/components/global/controls-height';
 
-import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
+import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
 
 import Loader from '@jetbrains/ring-ui/components/loader/loader';
 

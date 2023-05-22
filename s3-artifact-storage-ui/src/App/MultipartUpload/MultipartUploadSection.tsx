@@ -1,5 +1,5 @@
 import { React } from '@jetbrains/teamcity-api';
-import { SectionHeader } from '@teamcity-cloud-integrations/react-ui-components';
+import { SectionHeader } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { useFormContext } from 'react-hook-form';
 

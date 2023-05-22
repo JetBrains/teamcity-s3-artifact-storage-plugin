@@ -2,7 +2,7 @@ import {
   FormInput,
   FormRow,
   LabelWithHelp,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import { React } from '@jetbrains/teamcity-api';
 import { useFormContext } from 'react-hook-form';
 

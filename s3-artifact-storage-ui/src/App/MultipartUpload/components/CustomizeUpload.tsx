@@ -1,5 +1,5 @@
 import { React } from '@jetbrains/teamcity-api';
-import { FormCheckbox } from '@teamcity-cloud-integrations/react-ui-components';
+import { FormCheckbox } from '@jetbrains-internal/tcci-react-ui-components';
 import { useFormContext } from 'react-hook-form';
 
 import { FormFields } from '../../appConstants';

@@ -3,9 +3,9 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   errorMessage,
   Option,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 
-import { ResponseErrors } from '@teamcity-cloud-integrations/react-ui-components/dist/types';
+import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
 
 import { loadDistributionList } from '../Utilities/fetchDistributions';
 import { loadPublicKeyList } from '../Utilities/fetchPublicKeys';

@@ -4,7 +4,7 @@ import {
   SectionHeader,
   Switcher,
   SwitcherOption,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import inputStyles from '@jetbrains/ring-ui/components/input/input.css';
 
 import { useFormContext } from 'react-hook-form';

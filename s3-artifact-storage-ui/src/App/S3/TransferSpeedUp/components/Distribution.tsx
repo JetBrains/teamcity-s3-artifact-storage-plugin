@@ -5,7 +5,7 @@ import {
   FormRow,
   FormSelect,
   useErrorService,
-} from '@teamcity-cloud-integrations/react-ui-components';
+} from '@jetbrains-internal/tcci-react-ui-components';
 import { useFormContext } from 'react-hook-form';
 import { ReactNode, useCallback } from 'react';
 
