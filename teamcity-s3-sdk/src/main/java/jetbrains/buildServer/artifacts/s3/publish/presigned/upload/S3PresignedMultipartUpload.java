@@ -5,12 +5,13 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.Duration;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.FilePart;
@@ -31,7 +32,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
   private final S3MultipartUploadFileSplitter myFileSplitter;
   private final boolean myCheckConsistency;
   @Nullable
-  private CompletableFuture<String>[] myEtags;
+  private AtomicReferenceArray<String> myEtags;
 
   @Nullable
   private String uploadId;
@@ -44,7 +45,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                     @NotNull LowLevelS3Client lowLevelS3Client,
                                     @NotNull PresignedUploadProgressListener progressListener) {
     super(artifactPath, objectKey, file, configuration, s3SignedUploadManager, lowLevelS3Client, progressListener);
-
+    myEtags = null;
     myCheckConsistency = configuration.isConsistencyCheckEnabled();
     myChunkSizeInBytes = configuration.getMinimumUploadPartSize();
     myFileSplitter = new S3MultipartUploadFileSplitter(myChunkSizeInBytes);
@@ -73,77 +74,70 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
         uploadId = multipartUploadUrls.getUploadId();
       }
 
-      //noinspection unchecked
-      myEtags = multipartUploadUrls.getPresignedUrlParts()
-                                   .stream()
-                                   .map(partDto -> {
-                                     final int partIndex = partDto.getPartNumber() - 1;
-                                     myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
-                                     final String url = partDto.getUrl();
-                                     final FilePart filePart = fileParts.get(partIndex);
-                                     return myRetrier.executeAsync(() -> {
-                                                       try {
-                                                         return myLowLevelS3Client.uploadFilePart(url, filePart);
-                                                       } catch (URISyntaxException e) {
-                                                         throw new AbortRetriesException(e);
-                                                       }
-                                                     })
-                                                     .thenApply(etag -> {
-                                                       myRemainingBytes.getAndAdd(-filePart.getLength());
-                                                       myProgressListener.onPartUploadSuccess(stripQuery(url));
-                                                       return etag;
-                                                     })
-                                                     .exceptionally(e -> {
-                                                       myProgressListener.onPartUploadFailed(e);
-                                                       ExceptionUtil.rethrowAsRuntimeException(e);
-                                                       return null;
-                                                     });
-                                   })
-                                   .toArray(CompletableFuture[]::new);
+      // initialize array of results
+      // it will be reused by upper-level retry procedure, that in some cases will be triggered
+      // (see jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3SignedUrlFileUploader::upload)
+      if (myEtags == null) {
+        myEtags = new AtomicReferenceArray<>(nParts);
+      }
 
-      allOfTerminateOnFailure(myEtags).get();
+      // actually we don't need results from these futures.
+      // each completion will directly write result to the array of results called myEtags.
+      CompletableFuture[] chunkUploadFutures = multipartUploadUrls.getPresignedUrlParts()
+                                                                  .stream()
+                                                                  .map(partDto -> {
+                                                                    final int partIndex = partDto.getPartNumber() - 1;
+                                                                    myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
+                                                                    final String url = partDto.getUrl();
+                                                                    final FilePart filePart = fileParts.get(partIndex);
+
+                                                                    // this allows us to save time in case of huge files re-upload
+                                                                    if (myEtags.get(partIndex) != null) {
+                                                                      // part was already uploaded
+                                                                      return CompletableFuture.completedFuture(myEtags.get(partIndex));
+                                                                    }
+
+                                                                    return myRetrier.executeAsync(() -> {
+                                                                                      try {
+                                                                                        return myLowLevelS3Client.uploadFilePart(url, filePart);
+                                                                                      } catch (URISyntaxException e) {
+                                                                                        throw new AbortRetriesException(e);
+                                                                                      }
+                                                                                    })
+                                                                                    .thenApply(etag -> {
+                                                                                      myRemainingBytes.getAndAdd(-filePart.getLength());
+                                                                                      myProgressListener.onPartUploadSuccess(stripQuery(url));
+                                                                                      // put result to the array of results
+                                                                                      myEtags.set(partIndex, etag);
+                                                                                      return etag;
+                                                                                    })
+                                                                                    .exceptionally(e -> {
+                                                                                      myProgressListener.onPartUploadFailed(e);
+                                                                                      ExceptionUtil.rethrowAsRuntimeException(e);
+                                                                                      return null;
+                                                                                    });
+                                                                  })
+                                                                  .toArray(CompletableFuture[]::new);
+      // await completion of all futures.
+      // in case of exception in any of them, allOf will still wait for completion of all other futures and then throw ExecutionException
+      CompletableFuture.allOf(chunkUploadFutures).get();
       final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
       String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
       myProgressListener.onFileUploadSuccess(strippedUrl);
       return DigestUtil.multipartDigest(getEtags());
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (ExecutionException e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-
       // ExecutionException wraps the real reason for termination or failure.
-      // see this::allOfTerminateOnFailure for details
-      if (e instanceof ExecutionException && e.getCause() != null) {
-        Throwable cause = e.getCause();
-        myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable((Exception)cause));
-        ExceptionUtil.rethrowAsRuntimeException(cause);
-      } else {
-        myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
-        ExceptionUtil.rethrowAsRuntimeException(e);
-      }
-
+      Throwable cause = e.getCause();
+      myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable((Exception)cause));
+      ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;
     } catch (final Exception e) {
       LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
       myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
-      throw e;
-    }
-  }
-
-  private CompletableFuture<?> allOfTerminateOnFailure(CompletableFuture<String>... futures) {
-    CompletableFuture<?> failure = new CompletableFuture<>();
-    for (CompletableFuture<String> future : futures) {
-      future.exceptionally(ex -> {
-        failure.completeExceptionally(ex);
-        cancelAll(futures);
-        return null;
-      });
-    }
-
-    return CompletableFuture.anyOf(failure, CompletableFuture.allOf(futures));
-  }
-
-  private static void cancelAll(CompletableFuture<String>[] futures) {
-    for (CompletableFuture<String> future : futures) {
-      future.cancel(true);
+      // InterruptedException will be re-thrown wrapped in RuntimeException
+      ExceptionUtil.rethrowAsRuntimeException(e);
+      return null;
     }
   }
 
@@ -152,13 +146,19 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
     if (myEtags == null) {
       return Collections.emptyList();
     }
-    final CompletableFuture<Void> etagsFuture = CompletableFuture.allOf(myEtags);
 
-    if (etagsFuture.isDone()) {
-      return etagsFuture.isCompletedExceptionally() || etagsFuture.isCancelled() ? Collections.emptyList() :
-             Arrays.stream(myEtags).map(CompletableFuture::join).collect(Collectors.toList());
-    } else {
-      return Collections.emptyList();
+    ArrayList<String> result = new ArrayList<>(myEtags.length());
+
+    for (int i = 0; i < myEtags.length(); i++) {
+      String etag = myEtags.get(i);
+      if (etag != null) {
+        result.add(etag);
+      } else {
+        // exit immediately if at least one etag is not ready
+        return Collections.emptyList();
+      }
     }
+
+    return result;
   }
 }
