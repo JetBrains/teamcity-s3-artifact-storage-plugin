@@ -105,6 +105,10 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
           uploadDistribution: uld,
           publicKey: pk,
           privateKey: config.cloudFrontPrivateKey,
+          privateKeyDetails:
+            config.cloudFrontPrivateKey.length > 0
+              ? 'Private key was uploaded'
+              : undefined,
         });
       })
       .finally(() => {

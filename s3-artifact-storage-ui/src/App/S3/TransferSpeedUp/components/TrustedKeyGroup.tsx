@@ -40,7 +40,7 @@ export default function TrustedKeyGroup() {
     isMagicHappening,
     disabled,
   } = useCloudFrontDistributionsContext();
-  const privateKeyDetails = state?.privateKeyDetails;
+  const {privateKey, privateKeyDetails} = state || {};
   const reloadCloudPublicKeys = useCallback(
     () => reloadPublicKeys(getValues()),
     [getValues, reloadPublicKeys]
@@ -124,7 +124,9 @@ export default function TrustedKeyGroup() {
           onClick={upload}
           loader={validationInProgress}
         >
-          {'Upload private key...'}
+          {(privateKey?.length ?? 0) > 0
+            ? 'Update private key...'
+            : 'Upload private key...'}
         </Button>
       </FieldRow>
       <FieldRow>
