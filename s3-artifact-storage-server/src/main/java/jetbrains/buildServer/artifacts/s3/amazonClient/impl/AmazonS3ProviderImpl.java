@@ -307,12 +307,8 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     }
 
     ConnectionCredentials connectionCredentials = getConnectionCredentials(project, params);
-    AwsConnectionCredentials awsConnectionCredentials = new AwsConnectionCredentials(connectionCredentials);
-    if (awsConnectionCredentials.getAwsRegion() == null) {
-      throw new ConnectionCredentialsException(
-        String.format("The AWS Region is not specified in AWS Connection <%s> in the project <%s>", ParamUtil.getLinkedAwsConnectionId(params), projectId));
-    }
-    return awsConnectionCredentials;
+
+    return new AwsConnectionCredentials(connectionCredentials);
   }
 
   private ConnectionCredentials getConnectionCredentials(@NotNull SProject project, @NotNull Map<String, String> s3Settings) throws ConnectionCredentialsException {
