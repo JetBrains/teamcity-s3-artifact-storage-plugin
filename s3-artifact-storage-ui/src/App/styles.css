@@ -46,3 +46,11 @@
   display: inline-flex;
   margin-left: 100px;
 }
+
+.fixDialog div[data-test='ring-island ring-dialog'] {
+  width: fit-content;
+}
+
+.fixDialog div[data-test='ring-island-content'] > div {
+  padding-top: 0;
+}

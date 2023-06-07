@@ -40,7 +40,7 @@ export default function TrustedKeyGroup() {
     isMagicHappening,
     disabled,
   } = useCloudFrontDistributionsContext();
-  const {privateKey, privateKeyDetails} = state || {};
+  const { privateKey, privateKeyDetails } = state || {};
   const reloadCloudPublicKeys = useCallback(
     () => reloadPublicKeys(getValues()),
     [getValues, reloadPublicKeys]

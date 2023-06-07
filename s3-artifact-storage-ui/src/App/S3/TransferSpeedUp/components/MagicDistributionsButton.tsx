@@ -120,6 +120,7 @@ export default function MagicDistributionsButton() {
     setCfDistributions,
     createDistributions,
     getValues,
+    setCfDistributions,
     setDownloadDistribution,
     setIsMagicHappening,
     setPrivateKey,

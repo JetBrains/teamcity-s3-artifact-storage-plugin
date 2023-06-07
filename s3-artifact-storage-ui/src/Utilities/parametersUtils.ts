@@ -144,6 +144,6 @@ export function serializeParameters(
     });
 }
 
-function encodeSecret(value: string, publicKey: string): string {
+export function encodeSecret(value: string, publicKey: string): string {
   return window.BS.Encrypt.encryptData(value, publicKey);
 }

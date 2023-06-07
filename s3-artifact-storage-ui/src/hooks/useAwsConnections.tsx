@@ -41,13 +41,17 @@ export default function useAwsConnections() {
     }, [] as Option<AwsConnection>[]);
   }, [config]);
 
-  useEffect(() => {
-    setIsLoading(true);
+  const reloadConnectionOptions = useCallback(() => {
     fetchAwsConnections()
       .then((awsConnections) => setConnectionOptions(awsConnections))
       .catch((err: unknown) => setError(errorMessage(err)))
       .finally(() => setIsLoading(false));
   }, [fetchAwsConnections]);
 
-  return { connectionOptions, error, isLoading };
+  useEffect(() => {
+    setIsLoading(true);
+    reloadConnectionOptions();
+  }, [reloadConnectionOptions]);
+
+  return { connectionOptions, error, isLoading, reloadConnectionOptions };
 }

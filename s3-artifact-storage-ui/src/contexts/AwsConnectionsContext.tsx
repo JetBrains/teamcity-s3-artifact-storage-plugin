@@ -13,11 +13,13 @@ type AwsConnectionsContextType = {
   connectionOptions: Option<AwsConnection>[] | undefined;
   error: string | undefined;
   withFake?: boolean;
+  reloadConnectionOptions: () => void;
 };
 const AwsConnectionsContext = React.createContext<AwsConnectionsContextType>({
   connectionOptions: undefined,
   error: undefined,
   isLoading: true,
+  reloadConnectionOptions: () => {},
 });
 
 const { Provider } = AwsConnectionsContext;
