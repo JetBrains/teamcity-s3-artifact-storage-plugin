@@ -72,6 +72,7 @@ public class S3Constants {
   public static final String S3_ENABLE_MULTIPART_COMPLETION_RETRY =
     "teamcity.internal.storage.s3.multipart.completion.enableRetry";
   public static final String S3_ENABLE_REACT_UI = "teamcity.internal.storage.s3.ui.react.enabled";
+  public static final String ALLOW_HTTP_CONNECTION_FOR_UPLOAD = "teamcity.internal.storage.s3.allow.plain.http";
 
   public static final String PROJECT_ID_PARAM = "projectId";
 

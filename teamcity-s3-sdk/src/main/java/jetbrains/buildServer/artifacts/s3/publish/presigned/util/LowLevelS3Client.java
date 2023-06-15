@@ -13,6 +13,7 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.*;
 import jetbrains.buildServer.http.HttpUserAgent;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.ThreadUtil;
@@ -89,24 +90,24 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   private CompletableFuture<String> put(@NotNull final String url, @NotNull final EntityProducer requestEntity, @Nullable String digest, @NotNull final Map<String, String> headers)
     throws URISyntaxException {
+    final boolean allowHttp = TeamCityProperties.getBoolean(S3Constants.ALLOW_HTTP_CONNECTION_FOR_UPLOAD, false);
     final HTTPRequestBuilder requestBuilder = new HTTPRequestBuilder(url);
     requestBuilder
       .withMethod(HttpMethod.PUT)
       .withHeader(HttpHeaders.USER_AGENT, HttpUserAgent.getUserAgent())
       .withHeader("Accept", "application/xml")
       .withData(requestEntity)
-      .withTimeout(myConnectionTimeout);
+      .withTimeout(myConnectionTimeout)
+      .allowNonSecureConnection(allowHttp);
 
-    headers.forEach((name, value) -> requestBuilder.withHeader(name, value));
+    headers.forEach(requestBuilder::withHeader);
     if (myCheckConsistency && digest != null) {
       requestBuilder.withHeader("Content-MD5", digest);
     }
 
     return HttpClientUtil
       .executeAndReleaseConnection(requestBuilder, myErrorHandler, myExecutorService)
-      .thenApply(response -> {
-        return parseEtags(response);
-      });
+      .thenApply(this::parseEtags);
   }
 
   @Override
