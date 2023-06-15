@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.io.InterruptedIOException;
@@ -122,14 +121,13 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     String result;
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
-      final long urlRequestStart = System.nanoTime();
-      final Pair<String, String> urlWithDigest = myS3SignedUploadManager.getUrlWithDigest(myObjectKey, myTtl.get());
-      final long urlRequestEnd = System.nanoTime();
-      myProgressListener.urlsGenerated(Duration.ofNanos(urlRequestEnd - urlRequestStart));
+      final S3SignedUploadManager.SignedUrlInfo signedUrlInfo = myS3SignedUploadManager.getUrlWithDigest(myObjectKey, myTtl.get());
+      final Long fetchTiming = signedUrlInfo.getFetchTiming();
+      myProgressListener.urlsGenerated(Duration.ofNanos(fetchTiming));
 
-      String url = urlWithDigest.first;
-      String digest1 = urlWithDigest.second;
-      String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest1).get());
+      String url = signedUrlInfo.getUrl();
+      String digest = signedUrlInfo.getDigest();
+      String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest).get());
       myRemainingBytes.getAndAdd(-myFile.length());
       myProgressListener.onFileUploadSuccess(stripQuery(url));
       result = etag;

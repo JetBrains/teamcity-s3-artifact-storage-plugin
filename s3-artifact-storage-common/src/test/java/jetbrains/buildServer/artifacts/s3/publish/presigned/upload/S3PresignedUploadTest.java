@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.Trinity;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -11,6 +12,7 @@ import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.S3SignedUploadManager.SignedUrlInfo;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
@@ -30,7 +32,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   @Test
   public void repeatsUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
-    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
+    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(new SignedUrlInfo("url", "digest", 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
@@ -62,7 +64,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   @Test
   public void repeatsUploadWithSameTtlWhenErrorIsRepeatable() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
-    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
+    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(new SignedUrlInfo("url", "digest", 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
@@ -95,7 +97,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   @Test
   public void failsWhenErrorIsNotRepeatable() throws IOException, URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
-    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
+    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(new SignedUrlInfo("url", "digest", 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString())).thenThrow(new HttpClientUtil.HttpErrorCodeException(503, "exception", false));
@@ -126,10 +128,10 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 3)
       ));
     Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
-           .thenReturn(multipartDto);
+           .thenReturn(Pair.create(multipartDto, 1L));
 
     Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L))
-           .thenReturn(multipartDto);
+           .thenReturn(Pair.create(multipartDto, 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     final CompletableFuture<String> failedFuture = new CompletableFuture<>();
@@ -177,7 +179,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 3)
       ));
     Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
-           .thenReturn(multipartDto);
+           .thenReturn(Pair.create(multipartDto, 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFilePart(anyString(), any()))
@@ -205,7 +207,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
   @Test
   public void doesNotFailWhenFileNotFound() throws URISyntaxException {
     final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
-    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(Pair.create("url", "digest"));
+    Mockito.when(uploadManager.getUrlWithDigest(anyString(), any())).thenReturn(new SignedUrlInfo("url", "digest", 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
     Mockito.when(s3client.uploadFile(anyString(), any(), anyString()))
