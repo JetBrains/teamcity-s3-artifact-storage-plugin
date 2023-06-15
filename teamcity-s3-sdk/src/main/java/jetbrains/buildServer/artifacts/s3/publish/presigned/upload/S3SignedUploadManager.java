@@ -40,6 +40,8 @@ public class S3SignedUploadManager {
   private final PresignedUrlsProviderClient myPresignedUrlsProviderClient;
   @NotNull
   private final Retrier myRetrier;
+  @NotNull
+  private final Map<String, Long> fetchTimings = new ConcurrentHashMap<>();
 
   public S3SignedUploadManager(@NotNull final PresignedUrlsProviderClient presignedUrlsProviderClient,
                                @NotNull final S3Util.S3AdvancedConfiguration s3Config,
@@ -54,13 +56,19 @@ public class S3SignedUploadManager {
   }
 
   @NotNull
-  public Pair<String, String> getUrlWithDigest(@NotNull final String s3ObjectKey, @Nullable Long customTtl) {
+  public SignedUrlInfo getUrlWithDigest(@NotNull final String s3ObjectKey, @Nullable Long customTtl) {
     PresignedUrlDto presignedUrlDto;
+    Long fetchTime;
     if (customTtl != null) {
+      final long urlRequestStart = System.nanoTime();
       presignedUrlDto = myPresignedUrlsProviderClient.getUrl(s3ObjectKey, myPrecalculatedDigests.get(s3ObjectKey), customTtl);
+      final long urlRequestEnd = System.nanoTime();
+      fetchTime = urlRequestEnd - urlRequestStart;
       myCache.getValue().put(s3ObjectKey, presignedUrlDto);
+      fetchTimings.put(s3ObjectKey, fetchTime);
     } else {
       presignedUrlDto = myCache.getValue().get(s3ObjectKey);
+      fetchTime = fetchTimings.get(s3ObjectKey);
     }
     if (presignedUrlDto == null) {
       LOGGER.info(() -> "Presigned url for object key '" + s3ObjectKey + "' wasn't found in cached result from server, cache: '" + myCache.getValue().toString() + "'");
@@ -72,7 +80,7 @@ public class S3SignedUploadManager {
                                          + presignedUrlDto.getPresignedUrlParts().size() + "] urls returned from provider");
     }
     final String url = Objects.requireNonNull(CollectionsUtil.findFirst(presignedUrlDto.getPresignedUrlParts(), CollectionsUtil.acceptAllFilter())).getUrl();
-    return Pair.create(url, myPrecalculatedDigests.get(s3ObjectKey));
+    return new SignedUrlInfo(url, myPrecalculatedDigests.get(s3ObjectKey), fetchTime);
 
   }
 
@@ -85,12 +93,26 @@ public class S3SignedUploadManager {
         myFetchLock.lock();
         try {
           return CollectionsUtil.split(myS3ObjectKeys, (myS3ObjectKeys.size() / myMaxUrlChunkSize) + 1)
-                                .stream()
-                                .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " started"))
-                                .map(myRetrier.retryableMapper(keys -> myPresignedUrlsProviderClient.getRegularPresignedUrls(keys, myPrecalculatedDigests)))
-                                .peek(keys -> LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() + " finished"))
-                                .flatMap(presignedUrlDto -> presignedUrlDto.stream())
-                                .collect(Collectors.toMap(o -> o.getObjectKey(), presignedUrlDto -> presignedUrlDto));
+                                                                      .stream()
+                                                                      .map(keys -> {
+                                                                        LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() +
+                                                                                " started");
+                                                                        final long urlRequestStart = System.nanoTime();
+                                                                        final Collection<PresignedUrlDto> urls = myRetrier.retryableMapper(
+                                                                                                                             (List<String> k) -> myPresignedUrlsProviderClient.getRegularPresignedUrls(k,
+                                                                                                                                                                                                          myPrecalculatedDigests))
+                                                                                                                           .apply(keys);
+                                                                        final long urlRequestEnd = System.nanoTime();
+                                                                        final long avgFetchTime = (urlRequestEnd - urlRequestStart) / keys.size();
+                                                                        for (String key : keys) {
+                                                                          fetchTimings.put(key, avgFetchTime);
+                                                                        }
+                                                                        LOGGER.debug(() -> "Fetching chunk " + keys + " of size " + keys.size() + " of total " + myS3ObjectKeys.size() +
+                                                                                " finished");
+                                                                        return urls;
+                                                                      })
+                                                                      .flatMap(presignedUrlDto -> presignedUrlDto.stream())
+                                                                      .collect(Collectors.toMap(o -> o.getObjectKey(), presignedUrlDto -> presignedUrlDto));
         } finally {
           myFetchLock.unlock();
           LOGGER.debug(() -> "Fetching presigned urls for manager " + this + " finished.");
@@ -104,10 +126,13 @@ public class S3SignedUploadManager {
   }
 
   @NotNull
-  public PresignedUrlDto getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
+  public Pair<PresignedUrlDto, Long> getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
+    final long urlRequestStart = System.nanoTime();
     final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests, uploadId, ttl));
+    final long urlRequestEnd = System.nanoTime();
+    Long fetchTiming = urlRequestEnd - urlRequestStart;
     myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());
-    return presignedUrl;
+    return Pair.create(presignedUrl, fetchTiming);
   }
 
   public void onUploadSuccess(@NotNull final S3PresignedUpload upload) {
@@ -145,5 +170,33 @@ public class S3SignedUploadManager {
   @Override
   public String toString() {
     return "PresignedUpload{correlationId: " + myCorrelationId + ", objectKeysSize: " + myS3ObjectKeys.size() + "}";
+  }
+
+  static class SignedUrlInfo {
+    @NotNull
+    private final String url;
+    @Nullable
+    private final String digest;
+    private final long fetchTiming;
+
+    public SignedUrlInfo(@NotNull String url, @Nullable String digest, long fetchTiming) {
+      this.url = url;
+      this.digest = digest;
+      this.fetchTiming = fetchTiming;
+    }
+
+    @NotNull
+    public String getUrl() {
+      return url;
+    }
+
+    @Nullable
+    public String getDigest() {
+      return digest;
+    }
+
+    public long getFetchTiming() {
+      return fetchTiming;
+    }
   }
 }
