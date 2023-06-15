@@ -28,7 +28,7 @@ public class S3Constants {
   public static final String S3_BUCKET_NAME_WAS_PROVIDED_AS_STRING = "storage.s3.bucket.name.wasProvidedAsString";
 
   public static final String S3_STORAGE_TYPE = "S3_storage";
-  public static final String S3_COMPATIBLE_STORAGE_TYPE = "S3_compatible_storage";
+  public static final String S3_COMPATIBLE_STORAGE_TYPE = "S3_storage_compatible";
   public static final String S3_SETTINGS_PATH = "s3_storage_settings";
   public static final String S3_PLUGIN_PATH = "/plugins/s3-artifact-storage/";
 

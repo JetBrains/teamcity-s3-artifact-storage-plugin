@@ -3,7 +3,7 @@
     kind="projectFeature"
     type="storage_settings"
     generateDslJar="true"
-    applicable="params['storage.type'] == 'S3_compatible_storage'">
+    applicable="params['storage.type'] == 'S3_storage_compatible'">
   <class name="S3CompatibleStorage">
     <description>
       S3 Compatible Artifact Storage
@@ -11,7 +11,7 @@
   </class>
 
   <init>
-    <param name="storage.type" value="S3_compatible_storage"/>
+    <param name="storage.type" value="S3_storage_compatible"/>
     <param name="storage.s3.bucket.name.wasProvidedAsString" dslName="nameAsString" type="boolean" value="true"/>
   </init>
 

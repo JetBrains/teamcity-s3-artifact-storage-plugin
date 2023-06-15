@@ -18,7 +18,7 @@ type StorageTypeConfig = {
   onChange: (option: Option | null) => void | undefined | null;
 };
 
-export const S3_COMPATIBLE = 'S3_compatible_storage';
+export const S3_COMPATIBLE = 'S3_storage_compatible';
 export const AWS_S3 = 'S3_storage';
 
 export default function StorageType({ onChange: callback }: StorageTypeConfig) {

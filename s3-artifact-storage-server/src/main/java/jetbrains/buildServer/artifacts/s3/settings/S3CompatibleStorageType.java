@@ -58,7 +58,7 @@ public class S3CompatibleStorageType extends ArtifactStorageType {
   @NotNull
   @Override
   public String getName() {
-    return "S3 compatible";
+    return "Custom S3";
   }
 
   @NotNull

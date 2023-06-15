@@ -2,7 +2,7 @@
 <dsl-add-on kind="projectFeature">
   <extends>
     <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_storage'" />
-    <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_compatible_storage'" />
+    <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_storage_compatible'" />
   </extends>
   <params>
     <param name="storage.name" dslName="storageName">
