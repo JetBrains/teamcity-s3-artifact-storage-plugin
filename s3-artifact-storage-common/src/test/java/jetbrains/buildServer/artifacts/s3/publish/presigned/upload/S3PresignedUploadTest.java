@@ -1,10 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
 import com.intellij.openapi.util.Pair;
-import com.intellij.openapi.util.Trinity;
 import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.net.SocketException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -226,5 +226,99 @@ public class S3PresignedUploadTest extends BaseTestCase {
     }
 
     Mockito.verify(s3client, times(0)).uploadFile(any(), any(), any());
+  }
+
+  @Test
+  public void doesNotFailWhenMultipartTtlFail() throws URISyntaxException, IOException {
+    final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
+    final PresignedUrlDto multipartDto = PresignedUrlDto.multiPart(
+      "objectKey",
+      "uploadId",
+      Arrays.asList(new PresignedUrlPartDto("url", 1),
+                    new PresignedUrlPartDto("url", 2),
+                    new PresignedUrlPartDto("url", 3)
+      ));
+    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), any(), any(), any()))
+           .thenReturn(Pair.create(multipartDto, 1L));
+
+    final CompletableFuture<String> errorCompletableFuture = new CompletableFuture<>();
+    errorCompletableFuture.completeExceptionally(new SocketException("Broken pipe"));
+    final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
+    Mockito.when(s3client.uploadFilePart(anyString(), any()))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag1".getBytes())))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag2".getBytes())))
+           .thenReturn(errorCompletableFuture)
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag3".getBytes())));
+
+    final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
+
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false);
+    final File file = Files.createTempFile("s3uploadTest", "file").toFile();
+    try (final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
+      randomAccessFile.setLength(12 * 1024 * 1024);
+    }
+    final S3PresignedMultipartUpload upload = new S3PresignedMultipartUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
+
+    try {
+      upload.call();
+    } catch (RuntimeException e) {
+      assertTrue(e.getCause() instanceof SocketException);
+      // retry upload
+      upload.call();
+      return;
+    }
+
+    fail("Should throw a RuntimeException");
+  }
+
+  @Test
+  public void failUploadAndRestartItFromStart() throws URISyntaxException, IOException {
+    final S3SignedUploadManager uploadManager = Mockito.mock(S3SignedUploadManager.class, Answers.RETURNS_DEEP_STUBS);
+    final PresignedUrlDto multipartDto = PresignedUrlDto.multiPart(
+      "objectKey",
+      "uploadId",
+      Arrays.asList(new PresignedUrlPartDto("url", 1),
+                    new PresignedUrlPartDto("url", 2),
+                    new PresignedUrlPartDto("url", 3)
+      ));
+    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), any(), any(), any()))
+           .thenReturn(Pair.create(multipartDto, 1L));
+
+    final CompletableFuture<String> errorCompletableFuture = new CompletableFuture<>();
+    errorCompletableFuture.completeExceptionally(new SocketException());
+    final CompletableFuture<String> failureCompletableFuture = new CompletableFuture<>();
+    failureCompletableFuture.completeExceptionally(new RuntimeException("Critical failure"));
+    final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
+    Mockito.when(s3client.uploadFilePart(anyString(), any()))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag1".getBytes())))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag2".getBytes())))
+           .thenReturn(errorCompletableFuture)
+           .thenReturn(errorCompletableFuture)
+           .thenReturn(errorCompletableFuture)
+           .thenReturn(errorCompletableFuture)
+           .thenReturn(failureCompletableFuture)
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag1".getBytes())))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag2".getBytes())))
+           .thenReturn(CompletableFuture.completedFuture(Hex.encodeHexString("etag3".getBytes())));
+
+    final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
+
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false);
+    final File file = Files.createTempFile("s3uploadTest", "file").toFile();
+    try (final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
+      randomAccessFile.setLength(12 * 1024 * 1024);
+    }
+    final S3PresignedMultipartUpload upload = new S3PresignedMultipartUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
+
+    try {
+      upload.call();
+    } catch (RuntimeException e) {
+      assertEquals("Critical failure", e.getMessage());
+      // retry upload
+      upload.call();
+      return;
+    }
+
+    fail("Should throw a RuntimeException");
   }
 }
