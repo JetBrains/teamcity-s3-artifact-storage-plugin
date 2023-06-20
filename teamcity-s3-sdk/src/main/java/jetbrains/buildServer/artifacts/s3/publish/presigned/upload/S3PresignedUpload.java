@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
+import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
@@ -24,6 +25,7 @@ import jetbrains.buildServer.util.amazon.retry.Retrier;
 import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
 import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
 import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 public class S3PresignedUpload implements Callable<FileUploadInfo> {
@@ -46,7 +48,17 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   protected final Retrier myRetrier;
 
-  protected AtomicReference<Long> myTtl = new AtomicReference<Long>(null);
+  protected AtomicReference<Long> myTtl = new AtomicReference<>(null);
+
+  protected final Class<? extends Exception>[] arrayOfRetriableErrors = new Class[]{
+    InterruptedException.class,
+    ExecutionException.class,
+    SSLException.class,
+    UnknownHostException.class,
+    SocketException.class,
+    InterruptedIOException.class,
+    IOException.class
+  };
 
   public S3PresignedUpload(@NotNull final String artifactPath,
                            @NotNull final String objectKey,
@@ -64,11 +76,16 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
-                         new AbortingListener(InterruptedException.class, ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class,
-                                              InterruptedIOException.class, InterruptedException.class, IOException.class) {
+                         new AbortingListener(arrayOfRetriableErrors) {
                            @Override
-                           public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-                             if (S3SignedUrlFileUploader.isPublishingInterruptedException(e)) {
+                           public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception failure) {
+                             Exception e = stripRootCause(failure);
+
+                             if (S3SignedUrlFileUploader.isPublishingInterruptedException(e) ||
+                                 // broken pipe means that connection was closed by server
+                                 // in some cases it means that expiration date already passed
+                                 // it is better to re-generate request
+                                 (e instanceof SocketException && e.getMessage() != null && e.getMessage().contains("Broken pipe"))) {
                                throw new AbortRetriesException(e);
                              }
                              if (e instanceof HttpClientUtil.HttpErrorCodeException) {
@@ -94,6 +111,16 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                        .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
 
     progressListener.setUpload(this);
+  }
+
+  @Contract("null -> null; !null -> !null")
+  protected static Exception stripRootCause(Exception e) {
+    try {
+      return (Exception)Throwables.getRootCause(e);
+    } catch (Exception ignored) {
+      // do nothing
+    }
+    return e;
   }
 
   @Override
@@ -173,7 +200,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     return 100 - (int)Math.round((myRemainingBytes.get() * 100.) / myFile.length());
   }
 
-  protected boolean isRecoverable(Exception e) {
+  private boolean isRecoverable(Exception e) {
     return (e instanceof HttpClientUtil.HttpErrorCodeException) && (((HttpClientUtil.HttpErrorCodeException)e).isRecoverable());
   }
 }

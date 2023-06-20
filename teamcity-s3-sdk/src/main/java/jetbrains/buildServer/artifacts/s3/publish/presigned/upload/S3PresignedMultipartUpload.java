@@ -6,12 +6,8 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
@@ -23,6 +19,7 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
 import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
+import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -125,20 +122,31 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
       myProgressListener.onFileUploadSuccess(strippedUrl);
       return DigestUtil.multipartDigest(getEtags());
-    } catch (ExecutionException e) {
-      LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      // ExecutionException wraps the real reason for termination or failure.
-      Throwable cause = e.getCause();
-      myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable((Exception)cause));
+    } catch (final Exception e) {
+      Exception cause = stripRootCause(e);
+      boolean isRecoverable = canRetry(cause);
+      LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", cause);
+
+      if (!isRecoverable) {
+        resetUploadId();
+      }
+
+      myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable);
+      // InterruptedException will be re-thrown wrapped in RuntimeException
       ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;
-    } catch (final Exception e) {
-      LOGGER.warnAndDebugDetails("Multipart upload for " + this + " failed", e);
-      myProgressListener.onFileUploadFailed(e.getMessage(), isRecoverable(e));
-      // InterruptedException will be re-thrown wrapped in RuntimeException
-      ExceptionUtil.rethrowAsRuntimeException(e);
-      return null;
     }
+  }
+
+  private void resetUploadId() {
+    LOGGER.debug("Multipart upload with id " + uploadId + " has it's uploadId reset to null. Due to non-recoverable error.");
+    uploadId = null;
+    myEtags = null;
+  }
+
+  private boolean canRetry(Throwable cause) {
+    return Arrays.stream(arrayOfRetriableErrors).anyMatch(it -> it.isInstance(cause)) ||
+           cause instanceof RecoverableException;
   }
 
   @NotNull
