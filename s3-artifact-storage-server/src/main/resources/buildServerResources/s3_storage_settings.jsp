@@ -18,7 +18,7 @@
 
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
 
-<c:set var="s3StorageReactUiEnabled" value="${intprop:getBoolean(params.enabledReactUi)}"/>
+<c:set var="s3StorageReactUiEnabled" value="${intprop:getBooleanOrTrue(params.enabledReactUi)}"/>
 
 <c:choose>
   <c:when test="${s3StorageReactUiEnabled}">
