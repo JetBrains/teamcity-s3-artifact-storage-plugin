@@ -33,7 +33,7 @@
 <c:set var="bucketNameStringInput" value="bucketNameStringInput"/>
 
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
-<c:set var="transferAccelerationOn" value="${intprop:getBoolean(params.transferAccelerationEnabled)}"/>
+<c:set var="transferAccelerationOn" value="${intprop:getBooleanOrTrue(params.transferAccelerationEnabled)}"/>
 <c:set var="cloudFrontDistributionEmptyOption" value="--Select distribution --"/>
 <c:set var="cloudFrontKeyPairEmptyOption" value="-- Select key pair --"/>
 <c:set var="cloudFrontPublicKeyName" value="cloudFrontPublicKeyName"/>

@@ -291,7 +291,7 @@ public final class S3Util {
   }
 
   public static boolean isAccelerateModeEnabled(@NotNull final Map<String, String> properties) {
-    return TeamCityProperties.getBoolean(S3_TRANSFER_ACCELERATION_FEATURE_ENABLED) && Boolean.parseBoolean(properties.get(S3_ENABLE_ACCELERATE_MODE));
+    return TeamCityProperties.getBooleanOrTrue(S3_TRANSFER_ACCELERATION_FEATURE_ENABLED) && Boolean.parseBoolean(properties.get(S3_ENABLE_ACCELERATE_MODE));
   }
 
   @Deprecated

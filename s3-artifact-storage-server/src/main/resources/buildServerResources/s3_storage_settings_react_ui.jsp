@@ -40,7 +40,7 @@
 
 <c:set var="regionName" value="${propertiesBean.properties[region_name_param]}"/>
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
-<c:set var="transferAccelerationOn" value="${intprop:getBoolean(params.transferAccelerationEnabled)}"/>
+<c:set var="transferAccelerationOn" value="${intprop:getBooleanOrTrue(params.transferAccelerationEnabled)}"/>
 <c:set var="showDefaultCredentialsChain" value="${not intprop:getBoolean(default_cred_chain_disabled) and not intprop:getBoolean(default_cred_chain_hidden)}"/>
 <c:set var="isDefaultCredentialsChain" value="${Boolean.parseBoolean(propertiesBean.properties[AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM])}"/>
 <c:set var="service_endpoint_value" value="${propertiesBean.properties[service_endpoint_param]}"/>
