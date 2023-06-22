@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 
-import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.File;
 import java.io.IOException;
@@ -19,6 +18,7 @@ import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
+import jetbrains.buildServer.artifacts.s3.publish.presigned.util.Throwables;
 import jetbrains.buildServer.util.amazon.S3Util;
 import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
 import jetbrains.buildServer.util.amazon.retry.Retrier;
