@@ -17,6 +17,7 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.AmazonClientException;
+import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.HashMap;
 import java.util.Map;
@@ -94,27 +95,30 @@ public class S3SettingsController extends BaseFormXmlController {
           final String projectId = getInternalProjectId(request);
           xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters, projectId)));
         } catch (ConnectionCredentialsException e) {
+          LOG.warn("Failed to get content", e);
+          String errorMessage = getUiFriendlyErrorMessage(e);
+
           switch (resource) {
             case "buckets":
-              errors.addError(resource, "Failed to list buckets: " + e.getMessage());
+              errors.addError(resource, "Failed to list buckets: " + errorMessage);
               break;
             case "distributions":
-              errors.addError(resource, "Failed to list distributions: " + e.getMessage());
+              errors.addError(resource, "Failed to list distributions: " + errorMessage);
               break;
             case "publicKeys":
-              errors.addError(resource, "Failed to list public keys: " + e.getMessage());
+              errors.addError(resource, "Failed to list public keys: " + errorMessage);
               break;
             case "bucketLocation":
-              errors.addError(resource, "Failed to get bucket location: " + e.getMessage());
+              errors.addError(resource, "Failed to get bucket location: " + errorMessage);
               break;
             case "validateCfKeys":
-              errors.addError(resource, "CloudFront keys validation failed: " + e.getMessage());
+              errors.addError(resource, "CloudFront keys validation failed: " + errorMessage);
               break;
             case "s3TransferAccelerationAvailability":
-              errors.addError(resource, "Failed to check S3 Transfer Acceleration availability: " + e.getMessage());
+              errors.addError(resource, "Failed to check S3 Transfer Acceleration availability: " + errorMessage);
               break;
             default:
-              errors.addError(PROJECT_ID_PARAM, "Failed to fetch resource: " + e.getMessage());
+              errors.addError(PROJECT_ID_PARAM, "Failed to fetch resource: " + errorMessage);
           }
         } catch (InvalidSettingsException e) {
           final String message = String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource);
@@ -137,7 +141,7 @@ public class S3SettingsController extends BaseFormXmlController {
           if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
             messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
           } else {
-            messageBuilder.append(e.getMessage());
+            messageBuilder.append(getUiFriendlyErrorMessage(e));
           }
           final String message = messageBuilder.toString();
           LOG.infoAndDebugDetails(message, e);
@@ -149,6 +153,23 @@ public class S3SettingsController extends BaseFormXmlController {
     if (errors.hasErrors()) {
       errors.serialize(xmlResponse);
     }
+  }
+
+  private static String getUiFriendlyErrorMessage(Throwable e) {
+    String msg;
+    try {
+      msg = Throwables.getRootCause(e).getMessage();
+    } catch (Exception any) {
+      msg = e.getMessage();
+    }
+
+    // remove everything after the first parenthesis
+    // there are a bunch of technical details that are not interesting to the user
+    if (msg.indexOf("(") > -1) {
+      msg = msg.substring(0, msg.indexOf("("));
+    }
+
+    return msg;
   }
 
   private Map<String, String> getProperties(final HttpServletRequest request) {
