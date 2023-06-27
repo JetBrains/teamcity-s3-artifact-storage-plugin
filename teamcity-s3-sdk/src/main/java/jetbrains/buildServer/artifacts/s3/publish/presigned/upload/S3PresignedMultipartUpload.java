@@ -116,8 +116,8 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                   })
                                                                   .toArray(CompletableFuture[]::new);
       // await completion of all futures.
-      // in case of exception in any of them, allOf will still wait for completion of all other futures and then throw ExecutionException
-      CompletableFuture.allOf(chunkUploadFutures).get();
+      // in case of exception in any of them, we will cancel all the futures immediately
+      allOfTerminateOnFailure(chunkUploadFutures).get();
       final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
       String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
       myProgressListener.onFileUploadSuccess(strippedUrl);
@@ -135,6 +135,25 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       // InterruptedException will be re-thrown wrapped in RuntimeException
       ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;
+    }
+  }
+
+  private CompletableFuture<?> allOfTerminateOnFailure(CompletableFuture<String>... futures) {
+    CompletableFuture<?> failure = new CompletableFuture<>();
+    for (CompletableFuture<String> future : futures) {
+      future.exceptionally(ex -> {
+        failure.completeExceptionally(ex);
+        cancelAll(futures);
+        return null;
+      });
+    }
+
+    return CompletableFuture.anyOf(failure, CompletableFuture.allOf(futures));
+  }
+
+  private static void cancelAll(CompletableFuture<String>[] futures) {
+    for (CompletableFuture<String> future : futures) {
+      future.cancel(true);
     }
   }
 
