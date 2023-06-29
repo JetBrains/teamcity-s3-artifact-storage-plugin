@@ -52,7 +52,7 @@ public abstract class S3FileUploader {
       .withMultipartUploadThreshold(jetbrains.buildServer.artifacts.s3.S3Util.getMultipartUploadThreshold(sharedConfigurationParameters, artifactStorageSettings))
       .withPresignedMultipartUploadEnabled(jetbrains.buildServer.artifacts.s3.S3Util.getPresignedMultipartUploadEnabled(sharedConfigurationParameters))
       .withConnectionTimeout(jetbrains.buildServer.artifacts.s3.S3Util.getConnectionTimeout(sharedConfigurationParameters))
-      .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreads(sharedConfigurationParameters))
+      .withNumberOfThreads(jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreadsForFiles(sharedConfigurationParameters))
       .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
       .withConsistencyCheckEnabled(jetbrains.buildServer.artifacts.s3.S3Util.isConsistencyCheckEnabled(sharedConfigurationParameters))
       .withAcl(jetbrains.buildServer.artifacts.s3.S3Util.getAcl(artifactStorageSettings, sharedConfigurationParameters))
