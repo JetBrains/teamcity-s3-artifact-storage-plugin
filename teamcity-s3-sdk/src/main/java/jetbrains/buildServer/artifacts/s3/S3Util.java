@@ -263,9 +263,14 @@ public final class S3Util {
     return Integer.parseInt(configuration.getOrDefault(S3_CONNECTION_TIMEOUT, String.valueOf(TeamCityProperties.getInteger(S3_CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT))));
   }
 
-  public static int getNumberOfThreads(@NotNull final Map<String, String> configuration) {
+  public static int getNumberOfThreadsForFiles(@NotNull final Map<String, String> configuration) {
     return Integer.parseInt(
-      configuration.getOrDefault(S3_NUMBER_OF_THREADS, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
+      configuration.getOrDefault(S3_NUMBER_OF_THREADS_FOR_FILES, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
+  }
+
+  public static int getNumberOfThreadsForFileParts(@NotNull final Map<String, String> configuration) {
+    return Integer.parseInt(
+      configuration.getOrDefault(S3_NUMBER_OF_THREADS_FOR_FILE_PARTS, String.valueOf(TeamCityProperties.getInteger(TRANSFER_MANAGER_THREAD_POOL_SIZE, DEFAULT_S3_THREAD_POOL_SIZE))));
   }
 
   public static int getUrlTtlSeconds(@NotNull final Map<String, String> configuration) {

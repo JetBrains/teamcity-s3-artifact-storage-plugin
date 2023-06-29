@@ -49,7 +49,8 @@ public class S3Constants {
   public static final String S3_MULTIPART_MINIMUM_UPLOAD_PART_SIZE = "storage.s3.upload.multipart_chunksize";
   public static final String S3_ENABLE_PRESIGNED_MULTIPART_UPLOAD = "teamcity.internal.storage.s3.upload.presignedUrl.multipart.enabled";
   public static final String S3_CONNECTION_TIMEOUT = "teamcity.internal.storage.s3.upload.connectionTimeout";
-  public static final String S3_NUMBER_OF_THREADS = "teamcity.internal.storage.s3.upload.numberOfThreads";
+  public static final String S3_NUMBER_OF_THREADS_FOR_FILES = "teamcity.internal.storage.s3.upload.numberOfThreads";
+  public static final String S3_NUMBER_OF_THREADS_FOR_FILE_PARTS = "teamcity.internal.storage.s3.upload.numberOfThreadsPerFile";
   public static final String S3_ENABLE_CONSISTENCY_CHECK = "teamcity.internal.storage.s3.upload.enableConsistencyCheck";
   public static final String S3_ACL = "storage.s3.acl";
   public static final String S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER = "teamcity.internal.storage.s3.url.request.keys.header.max.number";

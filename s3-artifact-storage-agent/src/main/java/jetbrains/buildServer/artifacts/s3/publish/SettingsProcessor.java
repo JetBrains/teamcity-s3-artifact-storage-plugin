@@ -27,8 +27,9 @@ public class SettingsProcessor {
     final S3Util.S3AdvancedConfiguration s3AdvancedConfiguration = configuration(sharedConfigParameters, storageSettings);
 
     String projectId = sharedConfigParameters.get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM);
+    int nThreadsForFileParts = jetbrains.buildServer.artifacts.s3.S3Util.getNumberOfThreadsForFileParts(sharedConfigParameters);
 
-    final S3Configuration s3Configuration = new S3Configuration(s3AdvancedConfiguration, storageSettings, projectId);
+    final S3Configuration s3Configuration = new S3Configuration(s3AdvancedConfiguration, storageSettings, projectId, nThreadsForFileParts);
     s3Configuration.validate();
     return s3Configuration;
   }
