@@ -34,6 +34,8 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
 
   @Nullable
   private String uploadId;
+  @Nullable
+  private List<FilePart> myFileParts;
 
   public S3PresignedMultipartUpload(@NotNull String artifactPath,
                                     @NotNull String objectKey,
@@ -57,11 +59,9 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
 
     myProgressListener.beforeUploadStarted();
     try {
-      final long partSeparationStart = System.nanoTime();
-      final List<FilePart> fileParts = myFileSplitter.getFileParts(myFile, nParts, myCheckConsistency);
-      final long partSeparationEnd = System.nanoTime();
-      myProgressListener.partsSeparated(Duration.ofNanos(partSeparationEnd - partSeparationStart));
-      List<String> digests = fileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
+      splitFileToPartsWithChecksum(nParts);
+      assert myFileParts != null;
+      List<String> digests = myFileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
 
       final Pair<PresignedUrlDto, Long> resultPair = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, digests, uploadId, myTtl.get());
       final PresignedUrlDto multipartUploadUrls = resultPair.first;
@@ -86,7 +86,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                     final int partIndex = partDto.getPartNumber() - 1;
                                                                     myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
                                                                     final String url = partDto.getUrl();
-                                                                    final FilePart filePart = fileParts.get(partIndex);
+                                                                    final FilePart filePart = myFileParts.get(partIndex);
 
                                                                     // this allows us to save time in case of huge files re-upload
                                                                     if (myEtags.get(partIndex) != null) {
@@ -135,6 +135,16 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       // InterruptedException will be re-thrown wrapped in RuntimeException
       ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;
+    }
+  }
+
+  private void splitFileToPartsWithChecksum(int nParts) throws IOException {
+    // do the digest calculation only once
+    if (myFileParts == null) {
+      final long partSeparationStart = System.nanoTime();
+      myFileParts = myFileSplitter.getFileParts(myFile, nParts, myCheckConsistency);
+      final long partSeparationEnd = System.nanoTime();
+      myProgressListener.partsSeparated(Duration.ofNanos(partSeparationEnd - partSeparationStart));
     }
   }
 
