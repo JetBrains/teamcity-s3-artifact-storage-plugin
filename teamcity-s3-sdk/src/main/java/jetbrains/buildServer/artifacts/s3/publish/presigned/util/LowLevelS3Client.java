@@ -40,7 +40,7 @@ public class LowLevelS3Client implements AutoCloseable {
   private final int myConnectionTimeout;
 
   public LowLevelS3Client(@NotNull final S3Configuration s3Config) {
-    myExecutorService = ExecutorsFactory.newFixedDaemonExecutor(S3Constants.S3_STORAGE_TYPE, s3Config.getAdvancedConfiguration().getNThreads());
+    myExecutorService = ExecutorsFactory.newFixedDaemonExecutor(S3Constants.S3_STORAGE_TYPE, s3Config.getNThreadsForFileParts());
     myConnectionTimeout = s3Config.getAdvancedConfiguration().getConnectionTimeout() * 1000;
     myCheckConsistency = s3Config.getAdvancedConfiguration().isConsistencyCheckEnabled();
     myAdditionalHeaders = new HashMap<>();

@@ -12,22 +12,20 @@ public class S3Configuration {
   private final S3AdvancedConfiguration myS3AdvancedConfiguration;
   @NotNull
   private final Map<String, String> mySettingsMap;
+  private final int myNThreadsForFileParts;
   @Nullable
   private String myPathPrefix;
   @Nullable
-  private String myProjectId;
-
-  public S3Configuration(@NotNull final S3AdvancedConfiguration s3AdvancedConfiguration, @NotNull final Map<String, String> settingsMap) {
-    myS3AdvancedConfiguration = s3AdvancedConfiguration;
-    mySettingsMap = settingsMap;
-  }
+  private final String myProjectId;
 
   public S3Configuration(@NotNull final S3AdvancedConfiguration s3AdvancedConfiguration,
                          @NotNull final Map<String, String> settingsMap,
-                         @Nullable final String projectId) {
+                         @Nullable final String projectId,
+                         final int nThreadsForFileParts) {
     myS3AdvancedConfiguration = s3AdvancedConfiguration;
     mySettingsMap = settingsMap;
     myProjectId = projectId;
+    myNThreadsForFileParts = nThreadsForFileParts;
   }
 
   @NotNull
@@ -72,5 +70,9 @@ public class S3Configuration {
   @Nullable
   public String getProjectId() {
     return myProjectId;
+  }
+
+  public int getNThreadsForFileParts() {
+    return myNThreadsForFileParts;
   }
 }
