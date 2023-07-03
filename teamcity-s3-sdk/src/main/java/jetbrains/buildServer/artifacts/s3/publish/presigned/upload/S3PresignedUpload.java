@@ -97,11 +97,11 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                                      return 2L * prev;
                                    }
                                  });
-                               }
-                               if (isRecoverable(e)) {
+                               } else if (isRecoverable(e)) {
                                  // recoverable error, retry
                                  return;
                                }
+
                                throw new AbortRetriesException(e);
                              }
 
