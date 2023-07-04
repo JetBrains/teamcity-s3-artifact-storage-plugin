@@ -46,6 +46,8 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   protected final AtomicLong myRemainingBytes = new AtomicLong();
   @NotNull
+  protected final AtomicLong myUploadedBytes = new AtomicLong();
+  @NotNull
   protected final Retrier myRetrier;
 
   protected AtomicReference<Long> myTtl = new AtomicReference<>(null);
@@ -131,6 +133,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
         return null;
       }
       myRemainingBytes.set(myFile.length());
+      myUploadedBytes.set(0);
       myProgressListener.beforeUploadStarted();
       String digest = upload();
       return new FileUploadInfo(myArtifactPath, myFile.getAbsolutePath(), myFile.length(), digest);
