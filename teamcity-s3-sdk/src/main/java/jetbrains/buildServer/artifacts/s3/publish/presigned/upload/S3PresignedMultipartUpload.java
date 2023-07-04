@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.DigestUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.FilePart;
@@ -101,13 +102,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                                         throw new AbortRetriesException(e);
                                                                                       }
                                                                                     })
-                                                                                    .thenApply(etag -> {
-                                                                                      myRemainingBytes.getAndAdd(-filePart.getLength());
-                                                                                      myProgressListener.onPartUploadSuccess(stripQuery(url));
-                                                                                      // put result to the array of results
-                                                                                      myEtags.set(partIndex, etag);
-                                                                                      return etag;
-                                                                                    })
+                                                                                    .thenApply(onUploadSuccess(partDto, partIndex, url, filePart))
                                                                                     .exceptionally(e -> {
                                                                                       myProgressListener.onPartUploadFailed(e);
                                                                                       ExceptionUtil.rethrowAsRuntimeException(e);
@@ -136,6 +131,28 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;
     }
+  }
+
+  @NotNull
+  private Function<String, String> onUploadSuccess(PresignedUrlPartDto partDto, int partIndex, String url, FilePart filePart) {
+    return etag -> {
+      myRemainingBytes.getAndAdd(-filePart.getLength());
+      myUploadedBytes.getAndAdd(filePart.getLength());
+      LOGGER.debug(
+        () -> new StringBuilder().append("Part ")
+                                 .append(partDto.getPartNumber())
+                                 .append(" uploaded successfully. ")
+                                 .append(myUploadedBytes.get())
+                                 .append(" bytes uploaded, ")
+                                 .append(myRemainingBytes.get())
+                                 .append(" bytes remaining")
+                                 .toString());
+      myProgressListener.onPartUploadSuccess(stripQuery(url));
+      // put result to the array of results
+      assert myEtags != null;
+      myEtags.set(partIndex, etag);
+      return etag;
+    };
   }
 
   private void splitFileToPartsWithChecksum(int nParts) throws IOException {
