@@ -36,6 +36,7 @@
     <orderEntry type="module" module-name="server-openapi" />
     <orderEntry type="library" name="Guava" level="project" />
     <orderEntry type="module" module-name="server" />
+    <orderEntry type="module" module-name="server-core" />
     <orderEntry type="module" module-name="server-model" />
     <orderEntry type="module" module-name="web-openapi" />
     <orderEntry type="library" name="Spring-Framework" level="project" />

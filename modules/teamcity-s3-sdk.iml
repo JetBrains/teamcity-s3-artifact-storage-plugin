@@ -33,5 +33,6 @@
     <orderEntry type="library" scope="TEST" name="org.mockito:mockito-core" level="project" />
     <orderEntry type="library" name="commons-httpclient-4.1" level="project" />
     <orderEntry type="module" module-name="connections-api" />
+    <orderEntry type="module" module-name="connections-api-core" />
   </component>
 </module>
