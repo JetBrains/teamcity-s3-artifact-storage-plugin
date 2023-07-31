@@ -325,7 +325,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       .withHeader("Accept", "application/xml")
       .withHeader("Accept-Charset", StandardCharsets.UTF_8.name())
       .withTimeout(myTeamCityConnectionConfiguration.getConnectionTimeout() * 1000)
-      .withCredentials(myTeamCityConnectionConfiguration.getCredentials())
+      .withAuthenticateHeader(myTeamCityConnectionConfiguration.getCredentials())
       .allowNonSecureConnection(true);
 
 
