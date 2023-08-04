@@ -482,6 +482,14 @@ public final class S3Util {
     }
   }
 
+  public static boolean isAllowPlainHttpUpload(Map<String, String> params) {
+    if (params.containsKey(ALLOW_HTTP_CONNECTION_FOR_UPLOAD)) {
+      return Boolean.parseBoolean(params.get(ALLOW_HTTP_CONNECTION_FOR_UPLOAD));
+    }
+
+    return TeamCityProperties.getBoolean(ALLOW_HTTP_CONNECTION_FOR_UPLOAD, false);
+  }
+
   @Deprecated
   public interface WithS3<T, E extends Throwable> {
     @Nullable

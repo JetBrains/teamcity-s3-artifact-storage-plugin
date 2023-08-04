@@ -13,7 +13,6 @@ import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.errors.*;
 import jetbrains.buildServer.http.HttpUserAgent;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.ThreadUtil;
@@ -38,6 +37,7 @@ public class LowLevelS3Client implements AutoCloseable {
   private final Map<String, String> myAdditionalHeaders;
   private final ExecutorService myExecutorService;
   private final int myConnectionTimeout;
+  private final boolean myAllowPlainHttpUpload;
 
   public LowLevelS3Client(@NotNull final S3Configuration s3Config) {
     myExecutorService = ExecutorsFactory.newFixedDaemonExecutor(S3Constants.S3_STORAGE_TYPE, s3Config.getNThreadsForFileParts());
@@ -45,6 +45,7 @@ public class LowLevelS3Client implements AutoCloseable {
     myCheckConsistency = s3Config.getAdvancedConfiguration().isConsistencyCheckEnabled();
     myAdditionalHeaders = new HashMap<>();
     myAdditionalHeaders.put("x-amz-acl", s3Config.getAcl().toString());
+    myAllowPlainHttpUpload = s3Config.getAdvancedConfiguration().isAllowPlainHttpUpload();
   }
 
   @NotNull
@@ -90,7 +91,6 @@ public class LowLevelS3Client implements AutoCloseable {
   @NotNull
   private CompletableFuture<String> put(@NotNull final String url, @NotNull final EntityProducer requestEntity, @Nullable String digest, @NotNull final Map<String, String> headers)
     throws URISyntaxException {
-    final boolean allowHttp = TeamCityProperties.getBoolean(S3Constants.ALLOW_HTTP_CONNECTION_FOR_UPLOAD, false);
     final HTTPRequestBuilder requestBuilder = new HTTPRequestBuilder(url);
     requestBuilder
       .withMethod(HttpMethod.PUT)
@@ -98,7 +98,7 @@ public class LowLevelS3Client implements AutoCloseable {
       .withHeader("Accept", "application/xml")
       .withData(requestEntity)
       .withTimeout(myConnectionTimeout)
-      .allowNonSecureConnection(allowHttp);
+      .allowNonSecureConnection(myAllowPlainHttpUpload);
 
     headers.forEach(requestBuilder::withHeader);
     if (myCheckConsistency && digest != null) {

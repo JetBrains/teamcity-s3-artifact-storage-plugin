@@ -56,6 +56,7 @@ public abstract class S3FileUploader {
       .withUrlTtlSeconds(jetbrains.buildServer.artifacts.s3.S3Util.getUrlTtlSeconds(sharedConfigurationParameters))
       .withConsistencyCheckEnabled(jetbrains.buildServer.artifacts.s3.S3Util.isConsistencyCheckEnabled(sharedConfigurationParameters))
       .withAcl(jetbrains.buildServer.artifacts.s3.S3Util.getAcl(artifactStorageSettings, sharedConfigurationParameters))
+      .allowPlainHttpUpload(jetbrains.buildServer.artifacts.s3.S3Util.isAllowPlainHttpUpload(sharedConfigurationParameters))
       .withShutdownClient();
   }
 
