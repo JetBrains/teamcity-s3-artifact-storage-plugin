@@ -16,7 +16,7 @@ const request = async (
   }
 
   return await utils.requestText(
-    url,
+    url.replace(/^\/+/, ''),
     {
       method,
       body,
