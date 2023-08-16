@@ -9,6 +9,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
@@ -25,11 +26,11 @@ import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectionCredentialsManager;
-import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.serverSide.impl.FinishedBuildEx;
 import jetbrains.buildServer.serverSide.impl.cleanup.CleanupProcessStateEx;
 import org.jetbrains.annotations.NotNull;
 import org.jmock.Mock;
+import org.jmock.core.Constraint;
 import org.jmock.core.stub.DefaultResultStub;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -56,20 +57,6 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
   public static final ScheduledThreadPoolExecutor SCHEDULED_EXECUTOR = new ScheduledThreadPoolExecutor(4);
   @NotNull
   public static final ExecutorService SINGLE_THREAD_EXECUTOR = Executors.newSingleThreadExecutor();
-
-  public static final ExecutorServices EXECUTOR_SERVICES = new ExecutorServices() {
-    @NotNull
-    @Override
-    public ScheduledExecutorService getNormalExecutorService() {
-      return SCHEDULED_EXECUTOR;
-    }
-
-    @NotNull
-    @Override
-    public ExecutorService getLowPriorityExecutorService() {
-      return SINGLE_THREAD_EXECUTOR;
-    }
-  };
   private LocalStackContainer myLocalStack;
 
   @Override
@@ -124,6 +111,43 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
   }
 
   @Test
+  public void deletesArtifactsFromS3WithPartitionedContext() {
+    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
+    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
+
+    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
+
+    String expectedContents = "content";
+
+    Map<Long, ArtifactData> buildArtifacts = new HashMap<>();
+    buildArtifacts.put(1L, ArtifactDataInstance.create("b1-art", expectedContents.length()));
+    buildArtifacts.put(2L, ArtifactDataInstance.create("b2-art", expectedContents.length()));
+    buildArtifacts.put(3L, ArtifactDataInstance.create("b3-art", expectedContents.length()));
+
+    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, buildArtifacts);
+
+    AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
+
+    s3.createBucket(BUCKET_NAME);
+    for (Map.Entry<Long, ArtifactData> artifactsEntry : buildArtifacts.entrySet()) {
+      s3.putObject(BUCKET_NAME, artifactsEntry.getValue().getPath(), expectedContents);
+    }
+
+    cleanupExtension.prepareBuildsData(getContext(1L, 2L, 3L));
+
+    cleanupExtension.cleanupBuildsData(getContext(1L));
+    cleanupExtension.cleanupBuildsData(getContext(2L, 3L));
+
+    for (Map.Entry<Long, ArtifactData> artifactsEntry : buildArtifacts.entrySet()) {
+      assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactsEntry.getValue().getPath()));
+    }
+
+    if (s3.doesBucketExistV2(BUCKET_NAME)) {
+      s3.deleteBucket(BUCKET_NAME);
+    }
+  }
+
+  @Test
   public void deletesArtifactsFromS3WithRetry() {
     AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
     AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
@@ -136,7 +160,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     String expectedContents = "baz";
 
     ArtifactDataInstance artifact = ArtifactDataInstance.create(artifactPath, expectedContents.length());
-    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, artifact);
+    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, Collections.singletonMap(1L, artifact));
 
     AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
 
@@ -152,7 +176,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       }
     });
 
-    Mock contextMock = getContextMock();
+    Mock contextMock = getContextMock(Collections.singletonList(1L));
     contextMock.stubs().method("onBuildCleanupError").will(throwException(new RuntimeException("Build cleanup error")));
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
 
@@ -184,7 +208,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     String expectedContents = "baz";
 
     ArtifactDataInstance artifact = ArtifactDataInstance.create(artifactPath, expectedContents.length());
-    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, artifact);
+    S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, Collections.singletonMap(1L, artifact));
 
     AtomicInteger tryCount = new AtomicInteger(0);
 
@@ -197,7 +221,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       }
     });
 
-    Mock contextMock = getContextMock();
+    Mock contextMock = getContextMock(Collections.singletonList(1L));
     contextMock.stubs().method("onBuildCleanupError");
 
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
@@ -229,19 +253,32 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       .build();
   }
 
+
   @NotNull
-  private Mock getContextMock() {
+  private BuildCleanupContext getContext(Long... buildIds) {
+    return (BuildCleanupContext)getContextMock(Arrays.asList(buildIds)).proxy();
+  }
+
+  @NotNull
+  private Mock getContextMock(List<Long> buildIds) {
     Mock cleanupState = mock(CleanupProcessStateEx.class);
 
-    Mock build = mock(FinishedBuildEx.class);
-    build.stubs().method("getBuildNumber").will(returnValue("1"));
-    build.stubs().method("getBuildId").will(returnValue(1L));
-    build.stubs().method("getBuildTypeExternalId").will(returnValue("id"));
-    build.stubs().method("getProjectId").will(returnValue("projectId"));
+    List<FinishedBuildEx> builds = buildIds.stream()
+                                           .map(buildId -> {
+                                             Mock build = mock(FinishedBuildEx.class);
+                                             build.stubs().method("getBuildNumber").will(returnValue(String.valueOf(buildId)));
+                                             build.stubs().method("getBuildId").will(returnValue((long)buildId));
+                                             build.stubs().method("getBuildTypeExternalId").will(returnValue("id"));
+                                             build.stubs().method("getProjectId").will(returnValue("projectId"));
+                                             return (FinishedBuildEx)build.proxy();
+                                           })
+                                           .collect(Collectors.toList());
+    List<Long> buildIdsCopy = new ArrayList<>(buildIds);
 
     Mock context = mock(BuildCleanupContextEx.class);
 
-    context.stubs().method("getBuilds").will(returnValue(Collections.singletonList((FinishedBuildEx)build.proxy())));
+    context.stubs().method("getBuilds").will(returnValue(Collections.unmodifiableList(builds)));
+    context.stubs().method("getBuildIds").will(returnValue(Collections.unmodifiableList(buildIdsCopy)));
     context.stubs().method("getCleanupLevel").will(returnValue(CleanupLevel.EVERYTHING));
 
     cleanupState.setDefaultStub(new DefaultResultStub());
@@ -250,10 +287,25 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
   }
 
   @NotNull
-  private S3CleanupExtension getCleanupExtension(Map<String, String> storageSettings, ArtifactData... artifacts) {
+  private S3CleanupExtension getCleanupExtension(Map<String, String> storageSettings, Map<Long, ArtifactData> buildArtifactsMap) {
     Mock artifactHelper = mock(ServerArtifactHelper.class);
 
-    artifactHelper.stubs().method("getArtifactList").will(returnValue(getArtifactListData(artifacts)));
+    for (Map.Entry<Long, ArtifactData> buildArtifactsMapEntry : buildArtifactsMap.entrySet()) {
+      artifactHelper.stubs()
+                    .method("getArtifactList")
+                    .with(new Constraint() {
+                      @Override
+                      public boolean eval(final Object o) {
+                        return o != null && o instanceof FinishedBuildEx && ((FinishedBuildEx)o).getBuildId() == buildArtifactsMapEntry.getKey();
+                      }
+
+                      @Override
+                      public StringBuffer describeTo(final StringBuffer buffer) {
+                        return buffer.append("Should be build with id ").append(buildArtifactsMapEntry.getKey());
+                      }
+                    })
+                    .will(returnValue(getArtifactListData(buildArtifactsMapEntry.getValue())));
+    }
     artifactHelper.stubs().method("removeFromArtifactList");
 
     Mock settingsProvider = mock(ServerArtifactStorageSettingsProvider.class);
@@ -269,7 +321,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     AmazonS3Provider amazonS3Provider = new AmazonS3ProviderImpl((ProjectManager)projectManager.proxy(), (ProjectConnectionCredentialsManager)projectConnectionCredentialsManager.proxy());
 
     return new S3CleanupExtension((ServerArtifactHelper)artifactHelper.proxy(), (ServerArtifactStorageSettingsProvider)settingsProvider.proxy(), serverPaths,
-                                  (ProjectManager)projectManager.proxy(), EXECUTOR_SERVICES, amazonS3Provider);
+                                  (ProjectManager)projectManager.proxy(), amazonS3Provider);
   }
 
   @NotNull
@@ -297,5 +349,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       }
     };
   }
+
+
 
 }
