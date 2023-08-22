@@ -3,6 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import {
   FormRow,
   FormSelect,
+  useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
 import { CSSProperties, useCallback, useEffect, useState } from 'react';
 
@@ -46,6 +47,7 @@ export default function AvailableAwsConnections() {
   }, [clearErrors, setValue]);
 
   const [show, setShow] = useState(false);
+  const isReadOnly = useReadOnlyContext();
 
   return (
     <div>
@@ -68,6 +70,7 @@ export default function AvailableAwsConnections() {
             loading={isLoading}
           />
           <Button
+            disabled={isReadOnly}
             style={{ marginTop: '20px' }}
             icon={addIcon}
             onClick={() => setShow(true)}

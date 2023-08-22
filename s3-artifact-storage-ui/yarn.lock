@@ -1663,10 +1663,10 @@
   resolved "https://registry.yarnpkg.com/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz#b520529ec21d8e5945a1851dfd1c32e94e39ff45"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
 
-"@jetbrains-internal/tcci-react-ui-components@^0.3.3":
-  version "0.3.3"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@jetbrains-internal/tcci-react-ui-components/-/tcci-react-ui-components-0.3.3.tgz#b8cda68f97137ebaee0127599c53e5818ae94224"
-  integrity sha512-yKZlGpdzqrR0EIHZXeYV/vobxwXYNY1slPAnXPeVup/nse/QAbewWVFaFWhWPnUOrfsCoIYJCHVa0OvIzaibbw==
+"@jetbrains-internal/tcci-react-ui-components@^0.3.24":
+  version "0.3.24"
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@jetbrains-internal/tcci-react-ui-components/-/tcci-react-ui-components-0.3.24.tgz#6fea78181ad86c132d52a71409f1a4ef075fe328"
+  integrity sha512-gv3AmYMQ6cOVQXkW9LLd125krmLu8HuoAfsRDgbn2zLXdlLq8D26c66nLiq+sKUXWSIWCdXBCfynIZiTmGceVA==
   dependencies:
     classnames "^2.3.2"
 

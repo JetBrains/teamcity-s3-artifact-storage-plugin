@@ -5,6 +5,7 @@ import {
   FormSelect,
   LabelWithHelp,
   useErrorService,
+  useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
 import { React } from '@jetbrains/teamcity-api';
 
@@ -24,6 +25,7 @@ import { useAppContext } from '../../../../contexts/AppContext';
 
 export default function TrustedKeyGroup() {
   const config = useAppContext();
+  const isReadOnly = useReadOnlyContext();
   const { control, getValues, setError, clearErrors } =
     useFormContext<IFormInput>();
   const { showErrorsOnForm, showErrorAlert } = useErrorService({
@@ -120,7 +122,7 @@ export default function TrustedKeyGroup() {
       <FieldRow>
         <Button
           className={styles.uploadButton}
-          disabled={isLoading || isMagicHappening || disabled}
+          disabled={isLoading || isMagicHappening || disabled || isReadOnly}
           onClick={upload}
           loader={validationInProgress}
         >

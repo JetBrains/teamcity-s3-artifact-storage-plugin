@@ -8,6 +8,7 @@ export type ConfigWrapper = {
 };
 
 export type Config = {
+  readOnly: boolean;
   storageTypes: string;
   storageNames: string;
   containersPath: string;

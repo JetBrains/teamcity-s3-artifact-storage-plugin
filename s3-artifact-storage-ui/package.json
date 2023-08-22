@@ -20,7 +20,7 @@
     "@babel/preset-typescript": "^7.18.6",
     "@babel/runtime": "^7.19.4",
     "@hookform/devtools": "^4.1.0",
-    "@jetbrains-internal/tcci-react-ui-components": "^0.3.3",
+    "@jetbrains-internal/tcci-react-ui-components": "^0.3.24",
     "@jetbrains/icons": "^3.19.1",
     "@jetbrains/ring-ui": "^5.0.133",
     "@jetbrains/teamcity-api": "^2022.4.1-v.1",

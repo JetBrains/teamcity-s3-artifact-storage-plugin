@@ -17,6 +17,7 @@
 <%@ taglib prefix="intprop" uri="/WEB-INF/functions/intprop" %>
 <%@ taglib prefix="util" uri="/WEB-INF/functions/util" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
+<%@ taglib prefix="afn" uri="/WEB-INF/functions/authz" %>
 
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
@@ -63,6 +64,9 @@
 <%--@elvariable id="project" type="jetbrains.buildServer.serverSide.SProject"--%>
 <%--@elvariable id="publicKey" type="java.lang.String"--%>
 
+<c:set var="canEditProject" value="${afn:permissionGrantedForProject(project, 'EDIT_PROJECT')}"/>
+<c:set var="projectIsReadOnly" value="${project.readOnly}"/>
+
 <div id="edit-s3-storage-root"></div>
 <c:set var="frontendDefaultUrl"><c:url value='${teamcityPluginResourcesPath}bundle.js'/></c:set>
 <c:set var="overrideBundleUrl" value="${intprop:getProperty('teamcity.plugins.SakuraUI-Plugin.bundleUrl', '')}"/>
@@ -85,6 +89,8 @@
 
 <script type="text/javascript">
   const config = {
+    readOnly: "<bs:forJs>${projectIsReadOnly || !canEditProject}</bs:forJs>" === "true",
+
     storageTypes: "<bs:forJs>${storageTypes}</bs:forJs>",
     storageNames: "<bs:forJs>${storageNames}</bs:forJs>",
     containersPath: "<bs:forJs>${params.containersPath}</bs:forJs>",

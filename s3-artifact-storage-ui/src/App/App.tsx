@@ -5,8 +5,10 @@ import {
   FieldColumn,
   FieldRow,
   Option,
+  ReadOnlyContextProvider,
   useErrorService,
   useJspContainer,
+  useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
 import {
   ControlsHeight,
@@ -114,6 +116,7 @@ function Main() {
   const currentType = watch(FormFields.STORAGE_TYPE);
   const isS3Compatible = currentType?.key === S3_COMPATIBLE;
   const isAwsS3 = currentType?.key === AWS_S3;
+  const isReadOnly = useReadOnlyContext();
 
   return (
     <FormProvider {...formMethods}>
@@ -133,7 +136,7 @@ function Main() {
           <div className={styles.formControlButtons}>
             <FieldRow>
               <FieldColumn>
-                <Button type="submit" primary>
+                <Button disabled={isReadOnly} type="submit" primary>
                   {'Save'}
                 </Button>
               </FieldColumn>
@@ -163,11 +166,13 @@ function AwaitConnections() {
 function App({ config }: ConfigWrapper) {
   useJspContainer('#storageParamsInner table.runnerFormTable, #saveButtons');
   return (
-    <AppContextProvider value={config}>
-      <AwsConnectionsContextProvider>
-        <AwaitConnections />
-      </AwsConnectionsContextProvider>
-    </AppContextProvider>
+    <ReadOnlyContextProvider value={config.readOnly}>
+      <AppContextProvider value={config}>
+        <AwsConnectionsContextProvider>
+          <AwaitConnections />
+        </AwsConnectionsContextProvider>
+      </AppContextProvider>
+    </ReadOnlyContextProvider>
   );
 }
 

@@ -3,6 +3,7 @@ import {
   MagicButton,
   Option,
   useErrorService,
+  useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
 import { React } from '@jetbrains/teamcity-api';
 import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
@@ -32,6 +33,7 @@ type CreateDistributionsResponse = {
 
 export default function MagicDistributionsButton() {
   const config = useAppContext();
+  const isReadOnly = useReadOnlyContext();
   const { getValues, setError } = useFormContext<IFormInput>();
   const { isLoading } = useCfDistributions();
   const {
@@ -117,7 +119,6 @@ export default function MagicDistributionsButton() {
       setIsMagicHappening(false);
     }
   }, [
-    setCfDistributions,
     createDistributions,
     getValues,
     setCfDistributions,
@@ -136,7 +137,7 @@ export default function MagicDistributionsButton() {
       className={styles.magicButtonShift}
       title="Create distribution"
       onClick={createDistributionMagic}
-      disabled={isLoading || disabled}
+      disabled={isLoading || disabled || isReadOnly}
       loading={isMagicHappening}
     />
   );
