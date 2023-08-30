@@ -45,6 +45,8 @@ import S3Section from './S3Compatible/S3Section';
 import AwsS3 from './S3/AwsS3';
 import MultipartUploadSection from './MultipartUpload/MultipartUploadSection';
 import ProtocolSettings from './ProtocolSettings/ProtocolSettings';
+import Dialog from "@jetbrains/ring-ui/components/dialog/dialog";
+import StorageTypeChangedWarningDialog from "./components/StorageTypeChangedWarningDialog";
 
 function Main() {
   const config = useAppContext();
@@ -146,7 +148,7 @@ function Main() {
             </FieldRow>
           </div>
         </form>
-
+        <StorageTypeChangedWarningDialog />
         {/*<DevTool control={formMethods.control} />*/}
       </ControlsHeightContext.Provider>
     </FormProvider>
