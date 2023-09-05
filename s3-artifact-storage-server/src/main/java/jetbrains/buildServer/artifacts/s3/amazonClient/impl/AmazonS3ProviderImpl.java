@@ -129,23 +129,32 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     try {
       return withS3ClientShuttingDownImmediately(settings, projectId, action);
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
-      final String correctedRegion = extractCorrectedRegion(s3Exception);
-      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
-      final boolean isRegionException = correctedRegion != null;
+      final Map<String, String> correctedSettings = extractCorrectedSettings(settings, s3Exception);
+      return withS3ClientShuttingDownImmediately(correctedSettings, projectId, action);
+    }
+  }
 
-      final HashMap<String, String> correctedSettings = new HashMap<>(settings);
+  private Map<String, String> extractCorrectedSettings(Map<String, String> settings, Throwable s3Exception) throws ConnectionCredentialsException, AmazonS3Exception {
+    final String correctedRegion = extractCorrectedRegion(s3Exception);
+    final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
+    final boolean isRegionException = correctedRegion != null;
 
-      if (isTAException) {
-        Loggers.CLOUD.debug("Running operation with disabled Transfer Acceleration", s3Exception);
-        correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
-        return withCorrectingRegionAndAcceleration(correctedSettings, projectId, action);
-      } else if (isRegionException) {
-        Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
-        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
-        return withCorrectingRegionAndAcceleration(correctedSettings, projectId, action);
-      } else {
-        throw s3Exception;
-      }
+    final HashMap<String, String> correctedSettings = new HashMap<>(settings);
+
+    if (isTAException) {
+      Loggers.CLOUD.debug("Running operation with disabled Transfer Acceleration", s3Exception);
+      correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
+      return correctedSettings;
+    } else if (isRegionException) {
+      Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
+      correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
+      return correctedSettings;
+    } else if (s3Exception instanceof ConnectionCredentialsException) { // Should never happen
+      throw (ConnectionCredentialsException)s3Exception;
+    } else if (s3Exception instanceof AmazonS3Exception) {
+      throw (AmazonS3Exception)s3Exception;
+    } else {
+      throw new RuntimeException("Cannot extract corrected settings from exception");
     }
   }
 
@@ -158,24 +167,39 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @Override
-  public Map<String, String> correctRegion(@NotNull final String bucketName,
-                                           @NotNull final Map<String, String> storageSettings,
-                                           @NotNull final String projectId) {
+  public Map<String, String> correctRegionAndAcceleration(@NotNull final String bucketName,
+                                                          @NotNull final Map<String, String> storageSettings,
+                                                          @NotNull final String projectId) {
     if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")) {
       final String initialRegion = storageSettings.get(AWSCommonParams.REGION_NAME_PARAM);
-      final String correctedRegion = IOGuard.allowNetworkCall(() -> {
+      return IOGuard.allowNetworkCall(() -> {
         try {
-          return withCorrectingRegionAndAcceleration(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
+          return getCorrectedRegionAndAcceleration(bucketName, storageSettings, projectId, initialRegion);
         } catch (Throwable t) {
           throw new RuntimeException(t);
         }
       });
+    }
+
+    return storageSettings;
+  }
+
+  @NotNull
+  private Map<String, String> getCorrectedRegionAndAcceleration(@NotNull String bucketName,
+                                                                @NotNull Map<String, String> storageSettings,
+                                                                @NotNull String projectId,
+                                                                String initialRegion) throws ConnectionCredentialsException {
+    try {
+      String correctedRegion = withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
       if (!correctedRegion.equalsIgnoreCase(initialRegion)) {
         final HashMap<String, String> correctedSettings = new HashMap<>(storageSettings);
         correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
         Loggers.CLOUD.debug(() -> "Bucket [" + bucketName + "] location is corrected: [" + initialRegion + "] -> [" + correctedRegion + "]");
         return correctedSettings;
       }
+    } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
+      final Map<String, String> correctedSettings = extractCorrectedSettings(storageSettings, s3Exception);
+      return getCorrectedRegionAndAcceleration(bucketName, correctedSettings, projectId, initialRegion);
     }
     return storageSettings;
   }

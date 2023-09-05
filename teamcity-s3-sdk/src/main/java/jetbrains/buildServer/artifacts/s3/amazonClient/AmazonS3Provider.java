@@ -37,7 +37,7 @@ public interface AmazonS3Provider {
   <T, E extends Exception> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final String projectId, @NotNull final WithCloudFrontClient<T, E> withClient)
     throws E, ConnectionCredentialsException;
 
-  Map<String, String> correctRegion(@NotNull final String bucketName,
-                                    @NotNull final Map<String, String> storageSettings,
-                                    @NotNull final String projectId);
+  Map<String, String> correctRegionAndAcceleration(@NotNull final String bucketName,
+                                                   @NotNull final Map<String, String> storageSettings,
+                                                   @NotNull final String projectId);
 }
