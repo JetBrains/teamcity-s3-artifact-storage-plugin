@@ -10,13 +10,18 @@ import { CSSProperties, useCallback, useEffect, useState } from 'react';
 import Button from '@jetbrains/ring-ui/components/button/button';
 
 import addIcon from '@jetbrains/icons/add';
+import editIcon from '@jetbrains/icons/pencil';
+
+import ButtonSet from '@jetbrains/ring-ui/components/button-set/button-set';
 
 import { IFormInput } from '../../types';
 import { FormFields } from '../appConstants';
 import { useAwsConnectionsContext } from '../../contexts/AwsConnectionsContext';
 
-import NewAwsConnectionDialog from './NewAwsConnectionDialog';
+import AwsConnectionDialog from './AwsConnectionDialog';
 import { AwsConnection } from './AvailableAwsConnectionsConstants';
+
+import styles from './styles.css';
 
 const availAwsConnectionsDropDownStyle: CSSProperties = {
   zIndex: 100,
@@ -25,8 +30,10 @@ const availAwsConnectionsDropDownStyle: CSSProperties = {
 export default function AvailableAwsConnections() {
   const { connectionOptions, error, isLoading, reloadConnectionOptions } =
     useAwsConnectionsContext();
-  const { control, setValue, setError, clearErrors } =
+  const { control, watch, setValue, setError, clearErrors } =
     useFormContext<IFormInput>();
+
+  const currentConnectionId = watch(FormFields.AWS_CONNECTION_ID)?.key?.id;
 
   useEffect(() => {
     if (error) {
@@ -48,6 +55,7 @@ export default function AvailableAwsConnections() {
 
   const [show, setShow] = useState(false);
   const isReadOnly = useReadOnlyContext();
+  const [connectionId, setConnectionId] = useState<string>('');
 
   return (
     <div>
@@ -69,16 +77,31 @@ export default function AvailableAwsConnections() {
             }}
             loading={isLoading}
           />
-          <Button
-            disabled={isReadOnly}
-            style={{ marginTop: '20px' }}
-            icon={addIcon}
-            onClick={() => setShow(true)}
-          />
+          <ButtonSet className={styles.iconButtonsSet}>
+            <Button
+              disabled={isReadOnly}
+              style={{ marginTop: '20px' }}
+              icon={addIcon}
+              onClick={() => {
+                setConnectionId('');
+                setShow(true);
+              }}
+            />
+            <Button
+              disabled={isReadOnly || !currentConnectionId}
+              style={{ marginTop: '20px' }}
+              icon={editIcon}
+              onClick={() => {
+                setConnectionId(currentConnectionId ?? '');
+                setShow(true);
+              }}
+            />
+          </ButtonSet>
         </div>
       </FormRow>
-      <NewAwsConnectionDialog
+      <AwsConnectionDialog
         active={show}
+        awsConnectionIdProp={connectionId}
         onClose={(newConnection: AwsConnection | undefined) => {
           if (newConnection) {
             setValue(FormFields.AWS_CONNECTION_ID, {
