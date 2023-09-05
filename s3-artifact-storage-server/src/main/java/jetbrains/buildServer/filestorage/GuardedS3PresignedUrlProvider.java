@@ -77,7 +77,7 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
     String projectId = projectSettings.get(PROJECT_ID_PARAM);
     String bucketName = S3Util.getBucketName(sslSettings);
     if (projectId != null && bucketName != null) {
-      final Map<String, String> correctedSettings = myAmazonS3Provider.correctRegion(
+      final Map<String, String> correctedSettings = myAmazonS3Provider.correctRegionAndAcceleration(
         bucketName,
         sslSettings,
         projectId

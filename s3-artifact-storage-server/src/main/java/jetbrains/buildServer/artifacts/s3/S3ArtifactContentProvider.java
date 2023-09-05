@@ -78,7 +78,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
         throw new ConnectionCredentialsException("There is no project information in the build : " + storedBuildArtifactInfo.getBuildPromotion().getBuildTypeExternalId() + " S3 bucket: " + bucketName);
       }
 
-      return myAmazonS3Provider.withS3Client(
+      return myAmazonS3Provider.withCorrectingRegionAndAcceleration(
         ParamUtil.putSslValues(myServerPaths, params),
         projectId,
         client -> client.getObject(bucketName, key).getObjectContent()
