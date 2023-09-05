@@ -1,0 +1,8 @@
+.iconButtonsSet {
+  display: flex;
+  gap: 0
+}
+
+.iconButtonsSet > button {
+  margin-right: 0 !important
+}

@@ -25,11 +25,13 @@ import { parseErrorsFromResponse } from '../../Utilities/responseParser';
 import { AwsConnection } from './AvailableAwsConnectionsConstants';
 import TestAwsConnectionDialog from './TestAwsConnectionDialog';
 
-export default function NewAwsConnectionDialog({
+export default function AwsConnectionDialog({
   active,
+  awsConnectionIdProp,
   onClose,
 }: {
   active: boolean;
+  awsConnectionIdProp: string;
   onClose: (newConnection: AwsConnection | undefined) => void;
 }) {
   const { projectId, publicKey } = useAppContext();
@@ -40,7 +42,7 @@ export default function NewAwsConnectionDialog({
   const { showErrorAlert } = useErrorService();
 
   const loadHtmlContent = React.useCallback(async () => {
-    const url = `/admin/oauth/showConnection.html?providerType=AWS&projectId=${projectId}`;
+    const url = `/admin/oauth/showConnection.html?providerType=AWS&projectId=${projectId}&connectionId=${awsConnectionIdProp}`;
 
     const response = await utils.requestText(
       url,
@@ -51,7 +53,7 @@ export default function NewAwsConnectionDialog({
     );
 
     setHtmlContent(response);
-  }, [projectId]);
+  }, [awsConnectionIdProp, projectId]);
 
   const updateScripts = useCallback(() => {
     popupRef.current?.querySelectorAll('script').forEach((script) => {
@@ -62,17 +64,15 @@ export default function NewAwsConnectionDialog({
   }, []);
 
   useEffect(() => {
-    if (active && !initialized) {
+    if (active) {
       setLoading(true);
       setInitialized(false);
       loadHtmlContent()
         .then(() => setLoading(false))
         .then(updateScripts)
         .finally(() => setInitialized(true));
-    } else if (active) {
-      updateScripts();
     }
-  }, [loadHtmlContent, initialized, updateScripts, active]);
+  }, [loadHtmlContent, updateScripts, active]);
 
   useEffect(() => {
     if (active && initialized) {
@@ -81,6 +81,15 @@ export default function NewAwsConnectionDialog({
         ?.setAttribute('style', 'display: none');
     }
   }, [initialized, active]);
+
+  const __onClose = React.useCallback(
+    (newConnection: AwsConnection | undefined) => {
+      setHtmlContent('');
+      setInitialized(false);
+      onClose(newConnection);
+    },
+    [onClose]
+  );
 
   const collectAwsConnectionFormData = React.useCallback(() => {
     // collect parameters from the form
@@ -100,11 +109,14 @@ export default function NewAwsConnectionDialog({
     const accessKeyId = (
       document.getElementById('awsAccessKeyId') as HTMLInputElement | null
     )?.value;
-    let secretAccessKey = (
-      document.getElementById(
-        'secure:awsSecretAccessKey'
-      ) as HTMLInputElement | null
-    )?.value;
+    let secretAccessKey =
+      // @ts-ignore
+      __secretKey || // __secretKey is provided by awsAccessKeysCredsComponent.jsp
+      (
+        document.getElementById(
+          'secure:awsSecretAccessKey'
+        ) as HTMLInputElement | null
+      )?.value;
     if (secretAccessKey) {
       secretAccessKey = encodeSecret(secretAccessKey, publicKey);
     }
@@ -130,7 +142,7 @@ export default function NewAwsConnectionDialog({
       saveConnection: 'save',
       providerType: type,
       'prop:displayName': displayName,
-      'prop:id': connectionId,
+      'prop:id': connectionId || awsConnectionIdProp,
       'prop:awsRegionName': awsRegion,
       'prop:awsCredentialsType': credentialsType,
       'prop:awsAccessKeyId': accessKeyId,
@@ -139,6 +151,7 @@ export default function NewAwsConnectionDialog({
       'prop:awsStsEndpoint': stsEndpoint,
       'prop:awsIamRoleArn': iamRoleArn,
       'prop:awsConnectionId': awsConnectionId,
+      connectionId: awsConnectionIdProp,
     };
     Object.keys(result).forEach((key) => {
       if (result[key] === null || result[key] === undefined) {
@@ -147,7 +160,7 @@ export default function NewAwsConnectionDialog({
     });
     // now all undefined values are removed
     return result as { [key: string]: string };
-  }, [projectId, publicKey]);
+  }, [awsConnectionIdProp, projectId, publicKey]);
 
   const submitConnection = React.useCallback(async () => {
     const formData = collectAwsConnectionFormData();
@@ -168,7 +181,7 @@ export default function NewAwsConnectionDialog({
           .join('\n');
         showErrorAlert(messages);
       } else {
-        onClose({
+        __onClose({
           id: newConnectionId,
           displayName: newConnectionDisplayName,
           usingSessionCreds: newConnectionUseSessionCreds === 'true',
@@ -177,7 +190,7 @@ export default function NewAwsConnectionDialog({
     } catch (e) {
       showErrorAlert(errorMessage(e));
     }
-  }, [collectAwsConnectionFormData, onClose, showErrorAlert]);
+  }, [__onClose, collectAwsConnectionFormData, showErrorAlert]);
 
   const [testDialogActive, setTestDialogActive] = React.useState(false);
   const [currentFormData, setCurrentFormData] = React.useState<{
@@ -193,7 +206,7 @@ export default function NewAwsConnectionDialog({
     <>
       <Dialog
         show={active}
-        onCloseAttempt={() => onClose(undefined)}
+        onCloseAttempt={() => __onClose(undefined)}
         trapFocus
         autoFocusFirst
         showCloseButton
@@ -217,7 +230,7 @@ export default function NewAwsConnectionDialog({
             <Button primary onClick={submitConnection}>
               {'Save'}
             </Button>
-            <Button onClick={() => onClose(undefined)}>{'Cancel'}</Button>
+            <Button onClick={() => __onClose(undefined)}>{'Cancel'}</Button>
             <Button onClick={testConnection}>{'Test Connection'}</Button>
           </ButtonSet>
         </Panel>
