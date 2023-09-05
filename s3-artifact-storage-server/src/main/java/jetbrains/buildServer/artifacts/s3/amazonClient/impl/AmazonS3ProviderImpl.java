@@ -129,12 +129,12 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     try {
       return withS3ClientShuttingDownImmediately(settings, projectId, action);
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
-      final Map<String, String> correctedSettings = extractCorrectedSettings(settings, s3Exception);
+      final Map<String, String> correctedSettings = extractCorrectedSettings(projectId, settings, s3Exception);
       return withS3ClientShuttingDownImmediately(correctedSettings, projectId, action);
     }
   }
 
-  private Map<String, String> extractCorrectedSettings(Map<String, String> settings, Throwable s3Exception) throws ConnectionCredentialsException, AmazonS3Exception {
+  private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception) throws ConnectionCredentialsException, AmazonS3Exception {
     final String correctedRegion = extractCorrectedRegion(s3Exception);
     final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
     final boolean isRegionException = correctedRegion != null;
@@ -142,11 +142,11 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     final HashMap<String, String> correctedSettings = new HashMap<>(settings);
 
     if (isTAException) {
-      Loggers.CLOUD.debug("Running operation with disabled Transfer Acceleration", s3Exception);
+      Loggers.CLOUD.debug("Running operation with disabled Transfer Acceleration for project " + projectId, s3Exception);
       correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
       return correctedSettings;
     } else if (isRegionException) {
-      Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "]", s3Exception);
+      Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "] for project " + projectId, s3Exception);
       correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
       return correctedSettings;
     } else if (s3Exception instanceof ConnectionCredentialsException) { // Should never happen
@@ -154,7 +154,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     } else if (s3Exception instanceof AmazonS3Exception) {
       throw (AmazonS3Exception)s3Exception;
     } else {
-      throw new RuntimeException("Cannot extract corrected settings from exception");
+      throw new RuntimeException("Cannot extract corrected settings from exception for project " + projectId);
     }
   }
 
@@ -198,7 +198,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
         return correctedSettings;
       }
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
-      final Map<String, String> correctedSettings = extractCorrectedSettings(storageSettings, s3Exception);
+      final Map<String, String> correctedSettings = extractCorrectedSettings(projectId, storageSettings, s3Exception);
       return getCorrectedRegionAndAcceleration(bucketName, correctedSettings, projectId, initialRegion);
     }
     return storageSettings;
