@@ -30,7 +30,7 @@ public interface AmazonS3Provider {
 
   <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
                                             @NotNull final String projectId,
-                                            @NotNull final WithS3Client<T, AmazonS3Exception> action) throws ConnectionCredentialsException;
+                                            @NotNull final WithS3Client<T, AmazonS3Exception> action, boolean shutdownImmediately) throws ConnectionCredentialsException;
 
   void shutdownClient(@NotNull final AmazonS3 s3Client);
 

@@ -81,8 +81,7 @@ public class S3ArtifactContentProvider implements ArtifactContentProvider {
       return myAmazonS3Provider.withCorrectingRegionAndAcceleration(
         ParamUtil.putSslValues(myServerPaths, params),
         projectId,
-        client -> client.getObject(bucketName, key).getObjectContent()
-      );
+        client -> client.getObject(bucketName, key).getObjectContent(), false);
     } catch (Throwable t) {
       final AWSException awsException = new AWSException(t);
       final String details = awsException.getDetails();

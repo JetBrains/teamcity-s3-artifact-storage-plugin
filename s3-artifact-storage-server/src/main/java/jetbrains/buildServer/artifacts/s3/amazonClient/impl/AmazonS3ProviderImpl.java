@@ -125,12 +125,13 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   @Override
   public <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
                                                    @NotNull final String projectId,
-                                                   @NotNull final WithS3Client<T, AmazonS3Exception> action) throws ConnectionCredentialsException {
+                                                   @NotNull final WithS3Client<T, AmazonS3Exception> action,
+                                                   final boolean shutdownImmediately) throws ConnectionCredentialsException {
     try {
-      return withS3ClientShuttingDownImmediately(settings, projectId, action);
+      return withS3Client(settings, projectId, action, shutdownImmediately);
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
       final Map<String, String> correctedSettings = extractCorrectedSettings(projectId, settings, s3Exception);
-      return withS3ClientShuttingDownImmediately(correctedSettings, projectId, action);
+      return withS3Client(correctedSettings, projectId, action, shutdownImmediately);
     }
   }
 

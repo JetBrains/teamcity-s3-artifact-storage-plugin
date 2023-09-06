@@ -29,7 +29,8 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String bucketRegion = myAmazonS3Builder.withCorrectingRegionAndAcceleration(
       parameters,
       projectId,
-      correctedClient -> correctedClient.getBucketLocation(bucketName)
+      correctedClient -> correctedClient.getBucketLocation(bucketName),
+      true
     );
 
     String domainPattern = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN, bucketName, bucketRegion);
