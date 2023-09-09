@@ -34,5 +34,8 @@
     <orderEntry type="library" name="commons-httpclient-4.1" level="project" />
     <orderEntry type="module" module-name="connections-api" />
     <orderEntry type="module" module-name="connections-api-core" />
+    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-s3:1.12.199" level="project" />
+    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-core:1.12.199" level="project" />
+    <orderEntry type="library" name="Maven: com.amazonaws:aws-java-sdk-cloudfront:1.12.199" level="project" />
   </component>
 </module>
