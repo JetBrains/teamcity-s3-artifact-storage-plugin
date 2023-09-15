@@ -34,6 +34,7 @@ import java.util.stream.IntStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
+import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -46,8 +47,8 @@ import jetbrains.buildServer.artifacts.s3.transport.*;
 import jetbrains.buildServer.controllers.BaseController;
 import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHeader;
 import jetbrains.buildServer.http.SimpleCredentials;
-import jetbrains.buildServer.serverSide.ProjectManagerEx;
-import jetbrains.buildServer.serverSide.RunningBuildEx;
+import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
@@ -81,16 +82,20 @@ public class S3PreSignedUrlController extends BaseController {
   private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
   @NotNull
   private final ProjectManagerEx myProjectManager;
+  @NotNull
+  private final ServerArtifactHelper myArtifactHelper;
 
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsManagerEx runningBuildsManager,
                                   @NotNull CloudFrontEnabledPresignedUrlProvider preSignedManager,
                                   @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider,
-                                  @NotNull ProjectManagerEx projectManager) {
+                                  @NotNull ProjectManagerEx projectManager,
+                                  @NotNull ServerArtifactHelper artifactHelper) {
     myRunningBuildsManager = runningBuildsManager;
     myPreSignedManager = preSignedManager;
     myStorageSettingsProvider = storageSettingsProvider;
     myProjectManager = projectManager;
+    myArtifactHelper = artifactHelper;
     web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
   }
 
@@ -196,6 +201,11 @@ public class S3PreSignedUrlController extends BaseController {
     }
 
     final Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
+    String featureId = getStorageSettingId(runningBuild);
+    if (featureId != null) {
+      storageSettings.put("STORAGE_FEATURE_ID", featureId);
+    }
+
     try {
       S3Util.validateParameters(storageSettings);
     } catch (IllegalArgumentException ex) {
@@ -316,6 +326,21 @@ public class S3PreSignedUrlController extends BaseController {
       }
     }
     return null;
+  }
+
+  @Nullable
+  private String getStorageSettingId(@NotNull SBuild build) {
+    final Object storageSettingReference = ((BuildPromotionEx)build.getBuildPromotion()).getAttribute(BuildAttributes.STORAGE_SETTINGS_REFERENCE);
+    if (storageSettingReference instanceof String /* build promotion attribute value might be int or string generally */) {
+      return (String)storageSettingReference;
+    }
+
+    try {
+      final ArtifactListData artifactList = myArtifactHelper.getArtifactList(build);
+      return artifactList == null ? null : artifactList.getStorageSettingsId();
+    } catch (IOException ex) {
+      return null;
+    }
   }
 
   private enum RequestType {

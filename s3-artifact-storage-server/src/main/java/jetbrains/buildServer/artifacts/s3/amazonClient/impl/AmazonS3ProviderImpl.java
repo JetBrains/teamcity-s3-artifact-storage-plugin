@@ -71,7 +71,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     return fromS3Configuration(s3Settings, projectId, null);
   }
 
-  public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
+  public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params, //todo
                                                                         @NotNull final String projectId,
                                                                         @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
     return withS3Client(params, projectId,
@@ -81,7 +81,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                         true);
   }
 
-  public <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
+  public <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params, //todo
                                                  @NotNull final String projectId,
                                                  @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
     return withS3Client(params, projectId,
@@ -126,7 +126,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   public <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
                                                    @NotNull final String projectId,
                                                    @NotNull final WithS3Client<T, AmazonS3Exception> action,
-                                                   final boolean shutdownImmediately) throws ConnectionCredentialsException {
+                                                   final boolean shutdownImmediately) throws ConnectionCredentialsException { //todo
     try {
       return withS3Client(settings, projectId, action, shutdownImmediately);
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
@@ -341,6 +341,13 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     if (linkedAwsConnectionId == null) {
       throw new ConnectionCredentialsException("There is no linked AWS Connection to use for the S3 storage");
     }
-    return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId);
+
+    final Map<String, String> parameters = new HashMap<String, String>();
+    String storageFeatureId = s3Settings.get("STORAGE_FEATURE_ID");
+    if (storageFeatureId != null) {
+      parameters.put("STORAGE_FEATURE_ID", storageFeatureId);
+    }
+
+    return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId, parameters);
   }
 }
