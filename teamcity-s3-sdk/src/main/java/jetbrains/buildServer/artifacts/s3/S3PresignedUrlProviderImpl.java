@@ -90,7 +90,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
       if (uploadId != null) {
         request.addRequestParameter("uploadId", uploadId);
       }
-      if (S3Util.isConsistencyCheckEnabled(settings.getProjectSettings()) && digest != null) {
+      if (S3Util.isConsistencyCheckEnabled(settings.toRawSettings()) && digest != null) {
         request.setContentMd5(digest);
       }
 

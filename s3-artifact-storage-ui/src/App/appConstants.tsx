@@ -29,6 +29,7 @@ export enum FormFields {
   CLOUD_FRONT_PRIVATE_KEY = 'prop:secure:storage_s3_cloudfront_privateKey',
   CONNECTION_PRESIGNED_URL_TOGGLE = 'prop:storage_s3_upload_presignedUrl_enabled',
   CONNECTION_FORCE_VHA_TOGGLE = 'prop:storage_s3_forceVirtualHostAddressing',
+  CONNECTION_VERIFY_IAU_TOGGLE = 'prop:storage_s3_verifyIntegrityAfterUpload',
   CONNECTION_TRANSFER_ACCELERATION_TOGGLE = 'prop:storage_s3_accelerateModeEnabled',
   CONNECTION_MULTIPART_THRESHOLD = 'prop:storage_s3_upload_multipart-threshold',
   CONNECTION_MULTIPART_CHUNKSIZE = 'prop:storage_s3_upload_multipart-chunksize',

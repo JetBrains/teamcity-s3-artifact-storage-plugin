@@ -66,6 +66,9 @@ export default function useS3Form() {
     ? true
     : config.forceVirtualHostAddressing;
 
+  const verifyIntegrityAfterUpload =
+    config.isNewStorage || config.verifyIntegrityAfterUpload;
+
   const environmentTypeValue = useMemo(() => {
     if (storageTypeValue?.key === S3_COMPATIBLE) {
       return AWS_ENV_TYPE_ARRAY[1];
@@ -99,6 +102,7 @@ export default function useS3Form() {
       [FormFields.CONNECTION_PRESIGNED_URL_TOGGLE]:
         config.usePresignUrlsForUpload,
       [FormFields.CONNECTION_FORCE_VHA_TOGGLE]: forceVirtualHostAddressingValue,
+      [FormFields.CONNECTION_VERIFY_IAU_TOGGLE]: verifyIntegrityAfterUpload,
       [FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE]:
         config.enableAccelerateMode,
       [FormFields.CONNECTION_MULTIPART_THRESHOLD]:

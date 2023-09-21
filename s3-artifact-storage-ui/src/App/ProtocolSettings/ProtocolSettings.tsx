@@ -35,6 +35,11 @@ export default function ProtocolSettings() {
         label="Force virtual host addressing"
         disabled={s3TransferAcceleration ?? false}
       />
+        <FormCheckbox
+            name={FormFields.CONNECTION_VERIFY_IAU_TOGGLE}
+            control={control}
+            label="Verify file integrity after upload"
+        />
     </section>
   );
 }

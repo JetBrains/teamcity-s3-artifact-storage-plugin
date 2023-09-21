@@ -277,9 +277,9 @@ public final class S3Util {
     return Integer.parseInt(configuration.getOrDefault(S3_URL_LIFETIME_SEC, String.valueOf(TeamCityProperties.getInteger(S3_URL_LIFETIME_SEC, DEFAULT_URL_LIFETIME_SEC))));
   }
 
-  public static boolean isConsistencyCheckEnabled(@NotNull final Map<String, String> configuration) {
-    return Boolean.parseBoolean(
-      configuration.getOrDefault(S3_ENABLE_CONSISTENCY_CHECK, TeamCityProperties.getProperty(S3_ENABLE_CONSISTENCY_CHECK, String.valueOf(DEFAULT_ENABLE_CONSISTENCY_CHECK))));
+  public static boolean isConsistencyCheckEnabled(Map<String, String> storageSettings) {
+    return Boolean.parseBoolean(TeamCityProperties.getProperty(S3_ENABLE_CONSISTENCY_CHECK, String.valueOf(DEFAULT_ENABLE_CONSISTENCY_CHECK))) &&
+           Boolean.parseBoolean(storageSettings.getOrDefault(S3_VERIFY_INTEGRITY_AFTER_UPLOAD, "true"));
   }
 
   @NotNull

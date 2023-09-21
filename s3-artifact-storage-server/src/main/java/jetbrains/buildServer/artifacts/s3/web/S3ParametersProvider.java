@@ -48,6 +48,9 @@ public class S3ParametersProvider {
   public String getForceVirtualHostAddressing() {
     return S3Constants.S3_FORCE_VIRTUAL_HOST_ADDRESSING;
   }
+  public String getVerifyIntegrityAfterUpload(){
+    return S3Constants.S3_VERIFY_INTEGRITY_AFTER_UPLOAD;
+  }
 
   public String getEnableAccelerateMode() {
     return S3Constants.S3_ENABLE_ACCELERATE_MODE;

@@ -41,6 +41,7 @@ export type Config = {
   cloudFrontPrivateKey: string;
   usePresignUrlsForUpload: boolean;
   forceVirtualHostAddressing: boolean;
+  verifyIntegrityAfterUpload: boolean;
   enableAccelerateMode: boolean;
   multipartUploadThreshold: string;
   multipartUploadPartSize: string;
@@ -76,6 +77,7 @@ export interface S3FormInput {
   [FormFields.CLOUD_FRONT_PRIVATE_KEY]: string;
   [FormFields.CONNECTION_PRESIGNED_URL_TOGGLE]: boolean;
   [FormFields.CONNECTION_FORCE_VHA_TOGGLE]: boolean;
+  [FormFields.CONNECTION_VERIFY_IAU_TOGGLE]: boolean;
   [FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE]: boolean;
   [FormFields.CONNECTION_MULTIPART_THRESHOLD]: string;
   [FormFields.CONNECTION_MULTIPART_CHUNKSIZE]: string;
