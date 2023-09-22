@@ -101,6 +101,7 @@ export default function AvailableAwsConnections() {
       </FormRow>
       <AwsConnectionDialog
         active={show}
+        mode={connectionId ? 'edit' : 'add'}
         awsConnectionIdProp={connectionId}
         onClose={(newConnection: AwsConnection | undefined) => {
           if (newConnection) {

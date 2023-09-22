@@ -47,10 +47,25 @@
   margin-left: 100px;
 }
 
-.fixDialog div[data-test='ring-island ring-dialog'] {
-  width: fit-content;
+.convertWarningBox {
+  margin-top: 12px;
+  width: 400px;
+  height: 48px;
+  padding: 8px 16px;
+  border-radius: 4px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: center;
+  background: #FAECCD;
 }
 
-.fixDialog div[data-test='ring-island-content'] > div {
-  padding-top: 0;
+.convertWarningBox button {
+  padding: 0;
+  height: 16px;
+}
+
+.convertWarningBox button span > span {
+  color: #0F5B99;
 }

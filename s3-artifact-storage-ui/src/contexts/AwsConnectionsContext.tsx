@@ -48,10 +48,13 @@ function AwsConnectionsContextProvider({ children }: OwnProps) {
       !chosenAwsConnectionId &&
       ((accessKeyIdValue && secretAcessKeyValue) || isDefaultCredentialsChain)
     ) {
+      // zero width space is used to trick select renderer to make dropdown proper height.
+      // if " " character or "" character is used, select rendered incorrectly
+      const zeroWidthSpace = '\u200B';
       // create a fake connection
       const fake = {
         key: 'fake',
-        label: '',
+        label: zeroWidthSpace,
       } as Option<AwsConnection>;
       connectionOptions.unshift(fake);
       setWithFake(true);

@@ -2,38 +2,87 @@ import { Content, Header } from '@jetbrains/ring-ui/components/island/island';
 import Panel from '@jetbrains/ring-ui/components/panel/panel';
 import Dialog from '@jetbrains/ring-ui/components/dialog/dialog';
 import { React, utils } from '@jetbrains/teamcity-api';
-
-import { useCallback, useEffect } from 'react';
-
 import Loader from '@jetbrains/ring-ui/components/loader/loader';
-
 import ButtonSet from '@jetbrains/ring-ui/components/button-set/button-set';
-
 import Button from '@jetbrains/ring-ui/components/button/button';
-
 import {
   errorMessage,
   useErrorService,
 } from '@jetbrains-internal/tcci-react-ui-components';
 
-import styles from '../styles.css';
+import okIcon from '@jetbrains/icons/ok';
+
+import Icon, { Color } from '@jetbrains/ring-ui/components/icon';
+
 import { useAppContext } from '../../contexts/AppContext';
 import { post } from '../../Utilities/fetchHelper';
 import { encodeSecret } from '../../Utilities/parametersUtils';
 import { parseErrorsFromResponse } from '../../Utilities/responseParser';
+import { testAwsConnection } from '../../Utilities/testAwsConnection';
 
+import styles2 from '../styles.css';
+
+import styles from './styles.css';
 import { AwsConnection } from './AvailableAwsConnectionsConstants';
 import TestAwsConnectionDialog from './TestAwsConnectionDialog';
 
-export default function AwsConnectionDialog({
-  active,
-  awsConnectionIdProp,
-  onClose,
-}: {
+enum CredentialsTypeEnum {
+  'awsAccessKeys' = 0,
+  'awsAssumeIamRole' = 1,
+  'defaultProvider' = 2,
+}
+
+function setCredentialsTypeSelector(index: CredentialsTypeEnum) {
+  const credentialsType = document.getElementById(
+    'awsCredentialsType'
+  ) as HTMLSelectElement;
+
+  credentialsType.selectedIndex = index;
+  credentialsType.dispatchEvent(new Event('change'));
+}
+
+function setAccessKeyCredentials(
+  awsAccessKeyId: string,
+  awsSecretAccessKey: string
+) {
+  const accessKeyId = document.getElementById(
+    'awsAccessKeyId'
+  ) as HTMLInputElement;
+  const secretAccessKey = document.getElementById(
+    'secure:awsSecretAccessKey'
+  ) as HTMLInputElement;
+  accessKeyId.value = awsAccessKeyId;
+  secretAccessKey.value = awsSecretAccessKey;
+}
+
+function setIamRoleArn(iamRole: string) {
+  const iamRoleArn = document.getElementById(
+    'awsIamRoleArn'
+  ) as HTMLInputElement;
+  iamRoleArn.value = iamRole;
+}
+
+interface OwnProps {
   active: boolean;
+  mode?: 'add' | 'edit' | 'convert';
   awsConnectionIdProp: string;
   onClose: (newConnection: AwsConnection | undefined) => void;
-}) {
+  parametersPreset?: { [key: string]: any };
+}
+
+const HeaderForMode = {
+  add: 'Add new AWS Connection',
+  edit: 'Edit AWS Connection',
+  convert: 'Convert to AWS Connection',
+};
+
+export default function AwsConnectionDialog({
+  active,
+  mode = 'add',
+  awsConnectionIdProp,
+  onClose,
+  parametersPreset,
+}: OwnProps) {
   const { projectId, publicKey } = useAppContext();
   const [loading, setLoading] = React.useState(false);
   const [initialized, setInitialized] = React.useState(false);
@@ -55,7 +104,7 @@ export default function AwsConnectionDialog({
     setHtmlContent(response);
   }, [awsConnectionIdProp, projectId]);
 
-  const updateScripts = useCallback(() => {
+  const updateScripts = React.useCallback(() => {
     popupRef.current?.querySelectorAll('script').forEach((script) => {
       const newScript = document.createElement('script');
       newScript.textContent = script.textContent;
@@ -63,22 +112,53 @@ export default function AwsConnectionDialog({
     });
   }, []);
 
-  useEffect(() => {
+  const injectParameters = React.useCallback(() => {
+    if (parametersPreset === undefined) {
+      return;
+    }
+
+    if (parametersPreset.useDefaultCredentialsProviderChain) {
+      setCredentialsTypeSelector(CredentialsTypeEnum.defaultProvider);
+    } else if (
+      parametersPreset.awsAccessKeyId &&
+      parametersPreset.awsAccessKeyId.length > 0
+    ) {
+      setCredentialsTypeSelector(CredentialsTypeEnum.awsAccessKeys);
+      setAccessKeyCredentials(
+        parametersPreset.awsAccessKeyId,
+        parametersPreset.awsSecretAccessKey
+      );
+    } else {
+      setCredentialsTypeSelector(CredentialsTypeEnum.awsAssumeIamRole);
+      setIamRoleArn(parametersPreset.iamRole);
+    }
+  }, [parametersPreset]);
+
+  React.useEffect(() => {
     if (active) {
       setLoading(true);
       setInitialized(false);
       loadHtmlContent()
         .then(() => setLoading(false))
         .then(updateScripts)
+        .then(injectParameters)
         .finally(() => setInitialized(true));
     }
-  }, [loadHtmlContent, updateScripts, active]);
+  }, [loadHtmlContent, updateScripts, active, injectParameters]);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (active && initialized) {
       document
         .getElementById('testConnectionButton')
         ?.setAttribute('style', 'display: none');
+
+      const collection = document.getElementsByClassName(
+        'testConnectionButton'
+      );
+
+      for (let i = 0; i < collection.length; i++) {
+        collection[i].setAttribute('style', 'display: none');
+      }
     }
   }, [initialized, active]);
 
@@ -192,54 +272,79 @@ export default function AwsConnectionDialog({
     }
   }, [__onClose, collectAwsConnectionFormData, showErrorAlert]);
 
-  const [testDialogActive, setTestDialogActive] = React.useState(false);
-  const [currentFormData, setCurrentFormData] = React.useState<{
-    [key: string]: string;
-  }>({});
-  const testConnection = React.useCallback(() => {
+  const [showSuccessText, setShowSuccessText] = React.useState(false);
+  const [showErrorText, setShowErrorText] = React.useState(false);
+  const [errorMessages, setErrorMessages] = React.useState('');
+  const [testingConnection, setTestingConnection] = React.useState(false);
+
+  const testConnection = React.useCallback(async () => {
     const formData = collectAwsConnectionFormData();
-    setCurrentFormData(formData);
-    setTestDialogActive(true);
-  }, [collectAwsConnectionFormData]);
+
+    setShowSuccessText(false);
+    setShowErrorText(false);
+    setTestingConnection(true);
+    try {
+      const result = await testAwsConnection(formData);
+
+      if (result.success) {
+        setShowSuccessText(true);
+      } else {
+        setShowErrorText(true);
+        setErrorMessages(result.message);
+      }
+    } catch (e) {
+      showErrorAlert(errorMessage(e));
+    } finally {
+      setTestingConnection(false);
+    }
+  }, [collectAwsConnectionFormData, showErrorAlert]);
 
   return (
-    <>
-      <Dialog
-        show={active}
-        onCloseAttempt={() => __onClose(undefined)}
-        trapFocus
-        autoFocusFirst
-        showCloseButton
-        className={styles.fixDialog}
-      >
-        <Header>{'Add new AWS Connection'}</Header>
-        <Content>
-          {loading ? (
-            <Loader />
-          ) : (
-            <div
-              id={'popupContainer'}
-              ref={popupRef}
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-              style={{ display: 'inline', margin: '10px', marginTop: '0' }}
-            />
-          )}
-        </Content>
-        <Panel>
-          <ButtonSet>
-            <Button primary onClick={submitConnection}>
-              {'Save'}
-            </Button>
-            <Button onClick={() => __onClose(undefined)}>{'Cancel'}</Button>
-            <Button onClick={testConnection}>{'Test Connection'}</Button>
-          </ButtonSet>
-        </Panel>
-      </Dialog>
-      <TestAwsConnectionDialog
-        active={testDialogActive}
-        formData={currentFormData}
-        onClose={() => setTestDialogActive(false)}
-      />
-    </>
+    <Dialog
+      show={active}
+      onCloseAttempt={() => __onClose(undefined)}
+      trapFocus
+      autoFocusFirst
+      showCloseButton
+      className={styles.fixDialog}
+    >
+      <Header>{HeaderForMode[mode]}</Header>
+      <Content>
+        {loading ? (
+          <Loader />
+        ) : (
+          <div
+            id={'popupContainer'}
+            ref={popupRef}
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
+            style={{ display: 'inline', margin: '10px', marginTop: '0' }}
+          />
+        )}
+      </Content>
+      <Panel className={styles.awsConnectionButtonPanel}>
+        <ButtonSet>
+          <Button primary onClick={submitConnection}>
+            {mode === 'convert' ? 'Convert' : 'Save'}
+          </Button>
+          <Button onClick={() => __onClose(undefined)}>{'Cancel'}</Button>
+          <Button loader={testingConnection} onClick={testConnection}>
+            {'Test Connection'}
+          </Button>
+        </ButtonSet>
+        {showSuccessText && (
+          <div className={styles.successText}>
+            <Icon glyph={okIcon} color={Color.GREEN} />
+            <p className={styles2.commentary}>{'Connection is successful'}</p>
+          </div>
+        )}
+
+        <TestAwsConnectionDialog
+          active={showErrorText}
+          status={'failed'}
+          testConnectionInfo={errorMessages}
+          onClose={() => setShowErrorText(false)}
+        />
+      </Panel>
+    </Dialog>
   );
 }

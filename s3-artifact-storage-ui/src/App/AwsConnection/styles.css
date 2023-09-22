@@ -6,3 +6,40 @@
 .iconButtonsSet > button {
   margin-right: 0 !important
 }
+
+.fixDialog div[data-test='ring-island ring-dialog'] {
+  width: fit-content;
+}
+
+.fixDialog div[data-test='ring-island-content'] > div {
+  padding-top: 0;
+}
+
+.successText {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.successText > p {
+  color: var(--ring-icon-success-color);
+}
+
+.errorText {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.errorText > p {
+  color: var(--ring-icon-error-color);
+}
+
+.awsConnectionButtonPanel {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  align-items: baseline;
+}
