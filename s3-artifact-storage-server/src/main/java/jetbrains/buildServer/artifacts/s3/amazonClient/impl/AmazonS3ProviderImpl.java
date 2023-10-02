@@ -8,6 +8,7 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
 import java.util.HashMap;
 import java.util.Map;
+import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.CachingSocketFactory;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
@@ -341,6 +342,13 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     if (linkedAwsConnectionId == null) {
       throw new ConnectionCredentialsException("There is no linked AWS Connection to use for the S3 storage");
     }
-    return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId);
+
+    final Map<String, String> additionalParameters = new HashMap<String, String>();
+    String storageFeatureId = s3Settings.get(ArtifactStorageSettings.STORAGE_FEATURE_ID);
+    if (storageFeatureId != null) {
+      additionalParameters.put(ArtifactStorageSettings.STORAGE_FEATURE_ID, storageFeatureId);
+    }
+
+    return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId, additionalParameters);
   }
 }
