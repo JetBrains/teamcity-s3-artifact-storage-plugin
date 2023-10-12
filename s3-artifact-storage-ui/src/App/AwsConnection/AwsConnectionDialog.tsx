@@ -231,6 +231,7 @@ export default function AwsConnectionDialog({
       'prop:awsStsEndpoint': stsEndpoint,
       'prop:awsIamRoleArn': iamRoleArn,
       'prop:awsConnectionId': awsConnectionId,
+      'prop:awsIamRoleSessionName': 'TeamCity-session',
       connectionId: awsConnectionIdProp,
     };
     Object.keys(result).forEach((key) => {
