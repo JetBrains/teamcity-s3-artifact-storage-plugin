@@ -82,6 +82,7 @@ export default function AvailableAwsConnections() {
               disabled={isReadOnly}
               style={{ marginTop: '20px' }}
               icon={addIcon}
+              title={'Create AWS connection'}
               onClick={() => {
                 setConnectionId('');
                 setShow(true);
@@ -91,6 +92,7 @@ export default function AvailableAwsConnections() {
               disabled={isReadOnly || !currentConnectionId}
               style={{ marginTop: '20px' }}
               icon={editIcon}
+              title={'Edit AWS connection'}
               onClick={() => {
                 setConnectionId(currentConnectionId ?? '');
                 setShow(true);
