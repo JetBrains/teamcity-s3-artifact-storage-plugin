@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.clouds.amazon.connector.featureDevelopment.ChosenAwsConnPropertiesProcessor;
@@ -41,10 +40,6 @@ public class S3PropertiesProcessor implements PropertiesProcessor {
       if (CloudFrontConstants.isEnabled() && S3Util.getCloudFrontEnabled(params)) {
         invalids.addAll(new CloudFrontPropertiesProcessor().process(params));
       }
-    }
-
-    if (StringUtil.isEmptyOrSpaces(params.get(S3Constants.S3_VERIFY_INTEGRITY_AFTER_UPLOAD))) {
-      params.put(S3Constants.S3_VERIFY_INTEGRITY_AFTER_UPLOAD, "false");
     }
 
     return invalids;

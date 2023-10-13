@@ -129,7 +129,7 @@
 
     usePresignUrlsForUpload: "<bs:forJs>${propertiesBean.properties[params.usePresignUrlsForUpload]}</bs:forJs>" === "true",
     forceVirtualHostAddressing: "<bs:forJs>${propertiesBean.properties[params.forceVirtualHostAddressing]}</bs:forJs>" === "true",
-    verifyIntegrityAfterUpload: "<bs:forJs>${propertiesBean.properties[params.verifyIntegrityAfterUpload]}</bs:forJs>" === "true",
+    verifyIntegrityAfterUpload: "<bs:forJs>${propertiesBean.properties[params.verifyIntegrityAfterUpload]}</bs:forJs>" !== "false",
     transferAccelerationOn: "<bs:forJs>${Boolean.parseBoolean(transferAccelerationOn)}</bs:forJs>" === "true",
     enableAccelerateMode: "<bs:forJs>${propertiesBean.properties[params.enableAccelerateMode]}</bs:forJs>" === "true",
     multipartUploadThreshold: "<bs:forJs>${propertiesBean.properties[params.multipartUploadThreshold]}</bs:forJs>",

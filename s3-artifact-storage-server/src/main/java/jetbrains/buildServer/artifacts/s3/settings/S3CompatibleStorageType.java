@@ -79,6 +79,7 @@ public class S3CompatibleStorageType extends ArtifactStorageType {
     Map<String, String> result = new HashMap<>(AWSCommonParams.getDefaults(myServerSettings.getServerUUID()));
     result.put(AWSCommonParams.REGION_NAME_PARAM, AWSRegions.DEFAULT_REGION);
     result.put(S3Constants.S3_USE_PRE_SIGNED_URL_FOR_UPLOAD, Boolean.toString(true));
+    result.put(S3Constants.S3_VERIFY_INTEGRITY_AFTER_UPLOAD, Boolean.toString(true));
     result.put(AWSCommonParams.ENVIRONMENT_NAME_PARAM, "Custom");
     return result;
   }
