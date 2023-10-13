@@ -88,7 +88,7 @@ export default function AwsConnectionDialog({
   const [initialized, setInitialized] = React.useState(false);
   const [htmlContent, setHtmlContent] = React.useState('');
   const popupRef = React.useRef<HTMLDivElement>(null);
-  const { showErrorAlert } = useErrorService();
+  const { showErrorAlert, clearAlerts } = useErrorService();
 
   const loadHtmlContent = React.useCallback(async () => {
     const url = `/admin/oauth/showConnection.html?providerType=AWS&projectId=${projectId}&connectionId=${awsConnectionIdProp}`;
@@ -164,11 +164,12 @@ export default function AwsConnectionDialog({
 
   const __onClose = React.useCallback(
     (newConnection: AwsConnection | undefined) => {
+      clearAlerts();
       setHtmlContent('');
       setInitialized(false);
       onClose(newConnection);
     },
-    [onClose]
+    [clearAlerts, onClose]
   );
 
   const collectAwsConnectionFormData = React.useCallback(() => {
@@ -251,6 +252,8 @@ export default function AwsConnectionDialog({
     const newConnectionUseSessionCreds: string | undefined =
       formData['prop:awsSessionCredentials'];
     const url = 'admin/oauth/connections.html';
+    clearAlerts();
+
     try {
       const result = await post(url, formData);
       const errors = parseErrorsFromResponse(
@@ -271,7 +274,7 @@ export default function AwsConnectionDialog({
     } catch (e) {
       showErrorAlert(errorMessage(e));
     }
-  }, [__onClose, collectAwsConnectionFormData, showErrorAlert]);
+  }, [__onClose, clearAlerts, collectAwsConnectionFormData, showErrorAlert]);
 
   const [showSuccessText, setShowSuccessText] = React.useState(false);
   const [showErrorText, setShowErrorText] = React.useState(false);
@@ -280,7 +283,7 @@ export default function AwsConnectionDialog({
 
   const testConnection = React.useCallback(async () => {
     const formData = collectAwsConnectionFormData();
-
+    clearAlerts();
     setShowSuccessText(false);
     setShowErrorText(false);
     setTestingConnection(true);
@@ -298,7 +301,7 @@ export default function AwsConnectionDialog({
     } finally {
       setTestingConnection(false);
     }
-  }, [collectAwsConnectionFormData, showErrorAlert]);
+  }, [clearAlerts, collectAwsConnectionFormData, showErrorAlert]);
 
   const handleEscapeKey = React.useCallback(
     (event: React.KeyboardEvent) => {
