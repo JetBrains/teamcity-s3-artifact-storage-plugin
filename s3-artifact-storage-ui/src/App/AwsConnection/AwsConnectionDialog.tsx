@@ -87,6 +87,7 @@ export default function AwsConnectionDialog({
   const [loading, setLoading] = React.useState(false);
   const [initialized, setInitialized] = React.useState(false);
   const [htmlContent, setHtmlContent] = React.useState('');
+  const [showSuccessText, setShowSuccessText] = React.useState(false);
   const popupRef = React.useRef<HTMLDivElement>(null);
   const { showErrorAlert, clearAlerts } = useErrorService();
 
@@ -159,12 +160,24 @@ export default function AwsConnectionDialog({
       for (let i = 0; i < collection.length; i++) {
         collection[i].setAttribute('style', 'display: none');
       }
+
+      // __secretKey is provided by awsAccessKeysCredsComponent.jsp
+      if (window.__secretKey) {
+        const sakElement = document.getElementById(
+          'secure:awsSecretAccessKey'
+        ) as HTMLInputElement | null;
+
+        if (sakElement) {
+          sakElement.value = window.__secretKey;
+        }
+      }
     }
   }, [initialized, active]);
 
   const __onClose = React.useCallback(
     (newConnection: AwsConnection | undefined) => {
       clearAlerts();
+      setShowSuccessText(false);
       setHtmlContent('');
       setInitialized(false);
       onClose(newConnection);
@@ -190,14 +203,12 @@ export default function AwsConnectionDialog({
     const accessKeyId = (
       document.getElementById('awsAccessKeyId') as HTMLInputElement | null
     )?.value;
-    let secretAccessKey =
-      // @ts-ignore
-      __secretKey || // __secretKey is provided by awsAccessKeysCredsComponent.jsp
-      (
-        document.getElementById(
-          'secure:awsSecretAccessKey'
-        ) as HTMLInputElement | null
-      )?.value;
+    let secretAccessKey = (
+      document.getElementById(
+        'secure:awsSecretAccessKey'
+      ) as HTMLInputElement | null
+    )?.value;
+
     if (secretAccessKey) {
       secretAccessKey = encodeSecret(secretAccessKey, publicKey);
     }
@@ -276,8 +287,7 @@ export default function AwsConnectionDialog({
     }
   }, [__onClose, clearAlerts, collectAwsConnectionFormData, showErrorAlert]);
 
-  const [showSuccessText, setShowSuccessText] = React.useState(false);
-  const [showErrorText, setShowErrorText] = React.useState(false);
+  const [showErrorDialog, setShowErrorDialog] = React.useState(false);
   const [errorMessages, setErrorMessages] = React.useState('');
   const [testingConnection, setTestingConnection] = React.useState(false);
 
@@ -285,7 +295,7 @@ export default function AwsConnectionDialog({
     const formData = collectAwsConnectionFormData();
     clearAlerts();
     setShowSuccessText(false);
-    setShowErrorText(false);
+    setShowErrorDialog(false);
     setTestingConnection(true);
     try {
       const result = await testAwsConnection(formData);
@@ -293,7 +303,7 @@ export default function AwsConnectionDialog({
       if (result.success) {
         setShowSuccessText(true);
       } else {
-        setShowErrorText(true);
+        setShowErrorDialog(true);
         setErrorMessages(result.message);
       }
     } catch (e) {
@@ -356,10 +366,10 @@ export default function AwsConnectionDialog({
         )}
 
         <TestAwsConnectionDialog
-          active={showErrorText}
+          active={showErrorDialog}
           status={'failed'}
           testConnectionInfo={errorMessages}
-          onClose={() => setShowErrorText(false)}
+          onClose={() => setShowErrorDialog(false)}
         />
       </Panel>
     </Dialog>
