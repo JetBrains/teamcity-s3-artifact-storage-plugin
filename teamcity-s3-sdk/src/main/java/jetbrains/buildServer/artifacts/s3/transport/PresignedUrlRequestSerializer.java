@@ -21,6 +21,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.util.XmlUtil;
 import org.jdom.Attribute;
+import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -135,16 +136,16 @@ public class PresignedUrlRequestSerializer {
       final Element mapEntry = new Element(PRE_SIGN_URL_MAP_ENTRY);
       final Element uploadIdElement = new Element(PRE_SIGN_URL_UPLOAD_ID);
       uploadIdElement.addContent(presignedUrl.getUploadId());
-      mapEntry.addContent(uploadIdElement);
+      mapEntry.addContent((Content)uploadIdElement);
 
       final Element preSignUrlsElement = new Element(PRE_SIGN_URLS_FOR_FILE_PARTS);
       presignedUrl.getPresignedUrlParts()
                   .forEach(url -> XmlUtil.addTextChild(preSignUrlsElement, PRE_SIGN_URL, url.getUrl()).setAttribute(PRE_SIGN_URL_PART_NUMBER, String.valueOf(url.getPartNumber())));
-      mapEntry.addContent(preSignUrlsElement);
+      mapEntry.addContent((Content)preSignUrlsElement);
       Element s3ObjectKeyElement = new Element(OBJECT_KEY);
       s3ObjectKeyElement.addContent(presignedUrl.getObjectKey());
-      mapEntry.addContent(s3ObjectKeyElement);
-      document.addContent(mapEntry);
+      mapEntry.addContent((Content)s3ObjectKeyElement);
+      document.addContent((Content)mapEntry);
     }
     return XmlUtil.toString(document);
   }

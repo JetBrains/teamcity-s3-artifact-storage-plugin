@@ -23,6 +23,7 @@
   <bean class="jetbrains.buildServer.artifacts.s3.settings.S3CompatibleStorageType"/>
   <bean class="jetbrains.buildServer.artifacts.s3.cleanup.S3CleanupExtension"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3ArtifactContentProvider"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.S3CompatibleArtifactContentProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3ArtifactDownloadProcessor"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3SettingsController"/>
   <bean id="internalPresignedUrlProvider" class="jetbrains.buildServer.artifacts.s3.S3PresignedUrlProviderImpl" autowire-candidate="false"/>
