@@ -300,6 +300,15 @@ export default function AwsConnectionDialog({
     }
   }, [collectAwsConnectionFormData, showErrorAlert]);
 
+  const handleEscapeKey = React.useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        __onClose(undefined);
+      }
+    },
+    [__onClose]
+  );
+
   return (
     <Dialog
       show={active}
@@ -314,7 +323,11 @@ export default function AwsConnectionDialog({
         {loading ? (
           <Loader />
         ) : (
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions
           <div
+            // this hadler is required here to override the default escape key handler defined in BS.Hider._escapeHandler
+            // default handler is assigned with $j (jQuery) somewhere, and it stops propagation of the event
+            onKeyUp={handleEscapeKey}
             id={'popupContainer'}
             ref={popupRef}
             dangerouslySetInnerHTML={{ __html: htmlContent }}
