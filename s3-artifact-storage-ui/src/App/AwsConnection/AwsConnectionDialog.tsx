@@ -118,7 +118,10 @@ export default function AwsConnectionDialog({
       return;
     }
 
-    if (parametersPreset.useDefaultCredentialsProviderChain) {
+    if (parametersPreset.iamRole && parametersPreset.iamRole.length > 0) {
+      setCredentialsTypeSelector(CredentialsTypeEnum.awsAssumeIamRole);
+      setIamRoleArn(parametersPreset.iamRole);
+    } else if (parametersPreset.useDefaultCredentialsProviderChain) {
       setCredentialsTypeSelector(CredentialsTypeEnum.defaultProvider);
     } else if (
       parametersPreset.awsAccessKeyId &&
@@ -129,9 +132,6 @@ export default function AwsConnectionDialog({
         parametersPreset.awsAccessKeyId,
         parametersPreset.awsSecretAccessKey
       );
-    } else {
-      setCredentialsTypeSelector(CredentialsTypeEnum.awsAssumeIamRole);
-      setIamRoleArn(parametersPreset.iamRole);
     }
   }, [parametersPreset]);
 
