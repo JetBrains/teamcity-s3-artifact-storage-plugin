@@ -65,6 +65,9 @@ function isDistributionInState(
 function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
   const { setValue, watch, getValues } = useFormContext<IFormInput>();
   const config = useAppContext();
+  const [customFormState, setCustomFormState] = React.useState<any>(
+    getValues()
+  );
   const { reloadDistributions, reloadPublicKeys } = useCfDistributions();
   // FIXME: this state is in conflict with state from useCfDistributions hook. It should be refactored
   const [internalCfDistributions, setInternalCfDistributions] = useState<
@@ -84,7 +87,7 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
   const awsConnection = watch(FormFields.AWS_CONNECTION_ID);
   const isConnectionSelected = !!awsConnection;
 
-  useEffect(() => {
+  const initialize = React.useCallback(() => {
     setIsInitialized(false);
     // priming using parameters from configuration
     const formData = getValues();
@@ -114,7 +117,58 @@ function CloudFrontDistributionsContextProvider({ children }: OwnProps) {
       .finally(() => {
         setIsInitialized(true);
       });
+  }, [
+    config.cloudFrontDownloadDistribution,
+    config.cloudFrontPrivateKey,
+    config.cloudFrontPublicKeyId,
+    config.cloudFrontUploadDistribution,
+    getValues,
+    reloadDistributions,
+    reloadPublicKeys,
+  ]);
+
+  useEffect(() => {
+    initialize();
   }, []); // fire once
+
+  const fieldChanged = React.useCallback(
+    (fieldName: string, currentValue: any) => {
+      try {
+        return (
+          JSON.stringify(currentValue) !==
+          JSON.stringify(customFormState[fieldName])
+        );
+      } catch (e) {
+        return true;
+      }
+    },
+    [customFormState]
+  );
+
+  useEffect(() => {
+    const subscription = watch((data) => {
+      if (
+        isInitialized &&
+        ((data[FormFields.AWS_CONNECTION_ID] &&
+          fieldChanged(
+            FormFields.AWS_CONNECTION_ID,
+            data[FormFields.AWS_CONNECTION_ID]
+          )) ||
+          (data[FormFields.S3_BUCKET_NAME] &&
+            fieldChanged(
+              FormFields.S3_BUCKET_NAME,
+              data[FormFields.S3_BUCKET_NAME]
+            )))
+      ) {
+        initialize();
+      }
+      setCustomFormState(data);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [fieldChanged, initialize, isInitialized, watch]);
 
   const setPrivateKey = useCallback((privateKey: string) => {
     setState((prevState) => ({

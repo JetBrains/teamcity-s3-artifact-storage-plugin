@@ -5,16 +5,10 @@ import {
 import { React } from '@jetbrains/teamcity-api';
 import { useFormContext } from 'react-hook-form';
 
-import { useCallback } from 'react';
-
 import { FormFields } from '../../appConstants';
 
 export default function SecretAccessKey() {
-  const { control, setValue } = useFormContext();
-
-  const resetBucket = useCallback(() => {
-    setValue(FormFields.S3_BUCKET_NAME, '');
-  }, [setValue]);
+  const { control } = useFormContext();
 
   return (
     <FormRow
@@ -27,7 +21,6 @@ export default function SecretAccessKey() {
         control={control}
         rules={{
           required: 'Secret access key is mandatory',
-          onChange: resetBucket,
         }}
         type="password"
       />

@@ -1,7 +1,8 @@
 import { React, utils } from '@jetbrains/teamcity-api';
-import { FormProvider } from 'react-hook-form';
+import { FormProvider, useFormContext } from 'react-hook-form';
 import Button from '@jetbrains/ring-ui/components/button/button';
 import {
+  errorMessage,
   FieldColumn,
   FieldRow,
   Option,
@@ -14,11 +15,8 @@ import {
   ControlsHeight,
   ControlsHeightContext,
 } from '@jetbrains/ring-ui/components/global/controls-height';
-
 import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
-
 import Loader from '@jetbrains/ring-ui/components/loader/loader';
-
 import { useCallback } from 'react';
 
 import { displayErrorsFromResponseIfAny } from '../Utilities/responseParser';
@@ -26,18 +24,17 @@ import { serializeParameters } from '../Utilities/parametersUtils';
 import { post } from '../Utilities/fetchHelper';
 import useS3Form from '../hooks/useS3Form';
 import { ConfigWrapper, IFormInput } from '../types';
-
 import useStorageOptions from '../hooks/useStorageOptions';
-
 import { AppContextProvider, useAppContext } from '../contexts/AppContext';
 
 import {
   AwsConnectionsContextProvider,
   useAwsConnectionsContext,
 } from '../contexts/AwsConnectionsContext';
+import { BucketsContextProvider } from '../contexts/BucketsContext';
+import useBucketOptions from '../hooks/useBucketOptions';
 
 import { errorIdToFieldName, FormFields } from './appConstants';
-
 import styles from './styles.css';
 import { AWS_S3, S3_COMPATIBLE } from './Storage/components/StorageType';
 import StorageSection from './Storage/StorageSection';
@@ -47,6 +44,122 @@ import MultipartUploadSection from './MultipartUpload/MultipartUploadSection';
 import ProtocolSettings from './ProtocolSettings/ProtocolSettings';
 import StorageTypeChangedWarningDialog from './components/StorageTypeChangedWarningDialog';
 
+function MainFormComponent(props: {
+  onReset: (option: Option | null) => void;
+  onClose: () => void;
+}) {
+  const config = useAppContext();
+  const { handleSubmit, watch, setError, clearErrors } =
+    useFormContext<IFormInput>();
+  const { showErrorsOnForm, showErrorAlert } = useErrorService({
+    setError,
+    errorKeyToFieldNameConvertor: errorIdToFieldName,
+  });
+  const { reload } = useBucketOptions();
+  const [isSaving, setIsSaving] = React.useState(false);
+
+  const onSubmit = useCallback(
+    async (data: IFormInput) => {
+      setIsSaving(true);
+      clearErrors();
+      try {
+        // validate bucket
+        try {
+          const bucketsFromCredentials = await reload();
+          const currentlySelectedBucket = data[FormFields.S3_BUCKET_NAME];
+          const bucketFound = bucketsFromCredentials.some((bucket) => {
+            if (typeof currentlySelectedBucket === 'string') {
+              return bucket.key === currentlySelectedBucket;
+            } else {
+              return bucket.key === currentlySelectedBucket?.key;
+            }
+          });
+          if (!bucketFound) {
+            setError(FormFields.S3_BUCKET_NAME, {
+              type: 'custom',
+              message: 'Bucket not found. Check your S3 credentials.',
+            });
+            return;
+          }
+        } catch (e) {
+          showErrorAlert(errorMessage(e));
+          return;
+        }
+
+        const payload = serializeParameters(data, config);
+        const parameters = {
+          projectId: config.projectId,
+          newStorage: config.isNewStorage.toString(),
+          [FormFields.STORAGE_TYPE]: data[FormFields.STORAGE_TYPE]!.key,
+          [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]!,
+        };
+        const queryComponents = new URLSearchParams(parameters).toString();
+        const resp = await post(
+          `/admin/storageParams.html?${queryComponents}`,
+          payload
+        );
+        const response = window.$j(resp);
+        const errors: ResponseErrors | null =
+          displayErrorsFromResponseIfAny(response);
+        if (errors) {
+          showErrorsOnForm(errors);
+        } else {
+          props.onClose();
+        }
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      clearErrors,
+      config,
+      props,
+      reload,
+      setError,
+      showErrorAlert,
+      showErrorsOnForm,
+    ]
+  );
+
+  const currentType = watch(FormFields.STORAGE_TYPE);
+  const isS3Compatible = currentType?.key === S3_COMPATIBLE;
+  const isAwsS3 = currentType?.key === AWS_S3;
+  const isReadOnly = useReadOnlyContext();
+
+  return (
+    <form
+      className="ring-form"
+      onSubmit={handleSubmit(onSubmit)}
+      autoComplete="off"
+    >
+      <StorageSection onReset={props.onReset} />
+
+      {isS3Compatible && <S3Section />}
+      {isAwsS3 && <AwsS3 />}
+
+      <MultipartUploadSection />
+      <ProtocolSettings />
+      <div className={styles.formControlButtons}>
+        <FieldRow>
+          <FieldColumn>
+            <Button
+              disabled={isReadOnly}
+              loader={isSaving}
+              type="submit"
+              primary
+            >
+              {'Save'}
+            </Button>
+          </FieldColumn>
+          <FieldColumn>
+            <Button onClick={props.onClose}>{'Cancel'}</Button>
+          </FieldColumn>
+        </FieldRow>
+      </div>
+    </form>
+  );
+}
+
 function Main() {
   const config = useAppContext();
   // console.log(config);
@@ -55,8 +168,6 @@ function Main() {
   );
   const formMethods = useS3Form();
   const storageOptions = useStorageOptions();
-
-  const { handleSubmit, setError, watch } = formMethods;
 
   const doReset = useCallback(
     (option: Option | null) => {
@@ -83,72 +194,14 @@ function Main() {
     )}?projectId=${config.projectId}&tab=artifactsStorage`;
   }, [config.projectId]);
 
-  const { showErrorsOnForm } = useErrorService({
-    setError,
-    errorKeyToFieldNameConvertor: errorIdToFieldName,
-  });
-
-  const onSubmit = useCallback(
-    async (data: IFormInput) => {
-      const payload = serializeParameters(data, config);
-      const parameters = {
-        projectId: config.projectId,
-        newStorage: config.isNewStorage.toString(),
-        [FormFields.STORAGE_TYPE]: data[FormFields.STORAGE_TYPE]!.key,
-        [FormFields.STORAGE_ID]: data[FormFields.STORAGE_ID]!,
-      };
-      const queryComponents = new URLSearchParams(parameters).toString();
-      const resp = await post(
-        `/admin/storageParams.html?${queryComponents}`,
-        payload
-      );
-      const response = window.$j(resp);
-      const errors: ResponseErrors | null =
-        displayErrorsFromResponseIfAny(response);
-      if (errors) {
-        showErrorsOnForm(errors);
-      } else {
-        close();
-      }
-    },
-    [close, config, showErrorsOnForm]
-  );
-
-  const currentType = watch(FormFields.STORAGE_TYPE);
-  const isS3Compatible = currentType?.key === S3_COMPATIBLE;
-  const isAwsS3 = currentType?.key === AWS_S3;
-  const isReadOnly = useReadOnlyContext();
-
   return (
     <FormProvider {...formMethods}>
       <ControlsHeightContext.Provider value={ControlsHeight.S}>
-        <form
-          className="ring-form"
-          onSubmit={handleSubmit(onSubmit)}
-          autoComplete="off"
-        >
-          <StorageSection onReset={doReset} />
-
-          {isS3Compatible && <S3Section />}
-          {isAwsS3 && <AwsS3 />}
-
-          <MultipartUploadSection />
-          <ProtocolSettings />
-          <div className={styles.formControlButtons}>
-            <FieldRow>
-              <FieldColumn>
-                <Button disabled={isReadOnly} type="submit" primary>
-                  {'Save'}
-                </Button>
-              </FieldColumn>
-              <FieldColumn>
-                <Button onClick={close}>{'Cancel'}</Button>
-              </FieldColumn>
-            </FieldRow>
-          </div>
-        </form>
-        <StorageTypeChangedWarningDialog />
-        {/*<DevTool control={formMethods.control} />*/}
+        <BucketsContextProvider>
+          <MainFormComponent onReset={doReset} onClose={close} />
+          <StorageTypeChangedWarningDialog />
+          {/*<DevTool control={formMethods.control} />*/}
+        </BucketsContextProvider>
       </ControlsHeightContext.Provider>
     </FormProvider>
   );
