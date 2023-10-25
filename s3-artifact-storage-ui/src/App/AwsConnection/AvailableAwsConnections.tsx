@@ -5,13 +5,10 @@ import {
   FormSelect,
   useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
-import { CSSProperties, useCallback, useEffect, useState } from 'react';
-
+import { CSSProperties, useEffect, useState } from 'react';
 import Button from '@jetbrains/ring-ui/components/button/button';
-
 import addIcon from '@jetbrains/icons/add';
 import editIcon from '@jetbrains/icons/pencil';
-
 import ButtonSet from '@jetbrains/ring-ui/components/button-set/button-set';
 
 import { IFormInput } from '../../types';
@@ -46,13 +43,6 @@ export default function AvailableAwsConnections() {
     }
   }, [clearErrors, error, setError]);
 
-  const resetBucket = useCallback(() => {
-    clearErrors();
-    setValue(FormFields.CLOUD_FRONT_TOGGLE, false);
-    setValue(FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE, false);
-    setValue(FormFields.S3_BUCKET_NAME, '');
-  }, [clearErrors, setValue]);
-
   const [show, setShow] = useState(false);
   const isReadOnly = useReadOnlyContext();
   const [connectionId, setConnectionId] = useState<string>('');
@@ -73,7 +63,7 @@ export default function AvailableAwsConnections() {
             popupStyle={availAwsConnectionsDropDownStyle}
             rules={{
               required: 'Connection is mandatory',
-              onChange: resetBucket,
+              onChange: clearErrors,
             }}
             loading={isLoading}
           />
@@ -111,7 +101,7 @@ export default function AvailableAwsConnections() {
               key: newConnection,
               label: newConnection.displayName,
             });
-            resetBucket();
+            clearErrors();
           }
           setShow(false);
         }}

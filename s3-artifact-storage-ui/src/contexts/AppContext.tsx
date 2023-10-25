@@ -42,6 +42,8 @@ const AppContext = React.createContext<Config>({
   chosenAwsConnectionId: '',
   availableAwsConnectionsControllerUrl: '',
   availableAwsConnectionsControllerResource: '',
+  readOnly: false,
+  verifyIntegrityAfterUpload: false,
 });
 
 const { Provider } = AppContext;
