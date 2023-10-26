@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
+import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.exceptions.FileUploadFailedException;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
@@ -94,9 +95,9 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                                if (((HttpClientUtil.HttpErrorCodeException)e).getResponseCode() == 403 && e.getMessage().contains("Request has expired")) {
                                  myTtl.getAndUpdate(prev -> {
                                    if (prev == null) {
-                                     return 2L * configuration.getUrlTtlSeconds();
+                                     return Long.min(2L * configuration.getUrlTtlSeconds(), S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS);
                                    } else {
-                                     return 2L * prev;
+                                     return Long.min(2L * prev, S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS);
                                    }
                                  });
                                } else if (isRecoverable(e)) {
