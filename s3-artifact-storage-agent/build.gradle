@@ -30,6 +30,10 @@ dependencies {
     compileOnly ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){
         exclude group: 'org.jetbrains.teamcity', module: 'common-api'
     }
+
+    // TW-84426
+    compile "com.fasterxml.jackson.core:jackson-databind:2.14.3"
+
     testCompile "org.testng:testng:6.8.21"
     testCompile "org.mockito:mockito-core:3.9.0"
     testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
