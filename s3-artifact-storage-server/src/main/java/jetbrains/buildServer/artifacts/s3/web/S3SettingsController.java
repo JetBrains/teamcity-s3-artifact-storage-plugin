@@ -137,14 +137,8 @@ public class S3SettingsController extends BaseFormXmlController {
           }
           errors.addError(resource, message);
         } catch (Throwable e) {
-          final StringBuilder messageBuilder = new StringBuilder(String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource));
-          if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
-            messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
-          } else {
-            messageBuilder.append(getUiFriendlyErrorMessage(e));
-          }
-          final String message = messageBuilder.toString();
-          LOG.infoAndDebugDetails(message, e);
+          LOG.infoAndDebugDetails(e.getMessage(), e);
+          final String message = constructMessageForUI(e, resource);
           errors.addError(resource, message);
         }
       }
@@ -152,6 +146,26 @@ public class S3SettingsController extends BaseFormXmlController {
 
     if (errors.hasErrors()) {
       errors.serialize(xmlResponse);
+    }
+  }
+
+  @NotNull
+  private static String constructMessageForUI(Throwable e, String resource) {
+    final String uiFriendlyMessage = getUiFriendlyErrorMessage(e);
+    final StringBuilder messageBuilder = new StringBuilder(String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource));
+
+    if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
+      messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
+    } else {
+      messageBuilder.append(uiFriendlyMessage);
+    }
+
+    // UI-friendly message contains some information about the error.
+    // Let's return it as is.
+    if (!uiFriendlyMessage.isEmpty()) {
+      return uiFriendlyMessage;
+    } else {
+      return messageBuilder.toString();
     }
   }
 
@@ -163,13 +177,13 @@ public class S3SettingsController extends BaseFormXmlController {
       msg = e.getMessage();
     }
 
-    // remove everything after the first parenthesis
+    // Remove everything after the first parenthesis,
     // there are a bunch of technical details that are not interesting to the user
     if (msg.indexOf("(") > -1) {
       msg = msg.substring(0, msg.indexOf("("));
     }
 
-    return msg;
+    return msg.trim();
   }
 
   private Map<String, String> getProperties(final HttpServletRequest request) {
