@@ -80,6 +80,7 @@ export enum FetchResourceIds {
 export const errorIdToFieldName = (id: string): string | string[] | null => {
   switch (id) {
     case FetchResourceIds.BUCKETS:
+    case FetchResourceIds.BUCKET_LOCATION:
     case FetchResourceIds.S3_TRANSFER_ACCELERATION_AVAILABILITY:
       return FormFields.S3_BUCKET_NAME;
     case FetchResourceIds.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION:
@@ -97,8 +98,6 @@ export const errorIdToFieldName = (id: string): string | string[] | null => {
     case FetchResourceIds.S3_CLOUDFRONT_PUBLIC_KEY_ID:
     case FetchResourceIds.VALIDATE_CLOUD_FRONT_KEYS:
       return FormFields.CLOUD_FRONT_PUBLIC_KEY_ID;
-    case FetchResourceIds.BUCKET_LOCATION:
-      return [FormFields.AWS_CONNECTION_ID, FormFields.ACCESS_KEY_ID];
     default:
       return responseErrorIdToFormField(id);
   }
