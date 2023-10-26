@@ -72,6 +72,8 @@ public class S3Constants {
 
   public static final String S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS = "teamcity.internal.storage.s3.metadata.request.timeout.sec";
 
+  public static final long S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS = 24*60*60; // 24 hours
+
   public static final String S3_ENABLE_MULTIPART_COMPLETION_RETRY =
     "teamcity.internal.storage.s3.multipart.completion.enableRetry";
   public static final String S3_ENABLE_REACT_UI = "teamcity.internal.storage.s3.ui.react.enabled";
