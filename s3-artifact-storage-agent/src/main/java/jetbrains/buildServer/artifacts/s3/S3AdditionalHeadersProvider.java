@@ -2,61 +2,40 @@ package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.regions.Region;
 import com.amazonaws.regions.Regions;
-import com.intellij.openapi.diagnostic.Logger;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import jetbrains.buildServer.agent.AgentLifeCycleAdapter;
+import jetbrains.buildServer.agent.AgentLifeCycleListener;
+import jetbrains.buildServer.agent.BuildAgent;
+import jetbrains.buildServer.agent.BuildAgentConfiguration;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
-import jetbrains.buildServer.util.executors.ExecutorsFactory;
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.HttpVersion;
-import org.apache.commons.httpclient.methods.GetMethod;
-import org.apache.commons.httpclient.params.HttpConnectionParams;
+import jetbrains.buildServer.util.EventDispatcher;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 public class S3AdditionalHeadersProvider implements ArtifactTransportAdditionalHeadersProvider {
 
-  private static final Logger LOG = Logger.getInstance(S3AdditionalHeadersProvider.class.getName());
+  private final BuildAgentConfiguration myBuildAgentConfiguration;
+
+  private static final String EC2_INSTANCE_ID_KEY = "ec2.instance-id";
 
   private volatile Region myRegion;
 
-  private static final String AMAZON_METADATA_ADDRESS = "http://169.254.169.254/";
   private volatile boolean isAmazonAvailable = false;
 
-  public S3AdditionalHeadersProvider() {
-    initAvailabilityCheck();
+  public S3AdditionalHeadersProvider(@NotNull EventDispatcher<AgentLifeCycleListener> eventDispatcher,
+                                     @NotNull BuildAgentConfiguration buildAgentConfiguration) {
+    myBuildAgentConfiguration = buildAgentConfiguration;
+    eventDispatcher.addListener(new AgentLifeCycleAdapter(){
+      @Override
+      public void agentInitialized(@NotNull BuildAgent agent) {
+        initAvailabilityCheck();
+      }
+    });
   }
 
   private void initAvailabilityCheck() {
-    ExecutorsFactory.newSingleThreadedExecutor("Agent Amazon Availability Check").submit(() -> {
-      try {
-        final HttpClient client = new HttpClient();
-        client.getParams().setVersion(HttpVersion.HTTP_1_1);
-
-        final HttpConnectionParams params = client.getHttpConnectionManager().getParams();
-
-        int timeout = TeamCityProperties.getInteger(S3Constants.S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS, 7);
-        //timeout to wait for EC2 response
-        params.setConnectionTimeout(timeout * 1000);
-        //timeout to wait for data
-        params.setSoTimeout(timeout * 10 * 1000);
-
-        int code = client.executeMethod(new GetMethod(AMAZON_METADATA_ADDRESS));
-        String msg;
-        if (code == 200) {
-          isAmazonAvailable = true;
-          msg = "Amazon EC2 integration confirmed";
-        } else {
-          msg = String.format("Amazon EC2 integration is not active. Received error code %d while checking connection with Amazon metadata server", code);
-        }
-        LOG.debug(msg);
-      } catch (IOException e) {
-        String msg = "Amazon EC2 integration is not active: Failed to connect to " + AMAZON_METADATA_ADDRESS + ". " + e.getMessage();
-        LOG.debug(msg, e);
-        isAmazonAvailable = false;
-      }
-    });
+    isAmazonAvailable = !StringUtil.isEmpty(myBuildAgentConfiguration.getBuildParameters().getSystemProperties().get(EC2_INSTANCE_ID_KEY));
   }
 
   @NotNull
