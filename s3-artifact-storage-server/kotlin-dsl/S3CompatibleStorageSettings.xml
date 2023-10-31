@@ -53,32 +53,23 @@
         s3CompatibleStorage {
           id = "S3_STORAGE_ID"
           storageName = "Storage Name"
-
           bucketName = "Bucket Name"
-          bucketPrefix = "path prefix inside the bucket"
+          bucketPrefix = "path/prefix"
 
           forceVirtualHostAddressing = true
-          enableTransferAcceleration = false
+          verifyIntegrityAfterUpload = false
+
           multipartThreshold = "8MB"
           multipartChunksize = "8MB"
 
+          // Endpoint is required:
+          endpoint = "https://s3-compatible-endpoint.com"
           // Storage also requires configured Credentials
-          accessKeyID = "AWS Access key ID"
-          accessKey = "Link to credentialsJSON property containing AWS access key"
+          accessKeyID = "Access key ID"
+          accessKey = "credentialsJSON:link-to-property-containing-access-key"
         }
       </code>
     </example>
 
-    <example>
-      <description>
-        Credentials. Specifies credentials using access key
-      </description>
-      <code>
-        connection = customConnection {
-          accessKeyID = "AWS Access key ID"
-          accessKey = "Link to credentialsJSON property containing AWS access key"
-        }
-      </code>
-    </example>
   </examples>
 </dsl-extension>

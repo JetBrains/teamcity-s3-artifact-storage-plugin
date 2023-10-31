@@ -97,7 +97,7 @@ export function serializeParameters(
       const value = formData[key];
       const rkey = keyToFormDataName(key);
 
-      if (value) {
+      if (value || key === FormFields.CONNECTION_VERIFY_IAU_TOGGLE) {
         if (typeof value === 'object') {
           if (key === FormFields.S3_BUCKET_LIST_OR_NAME) {
             return handleS3BucketListOrName(rkey, value);
