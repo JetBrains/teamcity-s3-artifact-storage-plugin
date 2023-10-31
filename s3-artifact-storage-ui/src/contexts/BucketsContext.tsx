@@ -61,7 +61,7 @@ function BucketsContextProvider({ children }: { children: React.ReactNode }) {
     errors: s3TransferAccelerationErrors,
     reload: reloadS3TransferAcceleration,
     isLoading: isS3TransferAccelerationLoading,
-  } = useTransferAccelerationAvailable(bucketOptions);
+  } = useTransferAccelerationAvailable();
 
   React.useEffect(() => {
     if (!isS3TransferAccelerationLoading) {
@@ -120,6 +120,11 @@ function BucketsContextProvider({ children }: { children: React.ReactNode }) {
       reloadS3TransferAcceleration,
     ]
   );
+
+  React.useEffect(() => {
+    reloadS3TransferAcceleration();
+  }, []); // fire only once
+
   const cleanStateIfCredentialsChanged = React.useCallback(
     (data: any) => {
       if (

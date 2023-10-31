@@ -1,8 +1,5 @@
 import { React } from '@jetbrains/teamcity-api';
-import {
-  errorMessage,
-  Option,
-} from '@jetbrains-internal/tcci-react-ui-components';
+import { errorMessage } from '@jetbrains-internal/tcci-react-ui-components';
 import { useFormContext } from 'react-hook-form';
 import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
 
@@ -13,9 +10,7 @@ import { FormFields } from '../App/appConstants';
 
 import useCanLoadBucketInfoData from './useCanLoadBucketInfoData';
 
-export default function useTransferAccelerationAvailable(
-  bucketOptions: Option[]
-) {
+export default function useTransferAccelerationAvailable() {
   const config = useAppContext();
   const { getValues } = useFormContext();
   const canLoadBucketInfo = useCanLoadBucketInfoData();
@@ -33,7 +28,7 @@ export default function useTransferAccelerationAvailable(
       }
       setResponseErrors(undefined);
       setIsAvailable(false);
-      if (isDisabled || bucketOptions.length < 1) {
+      if (isDisabled) {
         return;
       }
       setIsLoading(true);
@@ -53,7 +48,7 @@ export default function useTransferAccelerationAvailable(
       } finally {
         setIsLoading(false);
       }
-    }, [bucketOptions.length, config, getValues, isDisabled, isLoading]);
+    }, [config, getValues, isDisabled, isLoading]);
 
   return {
     available: isAvailable,

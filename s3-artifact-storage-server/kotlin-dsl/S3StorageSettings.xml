@@ -66,23 +66,16 @@
           id = "S3_STORAGE_ID"
           storageName = "Storage Name"
 
-          bucketName = "Bucket Name"
-          bucketPrefix = "path prefix inside the bucket"
+          bucketName = "Bucket_Name"
+          bucketPrefix = "path/prefix"
 
           forceVirtualHostAddressing = true
           enableTransferAcceleration = false
           multipartThreshold = "8MB"
           multipartChunksize = "8MB"
 
-          // Storage requires configured AwsEnvironment
-          awsEnvironment = default {
-            awsRegionName = "AWS region"
-          }
-
-          // Storage also requires configured Credentials
-          connection = awsConnection {
-            connectionId = "AWS Connection ID"
-          }
+          // AWS S3 storage requires configured Credentials
+          connectionId = "AWS Connection ID"
         }
       </code>
     </example>
@@ -95,29 +88,53 @@
         s3Storage {
           id = "S3_STORAGE_ID"
           storageName = "Storage Name"
-          bucketName = "Bucket Name"
-          bucketPrefix = "path prefix inside the bucket"
+          bucketName = "Bucket_Name"
+          bucketPrefix = "path/prefix"
           forceVirtualHostAddressing = true
           multipartThreshold = "6MB"
           multipartChunksize = "8MB"
+          connectionId = "AWS Connection ID"
 
           //CloudFront configuration
           cloudFrontEnabled = true
           cloudFrontUploadDistribution = "ID of CloudFront Distribution used for uploads"
           cloudFrontDownloadDistribution = "ID of CloudFront Distribution used for downloads"
           cloudFrontPublicKeyId = "ID of CloudFront public key"
-          cloudFrontPrivateKey = "Link to credentialsJSON property containing CloudFront private key"
+          cloudFrontPrivateKey = "credentialsJSON:CloudFront-private-key-link"
+        }
+      </code>
+    </example>
 
-          // Storage requires configured AwsEnvironment
-          awsEnvironment = default {
-            awsRegionName = "AWS region"
-          }
+    <example>
+      <description>
+        Adds new storage that allows TeamCity to store build artifacts in S3 and upload/download them with Transfer Acceleration
+      </description>
+      <code>
+        s3Storage {
+          id = "S3_STORAGE_ID"
+          storageName = "Storage Name"
+          bucketName = "Bucket_Name"
+          connectionId = "AWS Connection ID"
 
-          // Storage also requires configured Credentials
-          connection = customConnection {
-            accessKeyID = "AWS Access key ID"
-            accessKey = "Link to credentialsJSON property containing AWS access key"
-          }
+          // must be set to true to enable Transfer Acceleration
+          forceVirtualHostAddressing = true
+          enableTransferAcceleration = true
+        }
+      </code>
+    </example>
+
+    <example>
+      <description>
+        S3 Storage. Disable integrity verification
+      </description>
+      <code>
+        s3Storage {
+          id = "S3_STORAGE_ID"
+          storageName = "Storage Name"
+          bucketName = "Bucket_Name"
+          connectionId = "AWS Connection ID"
+
+          verifyIntegrityAfterUpload = false
         }
       </code>
     </example>
@@ -128,7 +145,7 @@
       </description>
       <code>
         awsEnvironment = default {
-          awsRegionName = "AWS region"
+          awsRegionName = ""
         }
       </code>
     </example>
@@ -142,35 +159,6 @@
           endpoint = "URL of custom endpoint"
           awsRegionName = "region"
         }
-      </code>
-    </example>
-    <example>
-      <description>
-        Credentials. Specifies credentials using an ID of configured AWS Connection. @see AwsConnection
-      </description>
-      <code>
-        connection = awsConnection {
-            connectionId = "AWS Connection ID"
-        }
-      </code>
-    </example>
-    <example>
-      <description>
-        Credentials. Specifies credentials using access key
-      </description>
-      <code>
-        connection = customConnection {
-          accessKeyID = "AWS Access key ID"
-          accessKey = "Link to credentialsJSON property containing AWS access key"
-        }
-      </code>
-    </example>
-    <example>
-      <description>
-        Credentials. Specifies credentials using default provider chain
-      </description>
-      <code>
-        useDefaultCredentialProviderChain = true
       </code>
     </example>
   </examples>
