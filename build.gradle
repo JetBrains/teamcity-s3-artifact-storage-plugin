@@ -41,6 +41,7 @@ allprojects {
   }
 }
 
+
 subprojects {
   apply plugin: "java"
 
@@ -48,9 +49,10 @@ subprojects {
   jar.version = null
 
   dependencies{
-
     implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
       changing = true
+      exclude group: 'com.fasterxml.jackson.core'
+      exclude group: 'com.fasterxml.jackson.dataformat'
       exclude group: 'org.apache.httpcomponents'
     }
   }
