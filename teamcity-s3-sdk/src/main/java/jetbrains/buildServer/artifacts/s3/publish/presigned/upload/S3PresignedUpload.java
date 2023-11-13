@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
@@ -51,7 +50,14 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   @NotNull
   protected final Retrier myRetrier;
 
-  protected AtomicReference<Long> myTtl = new AtomicReference<>(null);
+  /*
+   * TTL for presigned url in seconds.
+   *
+   * This is a thread local variable because it is used in the retrier.
+   * It is better to use a thread local variable, while top-level retrier will recreate the instance for each try.
+   * So any AtomicReference will also be recreated.
+   */
+  protected static final ThreadLocal<Long> myTtl = new ThreadLocal<>();
 
   protected final Class<? extends Exception>[] arrayOfRetriableErrors = new Class[]{
     InterruptedException.class,
@@ -76,6 +82,10 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     myS3SignedUploadManager = s3SignedUploadManager;
     myLowLevelS3Client = lowLevelS3Client;
     myProgressListener = progressListener;
+    // initialize TTL with value from configuration. without this line, default TTL will be used for the first PUT request.
+    if (myTtl.get() == null) {
+      myTtl.set((long)configuration.getUrlTtlSeconds());
+    }
     myRetrier = Retrier.withRetries(configuration.getRetriesNum())
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
@@ -85,21 +95,21 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
                              Exception e = stripRootCause(failure);
 
                              if (S3SignedUrlFileUploader.isPublishingInterruptedException(e) ||
-                                 // broken pipe means that connection was closed by server
+                                 // a broken pipe means that the server closed connection
                                  // in some cases it means that expiration date already passed
-                                 // it is better to re-generate request
+                                 // it is better to re-generate the request
                                  (e instanceof SocketException && e.getMessage() != null && e.getMessage().contains("Broken pipe"))) {
                                throw new AbortRetriesException(e);
                              }
                              if (e instanceof HttpClientUtil.HttpErrorCodeException) {
                                if (((HttpClientUtil.HttpErrorCodeException)e).getResponseCode() == 403 && e.getMessage().contains("Request has expired")) {
-                                 myTtl.getAndUpdate(prev -> {
-                                   if (prev == null) {
-                                     return Long.min(2L * configuration.getUrlTtlSeconds(), S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS);
-                                   } else {
-                                     return Long.min(2L * prev, S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS);
-                                   }
-                                 });
+                                 final Long prev = myTtl.get();
+                                 // null check for safety
+                                 if (prev == null) {
+                                   myTtl.set(Long.min(2L * configuration.getUrlTtlSeconds(), S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS));
+                                 } else {
+                                   myTtl.set(Long.min(2L * prev, S3Constants.S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS));
+                                 }
                                } else if (isRecoverable(e)) {
                                  // recoverable error, retry
                                  return;

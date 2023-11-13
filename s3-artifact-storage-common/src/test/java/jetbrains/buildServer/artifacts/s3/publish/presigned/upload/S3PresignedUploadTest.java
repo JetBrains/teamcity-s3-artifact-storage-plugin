@@ -20,14 +20,15 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
 import jetbrains.buildServer.util.amazon.S3Util;
 import org.apache.commons.codec.binary.Hex;
 import org.mockito.Answers;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.times;
 
 public class S3PresignedUploadTest extends BaseTestCase {
+  private final int defaultTimeout = S3Util.DEFAULT_URL_LIFETIME_SEC;
 
   @Test
   public void repeatsUploadWithDifferentTtlWhenFirstRequestExpired() throws IOException, URISyntaxException {
@@ -41,7 +42,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
-    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration();
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withUrlTtlSeconds(defaultTimeout);
     final File file = Files.createTempFile("s3uploadTest", "file").toFile();
     final S3PresignedUpload upload = new S3PresignedUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
     try {
@@ -49,7 +50,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", null);
+        Mockito.verify(uploadManager, times(1)).getUrlWithDigest(ArgumentMatchers.eq("key"), any());
         assertFalse(e.isRecoverable());
         upload.call();
         Mockito.verify(uploadManager, times(1)).getUrlWithDigest("key", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
@@ -75,7 +76,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
-    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration();
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withUrlTtlSeconds(defaultTimeout);
     final File file = Files.createTempFile("s3uploadTest", "file").toFile();
     final S3PresignedUpload upload = new S3PresignedUpload("testpath", "key", file, configuration, uploadManager, s3client, listener);
     try {
@@ -85,7 +86,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
       try {
         assertFalse(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, times(2)).getUrlWithDigest("key", null);
+        Mockito.verify(uploadManager, times(2)).getUrlWithDigest(ArgumentMatchers.eq("key"), any());
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -127,7 +128,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L))
@@ -145,7 +146,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
-    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false);
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false).withUrlTtlSeconds(defaultTimeout);
     final File file = Files.createTempFile("s3uploadTest", "file").toFile();
     try (final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
       randomAccessFile.setLength(12 * 1024 * 1024);
@@ -156,7 +157,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
       // FileUploadFailedException will be thrown only when we encounter a non-recoverable error
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null);
+        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout);
         assertFalse(e.isRecoverable());
         upload.call();
         Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
@@ -178,7 +179,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, null))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
@@ -188,7 +189,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
 
     final PresignedUploadProgressListener listener = Mockito.mock(PresignedUploadProgressListener.class, Answers.RETURNS_DEEP_STUBS);
 
-    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false);
+    final S3Util.S3AdvancedConfiguration configuration = new S3Util.S3AdvancedConfiguration().withConsistencyCheckEnabled(false).withUrlTtlSeconds(defaultTimeout);
     final File file = Files.createTempFile("s3uploadTest", "file").toFile();
     try (final RandomAccessFile randomAccessFile = new RandomAccessFile(file, "rw")) {
       randomAccessFile.setLength(12 * 1024 * 1024);
