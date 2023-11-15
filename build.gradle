@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+plugins {
+    id 'com.github.jk1.dependency-license-report' version '1.17'
+}
+
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
@@ -58,3 +62,10 @@ subprojects {
   }
 }
 
+import com.github.jk1.license.render.*
+
+licenseReport {
+    renderers = [new JsonReportRenderer('third-party-libraries.json')]
+}
+
+build.finalizedBy generateLicenseReport
