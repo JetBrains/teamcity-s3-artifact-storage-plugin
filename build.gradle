@@ -68,4 +68,4 @@ licenseReport {
     renderers = [new JsonReportRenderer('third-party-libraries.json')]
 }
 
-build.finalizedBy generateLicenseReport
+tasks.build.finalizedBy generateLicenseReport
