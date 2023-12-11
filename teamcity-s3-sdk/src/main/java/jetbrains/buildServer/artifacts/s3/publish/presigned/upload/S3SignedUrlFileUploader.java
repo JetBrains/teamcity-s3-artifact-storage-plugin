@@ -273,14 +273,14 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onPartUploadFailed(@NotNull Throwable e) {
+    public void onPartUploadFailed(@NotNull Throwable e, int partIndex) {
       myS3UploadLogger.warn("Upload chunk " + myUpload.description() + " failed with error: " + e.getMessage());
-      myStatisticsLogger.uploadFailed(myUpload.description(), e.getMessage(), Instant.now());
+      myStatisticsLogger.partUploadFailed(myUpload.description(), e.getMessage(), Instant.now(), partIndex);
     }
 
     @Override
-    public void onPartUploadSuccess(@NotNull String uploadUrl) {
-      myStatisticsLogger.uploadFinished(myUpload.description(), Instant.now());
+    public void onPartUploadSuccess(@NotNull String uploadUrl, int partIndex) {
+      myStatisticsLogger.partUploadFinished(myUpload.description(), Instant.now(), partIndex);
     }
 
     @Override
@@ -303,9 +303,9 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void beforePartUploadStarted(int partNumber) {
+    public void beforePartUploadStarted(int partIndex) {
       checkInterrupted();
-      myStatisticsLogger.uploadStarted(myUpload.description(), Instant.now());
+      myStatisticsLogger.partUploadStarted(myUpload.description(), Instant.now(), partIndex);
     }
 
     private void checkInterrupted() {
