@@ -1,13 +1,15 @@
-
+import java.nio.file.Paths
 
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-  teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2022.10'
+  teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : 'LOCAL-SNAPSHOT'
   awsCoreVersion = project.hasProperty('awsCoreVersion') ? property('awsCoreVersion') : teamcityVersion
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2023.03.tcbuildtag'
   shouldIncludeMigrationTool = project.hasProperty('shouldIncludeMigrationTool') ? property('shouldIncludeMigrationTool') : false
+  localRepo = findProperty('TC_LOCAL_REPO')
+  localAwsRepo = findProperty('TC_AWS_LOCAL_REPO')
 }
 
 group = projectIds.group
@@ -20,6 +22,25 @@ allprojects {
   project.repositories.clear()
 
   repositories {
+    if (localRepo) {
+      maven {
+        name = "local-teamcity-artifacts"
+        if (Paths.get(localRepo).isAbsolute())
+          url "file:///${localRepo}"
+        else
+          url "file:///${project.getRootDir()}/${localRepo}"
+      }
+    }
+    if (localAwsRepo) {
+      maven {
+        name = "local-aws-teamcity-artifacts"
+        if (Paths.get(localAwsRepo).isAbsolute())
+          url "file:///${localAwsRepo}"
+        else
+          url "file:///${project.getRootDir()}/${localAwsRepo}"
+      }
+    }
+    maven { url "https://repo.labs.intellij.net/teamcity" }
     mavenLocal()
     maven { url "https://download.jetbrains.com/teamcity-repository" }
     mavenCentral()
@@ -29,16 +50,8 @@ allprojects {
 
 subprojects {
   apply plugin: "java"
+  apply plugin: 'java-library'
 
   test.useTestNG()
   jar.version = null
-
-  dependencies{
-    implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
-      changing = true
-      exclude group: 'com.fasterxml.jackson.core'
-      exclude group: 'com.fasterxml.jackson.dataformat'
-      exclude group: 'org.apache.httpcomponents'
-    }
-  }
 }

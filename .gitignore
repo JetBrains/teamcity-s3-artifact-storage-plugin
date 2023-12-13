@@ -6,3 +6,6 @@ s3-artifact-storage-common/out/*
 s3-artifact-storage-server/out/*
 .gradle/*
 build/
+.DS_Store
+local-repo
+local-aws-repo
