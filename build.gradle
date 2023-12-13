@@ -1,14 +1,17 @@
+import java.nio.file.Paths
+
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
   teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2022.10'
-  awsCoreVersion = findProperty('awsCoreVersion') ?: 'SNAPSHOT'
+  awsCoreVersion = findProperty('awsCoreVersion') ?: teamcityVersion ?: 'SNAPSHOT'
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2023.03.tcbuildtag'
   shouldIncludeMigrationTool = project.hasProperty('shouldIncludeMigrationTool') ? property('shouldIncludeMigrationTool') : false
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
   spacePassword = findProperty("space.repository.password") ?: findProperty("spacePassword")
-  localRepo = findProperty('TC_LOCAL_REPO')
+  localRepo = anyParamPath('TC_LOCAL_REPO')
+  localAwsRepo = anyParamPath('TC_AWS_LOCAL_REPO')
 }
 
 group = projectIds.group
@@ -21,6 +24,19 @@ allprojects {
   project.repositories.clear()
 
   repositories {
+    if (localRepo) {
+      maven {
+        name = "local-teamcity-artifacts"
+        url "file:///${localRepo}"
+      }
+    }
+    if (localAwsRepo) {
+      maven {
+        name = "local-aws-teamcity-artifacts"
+        url "file:///${localAwsRepo}"
+      }
+    }
+    maven { url "https://repo.labs.intellij.net/teamcity" }
     mavenLocal()
     maven { url "https://download.jetbrains.com/teamcity-repository" }
     maven { url "https://repo.labs.intellij.net/teamcity" }
@@ -31,12 +47,6 @@ allprojects {
         password = spacePassword as String
       }
     }
-    if (localRepo) {
-      maven {
-        name = "local-teamcity-artifacts"
-        url "file:///${getRootDir().toPath().resolve(localRepo)}"
-      }
-    }
     mavenCentral()
   }
 }
@@ -44,16 +54,18 @@ allprojects {
 
 subprojects {
   apply plugin: "java"
+  apply plugin: 'java-library'
 
   test.useTestNG()
   jar.version = null
 
   dependencies{
-    implementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+    api("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
       changing = true
       exclude group: 'com.fasterxml.jackson.core'
       exclude group: 'com.fasterxml.jackson.dataformat'
       exclude group: 'org.apache.httpcomponents'
+      exclude group: 'org.jetbrains.teamcity'
     }
   }
 
@@ -65,4 +77,26 @@ subprojects {
       options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
     }
   }
+}
+
+def anyParamPath(String... names) {
+  def param = anyParam(names);
+  if (param == null || param.isEmpty())
+    return null
+  return (Paths.get(param).isAbsolute()) ?
+         Paths.get(param) : getRootDir().toPath().resolve(param)
+}
+
+def anyParam(String... names) {
+  def param
+  try {
+    param = names.findResult {
+      project.hasProperty(it) ? project.getProperty(it) : System.getProperty(it) ?: System.getenv(it) ?: null
+    }
+    if (param == null || param.isEmpty())
+      param = null
+  } finally {
+    println("AnyParam: $names -> $param")
+  }
+  return param
 }

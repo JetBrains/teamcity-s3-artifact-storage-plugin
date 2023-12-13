@@ -8,7 +8,7 @@ dependencies {
   testImplementation "org.testng:testng:6.8.21"
   testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
   testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.12.1'
-  testImplementation("jetbrains.buildServer.util:amazon-util:$awsCoreVersion") {
+  testImplementation("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
     changing = true
   }
 }
