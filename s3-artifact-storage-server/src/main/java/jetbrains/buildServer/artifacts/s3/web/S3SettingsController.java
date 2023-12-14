@@ -34,6 +34,7 @@ import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.ProjectManager;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.ServerPaths;
+import jetbrains.buildServer.serverSide.auth.AccessChecker;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
@@ -51,14 +52,17 @@ public class S3SettingsController extends BaseFormXmlController {
   private final Map<String, S3ClientResourceFetcher> myHandlers = new HashMap<>();
   private final ServerPaths myServerPaths;
   private final ProjectManager myProjectManager;
+  @NotNull private final AccessChecker myAccessChecker;
 
   public S3SettingsController(@NotNull final WebControllerManager manager,
                               @NotNull final PluginDescriptor descriptor,
                               @NotNull final ServerPaths serverPaths,
                               @NotNull final AmazonS3Provider amazonS3Provider,
-                              @NotNull final ProjectManager projectManager) {
+                              @NotNull final ProjectManager projectManager,
+                              @NotNull final AccessChecker accessChecker) {
     myServerPaths = serverPaths;
     myProjectManager = projectManager;
+    myAccessChecker = accessChecker;
     final String path = descriptor.getPluginResourcesPath(S3Constants.S3_SETTINGS_PATH + ".html");
     manager.registerController(path, this);
     myHandlers.put("buckets", new ListBucketsResourceFetcher(amazonS3Provider));
@@ -92,8 +96,11 @@ public class S3SettingsController extends BaseFormXmlController {
         errors.addError("resource", "Invalid request: unsupported resource " + resource);
       } else {
         try {
-          final String projectId = getInternalProjectId(request);
-          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters, projectId)));
+          final SProject project = getProject(request);
+
+          myAccessChecker.checkCanEditProject(project);
+
+          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters, project.getProjectId())));
         } catch (ConnectionCredentialsException e) {
           LOG.warn("Failed to get content", e);
           String errorMessage = getUiFriendlyErrorMessage(e);
@@ -193,7 +200,7 @@ public class S3SettingsController extends BaseFormXmlController {
   }
 
   @NotNull
-  private String getInternalProjectId(@NotNull final HttpServletRequest request) throws ConnectionCredentialsException {
+  private SProject getProject(@NotNull final HttpServletRequest request) throws ConnectionCredentialsException {
     String externalProjectId = request.getParameter(PROJECT_ID_PARAM);
     if (externalProjectId == null) {
       String errMsg = "Invalid request: projectId parameter was not set";
@@ -206,6 +213,6 @@ public class S3SettingsController extends BaseFormXmlController {
       throw new ConnectionCredentialsException(errMsg);
     }
 
-    return project.getProjectId();
+    return project;
   }
 }
