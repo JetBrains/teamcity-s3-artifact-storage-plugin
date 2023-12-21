@@ -29,18 +29,20 @@ public class StatisticsLoggerTest {
   public void logsASuccessfulMultipartUpload() {
     final StatisticsLogger logger = new StatisticsLogger();
     String uploadKey = "upload key";
-    final Instant startTime = Instant.now();
-    logger.uploadStarted(uploadKey, startTime);
-    logger.uploadStarted(uploadKey, startTime);
-    logger.uploadFinished(uploadKey, startTime.plus(5, ChronoUnit.MILLIS));
-    logger.uploadStarted(uploadKey, startTime.plus(10, ChronoUnit.MILLIS));
-    logger.uploadFinished(uploadKey, startTime.plus(15, ChronoUnit.MILLIS));
-    logger.uploadStarted(uploadKey, startTime.plus(20, ChronoUnit.MILLIS));
-    logger.uploadFinished(uploadKey, startTime.plus(25, ChronoUnit.MILLIS));
-    logger.uploadFinished(uploadKey, startTime.plus(25, ChronoUnit.MILLIS));
+    final Instant overallStartTime = Instant.now();
+    logger.uploadStarted(uploadKey, overallStartTime);
+    final int partUploadDurationInSeconds = 10;
+    final Instant firstPartStartTime = Instant.now();
+    final Instant secondPartStartTime = firstPartStartTime.plus(5, ChronoUnit.SECONDS);
+    logger.partUploadStarted(uploadKey, firstPartStartTime, 0);
+    logger.partUploadStarted(uploadKey, secondPartStartTime, 1);
+    logger.partUploadFinished(uploadKey, firstPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 0);
+    logger.partUploadFinished(uploadKey, secondPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 1);
+    final Instant overallEndTime = overallStartTime.plus(1, ChronoUnit.MINUTES);
+    logger.uploadFinished(uploadKey, overallEndTime);
     final UploadStatistics statistics = logger.getObjectStatistics(uploadKey);
     assertNotNull(statistics);
-    assertEquals(statistics.getDuration(), Duration.ofMillis(15));
+    assertEquals(statistics.getDuration(), Duration.ofSeconds(15));
     assertTrue(statistics.isSuccessful());
   }
 
@@ -87,6 +89,29 @@ public class StatisticsLoggerTest {
     assertFalse(statistics.isSuccessful());
   }
 
+  @Test
+  public void logsMultipleUploadErrorsDuringMultipart() {
+    final StatisticsLogger logger = new StatisticsLogger();
+    String uploadKey = "upload key";
+    final Instant overallStartTime = Instant.now();
+    logger.uploadStarted(uploadKey, overallStartTime);
+    final int partUploadDurationInSeconds = 10;
+    final Instant firstPartStartTime = Instant.now();
+    final Instant secondPartStartTime = firstPartStartTime.plus(5, ChronoUnit.SECONDS);
+    logger.partUploadStarted(uploadKey, firstPartStartTime, 0);
+    logger.partUploadStarted(uploadKey, secondPartStartTime, 1);
+    logger.partUploadFailed(uploadKey, "Error during upload of part 1", firstPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 0);
+    logger.partUploadFailed(uploadKey, "Error during upload of part 2", secondPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 1);
+    final Instant overallEndTime = overallStartTime.plus(1, ChronoUnit.MINUTES);
+    logger.uploadFailed(uploadKey, "Error not during uploading of file chunks", overallEndTime);
+    final UploadStatistics statistics = logger.getObjectStatistics(uploadKey);
+    assertNotNull(statistics);
+    assertTrue(statistics.hasErrors());
+    assertEquals(statistics.getErrors().size(), 3);
+    assertEquals(statistics.getDuration(), Duration.ofSeconds(15));
+    assertFalse(statistics.isSuccessful());
+  }
+
 
   @Test
   public void recordsSuccessEvenWithPreviousErrors() {
@@ -104,6 +129,37 @@ public class StatisticsLoggerTest {
     assertTrue(statistics.hasErrors());
     assertEquals(statistics.getErrors().size(), 2);
     assertEquals(statistics.getDuration(), Duration.ofMillis(15));
+    assertTrue(statistics.isSuccessful());
+  }
+
+  @Test
+  public void recordsSuccessMultipartEvenWithPreviousErrors() {
+    final StatisticsLogger logger = new StatisticsLogger();
+    String uploadKey = "upload key";
+    final Instant overallStartTime = Instant.now();
+    logger.uploadStarted(uploadKey, overallStartTime);
+    final int partUploadDurationInSeconds = 10;
+    // First attempt of upload with errors
+    Instant firstPartStartTime = Instant.now();
+    Instant secondPartStartTime = firstPartStartTime.plus(5, ChronoUnit.SECONDS);
+    logger.partUploadStarted(uploadKey, firstPartStartTime, 0);
+    logger.partUploadStarted(uploadKey, secondPartStartTime, 1);
+    logger.partUploadFailed(uploadKey, "Error during upload of part 1", firstPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 0);
+    logger.partUploadFailed(uploadKey, "Error during upload of part 2", secondPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 1);
+    // Second attempt is successful
+    firstPartStartTime = firstPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS);
+    secondPartStartTime = firstPartStartTime.plus(5, ChronoUnit.SECONDS);
+    logger.partUploadStarted(uploadKey, firstPartStartTime, 0);
+    logger.partUploadStarted(uploadKey, secondPartStartTime, 1);
+    logger.partUploadFinished(uploadKey, firstPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 0);
+    logger.partUploadFinished(uploadKey, secondPartStartTime.plus(partUploadDurationInSeconds, ChronoUnit.SECONDS), 1);
+    final Instant overallEndTime = overallStartTime.plus(1, ChronoUnit.MINUTES);
+    logger.uploadFinished(uploadKey, overallEndTime);
+    final UploadStatistics statistics = logger.getObjectStatistics(uploadKey);
+    assertNotNull(statistics);
+    assertTrue(statistics.hasErrors());
+    assertEquals(statistics.getErrors().size(), 2);
+    assertEquals(statistics.getDuration(), Duration.ofSeconds(15));
     assertTrue(statistics.isSuccessful());
   }
 

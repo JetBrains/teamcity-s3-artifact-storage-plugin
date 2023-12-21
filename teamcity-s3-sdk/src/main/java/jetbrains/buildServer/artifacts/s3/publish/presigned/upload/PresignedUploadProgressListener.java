@@ -4,9 +4,9 @@ import java.time.Duration;
 import org.jetbrains.annotations.NotNull;
 
 public interface PresignedUploadProgressListener {
-  void onPartUploadFailed(@NotNull final Throwable e);
+  void onPartUploadFailed(@NotNull final Throwable e, int partIndex);
 
-  void onPartUploadSuccess(@NotNull String uploadUrl);
+  void onPartUploadSuccess(@NotNull String uploadUrl, int partIndex);
 
   void onFileUploadFailed(@NotNull String message, boolean isRecoverable);
 
@@ -14,7 +14,7 @@ public interface PresignedUploadProgressListener {
 
   void beforeUploadStarted();
 
-  void beforePartUploadStarted(int partNumber);
+  void beforePartUploadStarted(int partIndex);
 
   void setUpload(@NotNull S3PresignedUpload upload);
 

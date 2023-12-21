@@ -85,7 +85,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                   .stream()
                                                                   .map(partDto -> {
                                                                     final int partIndex = partDto.getPartNumber() - 1;
-                                                                    myProgressListener.beforePartUploadStarted(partDto.getPartNumber());
+                                                                    myProgressListener.beforePartUploadStarted(partIndex);
                                                                     final String url = partDto.getUrl();
                                                                     final FilePart filePart = myFileParts.get(partIndex);
 
@@ -104,7 +104,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                                     })
                                                                                     .thenApply(onUploadSuccess(partDto, partIndex, url, filePart))
                                                                                     .exceptionally(e -> {
-                                                                                      myProgressListener.onPartUploadFailed(e);
+                                                                                      myProgressListener.onPartUploadFailed(e, partIndex);
                                                                                       ExceptionUtil.rethrowAsRuntimeException(e);
                                                                                       return null;
                                                                                     });
@@ -147,7 +147,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                  .append(myRemainingBytes.get())
                                  .append(" bytes remaining")
                                  .toString());
-      myProgressListener.onPartUploadSuccess(stripQuery(url));
+      myProgressListener.onPartUploadSuccess(stripQuery(url), partIndex);
       // put result to the array of results
       assert myEtags != null;
       myEtags.set(partIndex, etag);

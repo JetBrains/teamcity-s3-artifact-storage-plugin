@@ -40,6 +40,23 @@ public class StatisticsLogger {
   }
 
   /**
+   * Record start of the upload of the object part
+   *
+   * @param objectKey - key of the object that is being uploaded
+   * @param startTime - starting time of the upload
+   * @param partIndex - index of the uploaded object part
+   */
+  public void partUploadStarted(@NotNull String objectKey, @NotNull Instant startTime, int partIndex) {
+    myStatisticsMap.compute(objectKey, (key, stat) -> {
+      if (stat == null) {
+        stat = new UploadStatistics(objectKey, startTime);
+      }
+      stat.setPartStartTime(partIndex, startTime);
+      return stat;
+    });
+  }
+
+  /**
    * Record end of a successful upload and persist upload statistics
    *
    * @param objectKey - key of the object that is being uploaded
@@ -49,6 +66,16 @@ public class StatisticsLogger {
     myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.finish(endTime));
   }
 
+  /**
+   * Record end of a successful upload of the object part and persist upload statistics
+   *
+   * @param objectKey - key of the object that is being uploaded
+   * @param endTime   - time when upload was finished
+   * @param partIndex - index of the uploaded object part
+   */
+  public void partUploadFinished(@NotNull String objectKey, @NotNull Instant endTime, int partIndex) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.partFinish(partIndex, endTime));
+  }
 
   /**
    * Record end of the upload that failed and persist upload statistics
@@ -59,6 +86,18 @@ public class StatisticsLogger {
    */
   public void uploadFailed(@NotNull String objectKey, @NotNull String error, @NotNull Instant errorTime) {
     myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.fail(errorTime, error));
+  }
+
+  /**
+   * Record end of the upload that failed and persist upload statistics
+   *
+   * @param objectKey - key of the object that is being uploaded
+   * @param error     - Text of an error
+   * @param errorTime - time when upload failed
+   * @param partIndex - index of the uploaded object part
+   */
+  public void partUploadFailed(@NotNull String objectKey, @NotNull String error, @NotNull Instant errorTime, int partIndex) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.partFail(partIndex, errorTime, error));
   }
 
   /**

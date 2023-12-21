@@ -145,7 +145,6 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       }
       myRemainingBytes.set(myFile.length());
       myUploadedBytes.set(0);
-      myProgressListener.beforeUploadStarted();
       String digest = upload();
       return new FileUploadInfo(myArtifactPath, myFile.getAbsolutePath(), myFile.length(), digest);
     } catch (HttpClientUtil.HttpErrorCodeException e) {
@@ -159,6 +158,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
   }
 
   protected String upload() throws IOException {
+    myProgressListener.beforeUploadStarted();
     String result;
     LOGGER.debug(() -> "Uploading artifact " + myArtifactPath + " using regular upload");
     try {
