@@ -35,5 +35,12 @@ public abstract class S3ClientResourceFetcher<T> {
     return S3XmlSerializerFactory.getInstance().serializeAsElement(dto);
   }
 
+  public Element fetchCurrentValueAsElement(final Map<String, String> parameters, @NotNull final String projectId) throws Exception{
+    final T dto = fetchCurrentValue(parameters, projectId);
+    return S3XmlSerializerFactory.getInstance().serializeAsElement(dto);
+  }
+
+  protected abstract T fetchCurrentValue(final Map<String, String> parameters, @NotNull final String projectId) throws Exception;
+
   protected abstract T fetchDto(final Map<String, String> parameters, @NotNull final String projectId) throws Exception;
 }

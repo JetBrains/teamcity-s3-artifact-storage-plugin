@@ -37,6 +37,11 @@ public class ValidateCloudFrontKeys extends S3ClientResourceFetcher<ValidateClou
   }
 
   @Override
+  protected CfKeysValidationResult fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId) {
+    return fetchDto(parameters, projectId);
+  }
+
+  @Override
   protected CfKeysValidationResult fetchDto(Map<String, String> parameters, @NotNull String projectId) {
     try {
       PublicKey publicKey = getPublicKey(parameters, projectId);
