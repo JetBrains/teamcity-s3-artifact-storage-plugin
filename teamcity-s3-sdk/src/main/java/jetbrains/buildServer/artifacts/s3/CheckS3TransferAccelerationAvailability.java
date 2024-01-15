@@ -15,6 +15,11 @@ public class CheckS3TransferAccelerationAvailability extends S3ClientResourceFet
   }
 
   @Override
+  protected S3AccelerationDto fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId) throws Exception{
+    return fetchDto(parameters, projectId);
+  }
+
+  @Override
   protected S3AccelerationDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws Exception {
     return myAmazonS3Builder.withS3Client(
       parameters,

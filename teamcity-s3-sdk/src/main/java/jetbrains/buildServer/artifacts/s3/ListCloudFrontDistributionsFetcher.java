@@ -19,6 +19,39 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
   }
 
   @Override
+  protected ListDistributionsDto fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId) throws Exception {
+    final String publicKeyId = S3Util.getCloudFrontPublicKeyId(parameters);
+
+    return myAmazonS3Builder.withCloudFrontClient(parameters, projectId, client -> {
+      final String uploadDistr = S3Util.getCloudFrontUploadDistribution(parameters);
+
+      final List<DistributionDto> distributionDtos = new ArrayList<>();
+
+      if (uploadDistr != null) {
+        final Distribution distribution = client.getDistribution(new GetDistributionRequest().withId(uploadDistr)).getDistribution();
+        distributionDtos.add(toDto(distribution, publicKeyId));
+      }
+
+      final String downloadDistr = S3Util.getCloudFrontDownloadDistribution(parameters);
+
+      if (downloadDistr != null) {
+        final Distribution distribution = client.getDistribution(new GetDistributionRequest().withId(downloadDistr)).getDistribution();
+        distributionDtos.add(toDto(distribution, publicKeyId));
+      }
+
+      return new ListDistributionsDto(distributionDtos);
+    });
+  }
+
+  @NotNull
+  private static DistributionDto toDto(Distribution distribution, String publicKeyId) {
+    final String id = distribution.getId();
+    final String comment = distribution.getDistributionConfig().getComment();
+    final Boolean enabled = distribution.getDistributionConfig().isEnabled();
+    return new DistributionDto(id, comment, enabled, Collections.singletonList(publicKeyId));
+  }
+
+  @Override
   protected ListDistributionsDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws ConnectionCredentialsException {
     String bucketName = S3Util.getBucketName(parameters);
 

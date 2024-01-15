@@ -53,6 +53,11 @@ public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocatio
   }
 
   @Override
+  protected BucketLocationDto fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId) throws Exception{
+    return fetchDto(parameters, projectId);
+  }
+
+  @Override
   protected BucketLocationDto fetchDto(final Map<String, String> parameters, @NotNull String projectId) throws ConnectionCredentialsException {
     return myAmazonS3Builder.withS3Client(
       parameters,

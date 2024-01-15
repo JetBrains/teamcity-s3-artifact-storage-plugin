@@ -16,6 +16,21 @@ public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<Lis
   public ListCloudFrontPublicKeysFetcher(@NotNull final AmazonS3Provider amazonS3Provider) {
     myAmazonS3Provider = amazonS3Provider;
   }
+
+  @Override
+  protected ListPublicKeysDto fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId) throws Exception {
+    return myAmazonS3Provider.withCloudFrontClient(parameters, projectId, client -> {
+      final ArrayList<PublicKeyDto> publicKeys = new ArrayList<>();
+      final String cloudFrontPublicKeyId = S3Util.getCloudFrontPublicKeyId(parameters);
+
+      if (cloudFrontPublicKeyId != null) {
+        final PublicKey publicKey = client.getPublicKey(new GetPublicKeyRequest().withId(cloudFrontPublicKeyId)).getPublicKey();
+        publicKeys.add(new PublicKeyDto(publicKey.getId(), publicKey.getPublicKeyConfig().getName()));
+      }
+      return new ListPublicKeysDto(publicKeys);
+    });
+  }
+
   @Override
   protected ListPublicKeysDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws Exception {
     return myAmazonS3Provider.withCloudFrontClient(parameters, projectId, client -> {
