@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import jetbrains.buildServer.ArtifactsConstants;
 import jetbrains.buildServer.artifacts.s3.*;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
@@ -30,14 +31,14 @@ import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
-import jetbrains.buildServer.serverSide.IOGuard;
-import jetbrains.buildServer.serverSide.ProjectManager;
-import jetbrains.buildServer.serverSide.SProject;
-import jetbrains.buildServer.serverSide.ServerPaths;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.auth.AccessChecker;
+import jetbrains.buildServer.serverSide.auth.AuthUtil;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
+import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
+import jetbrains.buildServer.web.util.SessionUser;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.web.servlet.ModelAndView;
@@ -84,7 +85,6 @@ public class S3SettingsController extends BaseFormXmlController {
                         @NotNull final HttpServletResponse response,
                         @NotNull final Element xmlResponse) {
     final ActionErrors errors = new ActionErrors();
-    final Map<String, String> parameters = ParamUtil.putSslValues(myServerPaths, getProperties(request));
 
     final String resource = request.getParameter("resource");
     if (resource == null) {
@@ -98,9 +98,22 @@ public class S3SettingsController extends BaseFormXmlController {
         try {
           final SProject project = getProject(request);
 
-          myAccessChecker.checkCanEditProject(project);
+          final SUser user = SessionUser.getUser(request);
+          final boolean canEditProject = AuthUtil.hasPermissionToManageProject(user, project.getProjectId());
 
-          xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(parameters, project.getProjectId())));
+          if (canEditProject && !project.isReadOnly()) {
+            final Map<String, String> properties = ParamUtil.putSslValues(myServerPaths, getProperties(request));
+            xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchAsElement(properties, project.getProjectId())));
+          } else {
+            final String settingsId = request.getParameter(ArtifactsConstants.EXTERNAL_ARTIFACTS_STORAGE_SETTINGS_ID_KEY);
+            final SProjectFeatureDescriptor storageFeature = project.findFeatureById(settingsId);
+            if (storageFeature != null) {
+              final Map<String, String> properties = storageFeature.getParameters();
+              xmlResponse.addContent(IOGuard.allowNetworkCall(() -> handler.fetchCurrentValueAsElement(properties, project.getProjectId())));
+            } else {
+              errors.addError(resource, "Failed to find storage with id: " + settingsId);
+            }
+          }
         } catch (ConnectionCredentialsException e) {
           LOG.warn("Failed to get content", e);
           String errorMessage = getUiFriendlyErrorMessage(e);

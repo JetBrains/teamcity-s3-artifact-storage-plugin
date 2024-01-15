@@ -17,6 +17,8 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.services.s3.model.Bucket;
+import com.amazonaws.services.s3.model.ListBucketsRequest;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +38,16 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
 
   public ListBucketsResourceFetcher(@NotNull AmazonS3Provider amazonS3Provider) {
     myAmazonS3Provider = amazonS3Provider;
+  }
+
+  @Override
+  protected ListBucketsDto fetchCurrentValue(Map<String, String> parameters, @NotNull String projectId){
+    final String bucketName = S3Util.getBucketName(parameters);
+    final ArrayList<BucketDto> buckets = new ArrayList<>();
+    if (bucketName != null) {
+      buckets.add(new BucketDto(bucketName));
+    }
+    return new ListBucketsDto(buckets);
   }
 
   @Override
