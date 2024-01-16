@@ -5,7 +5,6 @@ import {
   FormSelect,
   useReadOnlyContext,
 } from '@jetbrains-internal/tcci-react-ui-components';
-import { CSSProperties, useEffect, useState } from 'react';
 import Button from '@jetbrains/ring-ui/components/button/button';
 import addIcon from '@jetbrains/icons/add';
 import editIcon from '@jetbrains/icons/pencil';
@@ -20,19 +19,29 @@ import { AwsConnection } from './AvailableAwsConnectionsConstants';
 
 import styles from './styles.css';
 
-const availAwsConnectionsDropDownStyle: CSSProperties = {
+const availAwsConnectionsDropDownStyle: React.CSSProperties = {
   zIndex: 100,
 };
 
 export default function AvailableAwsConnections() {
   const { connectionOptions, error, isLoading, reloadConnectionOptions } =
     useAwsConnectionsContext();
-  const { control, watch, setValue, setError, clearErrors } =
+  const { control, getValues, setValue, setError, clearErrors } =
     useFormContext<IFormInput>();
 
-  const currentConnectionId = watch(FormFields.AWS_CONNECTION_ID)?.key?.id;
+  const [currentConnectionId, setCurrentConnectionId] = React.useState(
+    getValues(FormFields.AWS_CONNECTION_ID)?.key?.id
+  );
 
-  useEffect(() => {
+  const handleConnectionChange = React.useCallback(
+    (event: any) => {
+      setCurrentConnectionId(event?.target?.value?.key?.id);
+      clearErrors();
+    },
+    [clearErrors]
+  );
+
+  React.useEffect(() => {
     if (error) {
       setError(FormFields.AWS_CONNECTION_ID, {
         message: error,
@@ -43,9 +52,9 @@ export default function AvailableAwsConnections() {
     }
   }, [clearErrors, error, setError]);
 
-  const [show, setShow] = useState(false);
+  const [show, setShow] = React.useState(false);
   const isReadOnly = useReadOnlyContext();
-  const [connectionId, setConnectionId] = useState<string>('');
+  const [connectionId, setConnectionId] = React.useState<string>('');
 
   return (
     <div>
@@ -63,7 +72,7 @@ export default function AvailableAwsConnections() {
             popupStyle={availAwsConnectionsDropDownStyle}
             rules={{
               required: 'Connection is mandatory',
-              onChange: clearErrors,
+              onChange: handleConnectionChange,
             }}
             loading={isLoading}
           />
