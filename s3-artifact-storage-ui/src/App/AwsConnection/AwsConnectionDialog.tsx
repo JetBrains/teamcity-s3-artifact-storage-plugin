@@ -234,7 +234,6 @@ export default function AwsConnectionDialog({
       saveConnection: 'save',
       providerType: type,
       'prop:displayName': displayName,
-      'prop:id': connectionId || awsConnectionIdProp,
       'prop:awsRegionName': awsRegion,
       'prop:awsCredentialsType': credentialsType,
       'prop:awsAccessKeyId': accessKeyId,
@@ -244,8 +243,16 @@ export default function AwsConnectionDialog({
       'prop:awsIamRoleArn': iamRoleArn,
       'prop:awsConnectionId': awsConnectionId,
       'prop:awsIamRoleSessionName': 'TeamCity-session',
-      connectionId: awsConnectionIdProp,
     };
+
+    if (awsConnectionIdProp) {
+      // edit mode
+      result.connectionId = awsConnectionIdProp;
+    } else {
+      // new connection mode
+      result['prop:id'] = connectionId;
+    }
+
     Object.keys(result).forEach((key) => {
       if (result[key] === null || result[key] === undefined) {
         delete result[key];
@@ -257,7 +264,8 @@ export default function AwsConnectionDialog({
 
   const submitConnection = React.useCallback(async () => {
     const formData = collectAwsConnectionFormData();
-    const newConnectionId: string | undefined = formData['prop:id'];
+    const newConnectionId: string | undefined =
+      formData['prop:id'] || formData.connectionId;
     const newConnectionDisplayName: string | undefined =
       formData['prop:displayName'];
     const newConnectionUseSessionCreds: string | undefined =
