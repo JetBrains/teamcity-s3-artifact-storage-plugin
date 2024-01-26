@@ -15,6 +15,8 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
+import jetbrains.buildServer.artifacts.s3.lens.integration.LensIntegrationService;
+import jetbrains.buildServer.artifacts.s3.lens.integration.LensIntegrationServiceImpl;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.upload.PresignedUrlsProviderClientFactory;
 import jetbrains.buildServer.util.EventDispatcher;
@@ -71,7 +73,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
     ExtensionHolder holder = Mockito.mock(ExtensionHolder.class);
 
     EventDispatcher<AgentLifeCycleListener> dispatcher = EventDispatcher.create(AgentLifeCycleListener.class);
-
+    LensIntegrationService lensServiceMock = Mockito.mock(LensIntegrationServiceImpl.class);
     S3FileUploaderFactory uploaderFactory = Mockito.mock(S3FileUploaderFactory.class);
     final S3Configuration s3Configuration = Mockito.mock(S3Configuration.class);
     final S3UploadLogger s3UploadLogger = Mockito.mock(S3UploadLogger.class);
@@ -87,7 +89,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
 
     when(uploaderFactory.create(any(), any(), any())).thenReturn(uploader);
 
-    S3ArtifactsPublisher publisher = new S3ArtifactsPublisher(helper, dispatcher, tracker, config, clientFactory, uploaderFactory, holder);
+    S3ArtifactsPublisher publisher = new S3ArtifactsPublisher(helper, dispatcher, tracker, config, clientFactory, uploaderFactory, lensServiceMock, holder);
 
     publisher.publishFiles(artifacts1);
 
@@ -144,7 +146,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
     ExtensionHolder holder = Mockito.mock(ExtensionHolder.class);
 
     EventDispatcher<AgentLifeCycleListener> dispatcher = EventDispatcher.create(AgentLifeCycleListener.class);
-
+    LensIntegrationService lensService = Mockito.mock(LensIntegrationServiceImpl.class);
     S3FileUploaderFactory uploaderFactory = Mockito.mock(S3FileUploaderFactory.class);
     final S3Configuration s3Configuration = Mockito.mock(S3Configuration.class);
     final S3UploadLogger s3UploadLogger = Mockito.mock(S3UploadLogger.class);
@@ -182,7 +184,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
       }
     };
 
-    S3ArtifactsPublisher publisher = new S3ArtifactsPublisher(helper, dispatcher, tracker, config, clientFactory, uploaderFactory, holder);
+    S3ArtifactsPublisher publisher = new S3ArtifactsPublisher(helper, dispatcher, tracker, config, clientFactory, uploaderFactory, lensService, holder);
 
     publisher.publishFiles(artifacts);
   }

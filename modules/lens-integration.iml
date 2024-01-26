@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="Spring" name="Spring">
+      <configuration />
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" LANGUAGE_LEVEL="JDK_1_8">
+    <output url="file://$MODULE_DIR$/../lens-integration/target/classes" />
+    <output-test url="file://$MODULE_DIR$/../lens-integration/target/test-classes" />
+    <content url="file://$MODULE_DIR$/../lens-integration">
+      <sourceFolder url="file://$MODULE_DIR$/../lens-integration/src/main/java" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/../lens-integration/src/test/java" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/../lens-integration/build" />
+      <excludeFolder url="file://$MODULE_DIR$/../lens-integration/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="teamcity-s3-sdk" />
+    <orderEntry type="module" module-name="agent-openapi" />
+    <orderEntry type="module" module-name="common" />
+    <orderEntry type="module" module-name="idea-obsolete-openapi" />
+    <orderEntry type="module" module-name="logging" />
+    <orderEntry type="module" module-name="utils" />
+    <orderEntry type="library" name="jackson" level="project" />
+    <orderEntry type="library" name="annotations.jar" level="project" />
+    <orderEntry type="library" name="commons-httpclient" level="project" />
+    <orderEntry type="library" name="httpcore-4.4.13" level="project" />
+    <orderEntry type="library" name="commons-codec" level="project" />
+    <orderEntry type="module" module-name="tests-support" scope="TEST" />
+    <orderEntry type="library" scope="TEST" name="testng" level="project" />
+    <orderEntry type="library" scope="TEST" name="org.mockito:mockito-core" level="project" />
+  </component>
+</module>

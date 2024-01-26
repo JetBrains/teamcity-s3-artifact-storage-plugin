@@ -1,7 +1,5 @@
-
-
 plugins {
-    id 'com.github.rodm.teamcity-agent' version "1.4.1"
+    id 'io.github.rodm.teamcity-agent' version "1.5.2"
 }
 
 teamcity {
@@ -12,27 +10,19 @@ teamcity {
 }
 
 dependencies {
-    compile project(':s3-artifact-storage-common')
-    compileOnly ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){
+    implementation project(':s3-artifact-storage-common')
+    implementation project(':lens-integration')
+    provided ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){
         exclude group: 'org.jetbrains.teamcity', module: 'common-api'
     }
 
     // TW-84426
-    compileOnly "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    provided "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
 
-    testCompile "org.testng:testng:6.8.21"
-    testCompile "org.mockito:mockito-core:3.9.0"
-    testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+    testImplementation "org.testng:testng:6.8.21"
+    testImplementation "org.mockito:mockito-core:3.9.0"
+    testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
 }
 
 agentPlugin.version = null
 agentPlugin.baseName = projectIds.artifact + '-agent'
-
-tasks.withType(JavaCompile) {
-    sourceCompatibility = "1.8"
-    targetCompatibility = "1.8"
-
-  if (project.hasProperty('JDK_18')) {
-    options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
-  }
-}

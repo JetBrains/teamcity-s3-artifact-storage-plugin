@@ -249,8 +249,8 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void partsSeparated(@NotNull Duration duration) {
-      myStatisticsLogger.partsSeparated(myUpload.description(), duration);
+    public void partsSeparated(int nParts, long chunkSizeInBytes, @NotNull Duration duration) {
+      myStatisticsLogger.partsSeparated(myUpload.description(), duration, nParts, chunkSizeInBytes);
     }
 
     @Override
@@ -265,7 +265,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onPartUploadSuccess(@NotNull String uploadUrl, int partIndex) {
+    public void onPartUploadSuccess(@NotNull String uploadUrl, int partIndex, String digest) {
       myStatisticsLogger.partUploadFinished(myUpload.description(), Instant.now(), partIndex);
     }
 
@@ -277,21 +277,21 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
     }
 
     @Override
-    public void onFileUploadSuccess(@NotNull String uploadUrl) {
-      myStatisticsLogger.uploadFinished(myUpload.description(), Instant.now());
+    public void onFileUploadSuccess(String digest) {
+      myStatisticsLogger.uploadFinished(myUpload.description(), Instant.now(), digest);
       myUploadManager.onUploadSuccess(myUpload);
     }
 
     @Override
     public void beforeUploadStarted() {
       checkInterrupted();
-      myStatisticsLogger.uploadStarted(myUpload.description(), Instant.now());
+      myStatisticsLogger.uploadStarted(myUpload.description(), Instant.now(), myUpload.myFile.length());
     }
 
     @Override
-    public void beforePartUploadStarted(int partIndex) {
+    public void beforePartUploadStarted(int partIndex, long partSize) {
       checkInterrupted();
-      myStatisticsLogger.partUploadStarted(myUpload.description(), Instant.now(), partIndex);
+      myStatisticsLogger.partUploadStarted(myUpload.description(), Instant.now(), partIndex, partSize);
     }
 
     private void checkInterrupted() {

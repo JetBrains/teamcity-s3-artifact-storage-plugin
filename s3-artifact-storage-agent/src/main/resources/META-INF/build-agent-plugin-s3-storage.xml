@@ -11,4 +11,5 @@
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3CompatibleArtifactsPublisher"/>
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3FileUploaderFactoryImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3AdditionalHeadersProvider"/>
+  <bean class="integration.LensIntegrationServiceImpl"/>
 </beans>

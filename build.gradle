@@ -1,13 +1,14 @@
-
-
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
   teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2022.10'
-  awsCoreVersion = project.hasProperty('awsCoreVersion') ? property('awsCoreVersion') : teamcityVersion
+  awsCoreVersion = findProperty('awsCoreVersion') ?: 'SNAPSHOT'
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2023.03.tcbuildtag'
   shouldIncludeMigrationTool = project.hasProperty('shouldIncludeMigrationTool') ? property('shouldIncludeMigrationTool') : false
+  spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
+  spacePassword = findProperty("space.repository.password") ?: findProperty("spacePassword")
+  localRepo = findProperty('TC_LOCAL_REPO')
 }
 
 group = projectIds.group
@@ -22,6 +23,20 @@ allprojects {
   repositories {
     mavenLocal()
     maven { url "https://download.jetbrains.com/teamcity-repository" }
+    maven { url "https://repo.labs.intellij.net/teamcity" }
+    maven {
+      url "https://packages.jetbrains.team/maven/p/tc/maven"
+      credentials {
+        username = spaceUsername as String
+        password = spacePassword as String
+      }
+    }
+    if (localRepo) {
+      maven {
+        name = "local-teamcity-artifacts"
+        url "file:///${localRepo}"
+      }
+    }
     mavenCentral()
   }
 }
@@ -39,6 +54,15 @@ subprojects {
       exclude group: 'com.fasterxml.jackson.core'
       exclude group: 'com.fasterxml.jackson.dataformat'
       exclude group: 'org.apache.httpcomponents'
+    }
+  }
+
+  tasks.withType(JavaCompile) {
+    sourceCompatibility = "1.8"
+    targetCompatibility = "1.8"
+
+    if (project.hasProperty('JDK_18')) {
+      options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
     }
   }
 }

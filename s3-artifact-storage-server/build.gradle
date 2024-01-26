@@ -1,7 +1,5 @@
-
-
 plugins {
-    id 'com.github.rodm.teamcity-server' version "1.4.1"
+    id 'io.github.rodm.teamcity-server' version "1.5.2"
     id 'com.github.jk1.tcdeps' version '1.3.1'
 }
 
@@ -32,22 +30,25 @@ if(shouldIncludeMigrationTool) {
 }
 
 configurations {
-    artifactMigrationTool
+  artifactMigrationTool
+  configureEach {
+    exclude(group: 'org.jetbrains.teamcity', module: 'server-web-api')
+  }
 }
 
 dependencies {
-    compile project(':s3-artifact-storage-common')
+    implementation project(':s3-artifact-storage-common')
     provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}") {
       exclude group: 'org.apache.httpcomponents', module: 'httpclient'
       exclude group: 'org.apache.httpcomponents', module: 'httpcore'
       exclude group: 'commons-codec', module: 'commons-codec'
     }
-    compileOnly "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
+    provided "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
 
-    compile "org.bouncycastle:bcprov-jdk18on:1.76"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.76"
 
     // TW-84426
-    compileOnly "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    provided "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
 
     testImplementation "org.testcontainers:localstack:1.15.2"
 
@@ -61,15 +62,6 @@ dependencies {
 
 serverPlugin.version = null
 serverPlugin.baseName = projectIds.artifact
-
-tasks.withType(JavaCompile) {
-    sourceCompatibility = "1.8"
-    targetCompatibility = "1.8"
-
-    if (project.hasProperty('JDK_18')) {
-        options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
-    }
-}
 
 task prepareArtifactMigrationTool(type: Sync) {
     from { configurations.artifactMigrationTool.singleFile }

@@ -19,20 +19,6 @@ public final class DigestUtil {
   private DigestUtil() {
   }
 
-  @NotNull
-  public static MessageDigest createDigest() throws IOException {
-    try {
-      return MessageDigest.getInstance("MD5");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IOException("Unable to digest the file parts", e);
-    }
-  }
-
-  @NotNull
-  public static String asString(@NotNull final MessageDigest digest) {
-    return new String(Hex.encodeHex(digest.digest()));
-  }
-
   public static String multipartDigest(@NotNull final List<String> etags) {
     try (final ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
       etags.forEach(etag -> {

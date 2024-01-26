@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import com.intellij.openapi.util.Pair;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -13,6 +12,49 @@ import org.jetbrains.annotations.Nullable;
  * Provides information about upload start time, upload duration, list of upload errors and whether upload has been successful in the end
  */
 public class UploadStatistics {
+  private String myChecksum;
+  private long myFileSize;
+  private int myNumberOfParts;
+  private long myChunkSize;
+
+  public void setFileSize(long fileSize) {
+    myFileSize = fileSize;
+  }
+
+  public long getFileSize() {
+    return myFileSize;
+  }
+
+  public void setNumberOfParts(int numberOfParts) {
+    myNumberOfParts = numberOfParts;
+  }
+
+  public int getNumberOfParts() {
+    return myNumberOfParts;
+  }
+
+  public void setChunkSize(long chunkSize) {
+    myChunkSize = chunkSize;
+  }
+
+  public long getChunkSize() {
+    return myChunkSize;
+  }
+
+  public String getChecksum() {
+    return myChecksum;
+  }
+
+  public void setChecksum(String checksum) {
+    myChecksum = checksum;
+  }
+
+  @Nullable
+  public Instant getEndTime() {
+    return myEndTime;
+  }
+
+
   private static class PartUploadStatistics {
     private Instant startTime;
     private Instant endTime;
@@ -38,6 +80,7 @@ public class UploadStatistics {
       isSuccesfull = false;
       return this;
     }
+
   }
 
   private static class PartStatisticsAggregation {
@@ -55,6 +98,8 @@ public class UploadStatistics {
   private final String myObjectKey;
   @Nullable
   private Instant myStartTime;
+  @Nullable
+  private Instant myEndTime;
   @NotNull
   private final Instant myInitialStartTime;
 
@@ -67,10 +112,11 @@ public class UploadStatistics {
   @NotNull
   private final Map<String, Duration> myAdditionalTimings = new HashMap<>();
 
-  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime) {
+  public UploadStatistics(@NotNull String objectKey, @NotNull Instant startTime, long fileSize) {
     myObjectKey = objectKey;
     myStartTime = startTime;
     myInitialStartTime = startTime;
+    myFileSize = fileSize;
   }
 
   @NotNull
@@ -120,6 +166,7 @@ public class UploadStatistics {
   }
 
   public UploadStatistics finish(Instant endTime) {
+    myEndTime = endTime;
     if (!partsStatistics.isEmpty()) {
       PartStatisticsAggregation calclulatedStat = calclulatePartsStatistics();
       if (calclulatedStat.duration != null) {
@@ -142,6 +189,7 @@ public class UploadStatistics {
   }
 
   public UploadStatistics fail(Instant failTime, String error) {
+    myEndTime = failTime;
     if (!partsStatistics.isEmpty()) {
       PartStatisticsAggregation calclulatedStat = calclulatePartsStatistics();
       if (calclulatedStat.duration != null) {
@@ -172,8 +220,8 @@ public class UploadStatistics {
   }
 
   private PartStatisticsAggregation calclulatePartsStatistics() {
-    Instant start = Instant.ofEpochMilli(Long.MAX_VALUE);
-    Instant finish = Instant.ofEpochMilli(Long.MIN_VALUE);
+    Instant start = Instant.MAX;
+    Instant finish = Instant.MIN;
     boolean isSuccessful = true;
     for (PartUploadStatistics partStat: partsStatistics.values()) {
       if (partStat.startTime != null && partStat.startTime.isBefore(start)) {

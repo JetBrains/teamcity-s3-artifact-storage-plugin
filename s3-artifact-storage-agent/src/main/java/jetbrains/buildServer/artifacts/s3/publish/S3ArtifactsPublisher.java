@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -18,6 +19,7 @@ import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.lens.integration.LensIntegrationService;
 import jetbrains.buildServer.artifacts.s3.publish.logger.BuildLoggerS3Logger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.CompositeS3UploadLogger;
 import jetbrains.buildServer.artifacts.s3.publish.logger.S3Log4jUploadLogger;
@@ -51,6 +53,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private final BuildAgentConfiguration myBuildAgentConfiguration;
 
   private final List<ArtifactDataInstance> myArtifacts = Collections.synchronizedList(new ArrayList<>());
+  private final LensIntegrationService myLensIntegrationService;
 
   private volatile S3FileUploader myFileUploader;
   @NotNull
@@ -66,6 +69,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
                               @NotNull final BuildAgentConfiguration buildAgentConfiguration,
                               @NotNull final PresignedUrlsProviderClientFactory presignedUrlsProviderClient,
                               @NotNull final S3FileUploaderFactory uploaderFactory,
+                              @NotNull final LensIntegrationService lensIntegrationService,
                               @NotNull final ExtensionHolder extensionHolder) {
     myHelper = helper;
     myTracker = tracker;
@@ -73,6 +77,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
     myPresignedUrlsProviderClientFactory = presignedUrlsProviderClient;
     myUploaderFactory = uploaderFactory;
     myExtensionHolder = extensionHolder;
+    myLensIntegrationService = lensIntegrationService;
     dispatcher.addListener(new AgentLifeCycleAdapter() {
       @Override
       public void buildStarted(@NotNull final AgentRunningBuild runningBuild) {
@@ -96,6 +101,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       final AgentRunningBuild build = myTracker.getCurrentBuild();
       final S3FileUploader fileUploader = getFileUploader(build, logger);
       Collection<UploadStatistics> statistics;
+
       try {
         statistics = fileUploader.upload(filteredMap, () -> {
           if (isPublishingStopped(build) && build.getInterruptReason() != null) {
@@ -117,10 +123,14 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
       } catch (RecoverableException e) {
         throw new ArtifactPublishingFailedException(e.getMessage(), e.isRecoverable(), e);
       }
+
       publishArtifactsList(build);
+
       if (statistics != null) {
+        final StatisticsLogger.SummaryStatistics stats = getSummaryStatistics(statistics);
+        myLensIntegrationService.generateUploadEvents(build, statistics, stats.getTotalDuration(), teamcityConnectionConfiguration(build));
+
         if (statistics.size() > MAX_UPLOAD_LOG_MESSAGES) {
-          final StatisticsLogger.SummaryStatistics stats = getSummaryStatistics(statistics);
           logger.debug(
             String.format("In total %d files uploaded. Summary upload time: %s. Average upload time per file: %s. Number of errors: %d. Logging information for the first %d files",
                           stats.getFileCount(),
@@ -141,16 +151,24 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   @NotNull
   public StatisticsLogger.SummaryStatistics getSummaryStatistics(@NotNull Collection<UploadStatistics> statistics) {
-    Duration totalDuration = Duration.ofMillis(0);
-    int fileCount = 0;
+    final int fileCount = statistics.size();
     List<String> errors = new ArrayList<>();
+    Instant minStartTime = Instant.MAX;
+    Instant maxEndTime = Instant.MIN;
+
     for (UploadStatistics stat : statistics) {
-      totalDuration = totalDuration.plus(stat.getDuration());
-      fileCount++;
+      if (stat.getInitialStartTime().isBefore(minStartTime)) {
+        minStartTime = stat.getInitialStartTime();
+      }
+      if (stat.getEndTime() != null && stat.getEndTime().isAfter(maxEndTime)) {
+        maxEndTime = stat.getEndTime();
+      }
       errors.addAll(stat.getErrors());
     }
-    final Duration averageDuration = totalDuration.dividedBy(fileCount);
-    return new StatisticsLogger.SummaryStatistics(totalDuration, averageDuration, fileCount, errors);
+
+    final Duration totalUploadDuration = Duration.between(minStartTime, maxEndTime);
+    final Duration averageDuration = totalUploadDuration.dividedBy(fileCount);
+    return new StatisticsLogger.SummaryStatistics(totalUploadDuration, averageDuration, fileCount, errors);
   }
 
   private void logStatisticsForEach(@NotNull FlowLogger logger, @NotNull Collection<UploadStatistics> statistics) {
@@ -233,18 +251,25 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
   private S3FileUploader getFileUploader(@NotNull final AgentRunningBuild build, FlowLogger flowLogger) {
     if (myFileUploader == null) {
       Collection<ArtifactTransportAdditionalHeadersProvider> headersProviders = myExtensionHolder.getExtensions(ArtifactTransportAdditionalHeadersProvider.class);
-      final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration);
-      final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
-      s3Configuration.setPathPrefix(getPathPrefix(build));
+      final S3Configuration s3Configuration = getS3Configuration(build);
       myFileUploader = myUploaderFactory.create(s3Configuration,
                                                 CompositeS3UploadLogger.compose(new BuildLoggerS3Logger(flowLogger), new S3Log4jUploadLogger()),
-                                                () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build, s3Configuration), headersProviders));
+                                                () -> myPresignedUrlsProviderClientFactory.createClient(teamcityConnectionConfiguration(build), headersProviders));
     }
     return myFileUploader;
   }
 
   @NotNull
-  private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build, S3Configuration s3Configuration) {
+  private S3Configuration getS3Configuration(@NotNull AgentRunningBuild build) {
+    final SettingsProcessor settingsProcessor = new SettingsProcessor(myBuildAgentConfiguration);
+    final S3Configuration s3Configuration = settingsProcessor.processSettings(build.getSharedConfigParameters(), build.getArtifactStorageSettings());
+    s3Configuration.setPathPrefix(getPathPrefix(build));
+    return s3Configuration;
+  }
+
+  @NotNull
+  private TeamCityConnectionConfiguration teamcityConnectionConfiguration(@NotNull AgentRunningBuild build) {
+    S3Configuration s3Configuration = getS3Configuration(build);
     return new TeamCityConnectionConfiguration(build.getAgentConfiguration().getServerUrl(),
                                                build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_URLS_PROVIDER_PATH, ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML),
                                                build.getAccessUser(),

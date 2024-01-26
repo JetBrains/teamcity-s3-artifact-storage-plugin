@@ -19,8 +19,8 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="s3-artifact-storage-common" />
+    <orderEntry type="module" module-name="lens-integration" />
     <orderEntry type="library" name="annotations.jar" level="project" />
-    <orderEntry type="library" scope="PROVIDED" name="gson" level="project" />
     <orderEntry type="module" module-name="agent-openapi" />
     <orderEntry type="module" module-name="common" />
     <orderEntry type="module" module-name="common-vcs" />

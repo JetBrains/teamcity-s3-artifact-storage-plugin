@@ -66,6 +66,9 @@ public class S3Constants {
   public static final String ALLOW_HTTP_CONNECTION_FOR_UPLOAD = "teamcity.internal.storage.s3.allow.plain.http";
   public static final String S3_FORCE_PRESIGNED_URLS = "teamcity.internal.storage.s3.force.presigned.urls";
 
+  public static final String S3_ENABLE_UPLOAD_FILE_LENS_EVENTS = "teamcity.internal.storage.s3.lens.file.events.enabled";
+  public static final String S3_ENABLE_UPLOAD_INFO_LENS_EVENTS = "teamcity.internal.storage.s3.lens.info.events.enabled";
+
   public static final String PROJECT_ID_PARAM = "projectId";
 
   public static final String TEAMCITY_STORAGE_TYPE_KEY = "storage.type";

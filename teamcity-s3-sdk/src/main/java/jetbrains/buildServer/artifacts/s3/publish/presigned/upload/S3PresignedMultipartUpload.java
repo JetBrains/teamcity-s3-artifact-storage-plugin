@@ -85,9 +85,9 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                                                   .stream()
                                                                   .map(partDto -> {
                                                                     final int partIndex = partDto.getPartNumber() - 1;
-                                                                    myProgressListener.beforePartUploadStarted(partIndex);
-                                                                    final String url = partDto.getUrl();
                                                                     final FilePart filePart = myFileParts.get(partIndex);
+                                                                    myProgressListener.beforePartUploadStarted(partIndex, filePart.getLength());
+                                                                    final String url = partDto.getUrl();
 
                                                                     // this allows us to save time in case of huge files re-upload
                                                                     if (myEtags.get(partIndex) != null) {
@@ -114,9 +114,9 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       // in case of exception in any of them, we will cancel all the futures immediately
       allOfTerminateOnFailure(chunkUploadFutures).get();
       final Iterator<PresignedUrlPartDto> iterator = multipartUploadUrls.getPresignedUrlParts().iterator();
-      String strippedUrl = iterator.hasNext() ? stripQuery(iterator.next().getUrl()) : "";
-      myProgressListener.onFileUploadSuccess(strippedUrl);
-      return DigestUtil.multipartDigest(getEtags());
+      String digest = DigestUtil.multipartDigest(getEtags());
+      myProgressListener.onFileUploadSuccess(digest);
+      return digest;
     } catch (final Exception e) {
       Exception cause = stripRootCause(e);
       boolean isRecoverable = canRetry(cause);
@@ -147,7 +147,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
                                  .append(myRemainingBytes.get())
                                  .append(" bytes remaining")
                                  .toString());
-      myProgressListener.onPartUploadSuccess(stripQuery(url), partIndex);
+      myProgressListener.onPartUploadSuccess(stripQuery(url), partIndex, filePart.getDigest());
       // put result to the array of results
       assert myEtags != null;
       myEtags.set(partIndex, etag);
@@ -161,7 +161,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
       final long partSeparationStart = System.nanoTime();
       myFileParts = myFileSplitter.getFileParts(myFile, nParts, myCheckConsistency);
       final long partSeparationEnd = System.nanoTime();
-      myProgressListener.partsSeparated(Duration.ofNanos(partSeparationEnd - partSeparationStart));
+      myProgressListener.partsSeparated(nParts, myChunkSizeInBytes, Duration.ofNanos(partSeparationEnd - partSeparationStart));
     }
   }
 

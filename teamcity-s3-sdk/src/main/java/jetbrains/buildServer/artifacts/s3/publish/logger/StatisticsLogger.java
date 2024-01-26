@@ -27,14 +27,16 @@ public class StatisticsLogger {
    *
    * @param objectKey - key of the object that is being uploaded
    * @param startTime - starting time of the upload
+   * @param fileSize - object file size
    */
-  public void uploadStarted(@NotNull String objectKey, @NotNull Instant startTime) {
+  public void uploadStarted(@NotNull String objectKey, @NotNull Instant startTime, long fileSize) {
     myStatisticsMap.compute(objectKey, (key, stat) -> {
       if (stat != null) {
         stat.setStartTime(startTime);
+        stat.setFileSize(fileSize);
         return stat;
       } else {
-        return new UploadStatistics(objectKey, startTime);
+        return new UploadStatistics(objectKey, startTime, fileSize);
       }
     });
   }
@@ -45,11 +47,12 @@ public class StatisticsLogger {
    * @param objectKey - key of the object that is being uploaded
    * @param startTime - starting time of the upload
    * @param partIndex - index of the uploaded object part
+   * @param partSize - size of the uploaded object part
    */
-  public void partUploadStarted(@NotNull String objectKey, @NotNull Instant startTime, int partIndex) {
+  public void partUploadStarted(@NotNull String objectKey, @NotNull Instant startTime, int partIndex, long partSize) {
     myStatisticsMap.compute(objectKey, (key, stat) -> {
       if (stat == null) {
-        stat = new UploadStatistics(objectKey, startTime);
+        stat = new UploadStatistics(objectKey, startTime, partSize);
       }
       stat.setPartStartTime(partIndex, startTime);
       return stat;
@@ -61,9 +64,14 @@ public class StatisticsLogger {
    *
    * @param objectKey - key of the object that is being uploaded
    * @param endTime   - time when upload was finished
+   * @param digest    - checksum of the uploaded object
    */
-  public void uploadFinished(@NotNull String objectKey, @NotNull Instant endTime) {
-    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.finish(endTime));
+  public void uploadFinished(@NotNull String objectKey, @NotNull Instant endTime, String digest) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> {
+      stat.setChecksum(digest);
+      stat.finish(endTime);
+      return stat;
+    });
   }
 
   /**
@@ -130,8 +138,13 @@ public class StatisticsLogger {
     return myStatisticsMap.size();
   }
 
-  public void partsSeparated(@NotNull String objectKey, Duration duration) {
-    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> stat.addAditionalTiming("Dividing into chunks", duration));
+  public void partsSeparated(@NotNull String objectKey, Duration duration, int nParts, long chunkSizeInBytes) {
+    myStatisticsMap.computeIfPresent(objectKey, (key, stat) -> {
+      stat.addAditionalTiming("Dividing into chunks", duration);
+      stat.setNumberOfParts(nParts);
+      stat.setChunkSize(chunkSizeInBytes);
+      return stat;
+    });
   }
 
   public void urlsGenerated(String objectKey, Duration duration) {

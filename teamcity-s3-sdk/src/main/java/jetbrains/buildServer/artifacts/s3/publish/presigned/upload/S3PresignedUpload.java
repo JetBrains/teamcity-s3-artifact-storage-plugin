@@ -170,7 +170,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       String digest = signedUrlInfo.getDigest();
       String etag = myRetrier.execute(() -> myLowLevelS3Client.uploadFile(url, myFile, digest).get());
       myRemainingBytes.getAndAdd(-myFile.length());
-      myProgressListener.onFileUploadSuccess(stripQuery(url));
+      myProgressListener.onFileUploadSuccess(digest);
       result = etag;
     } catch (final Exception e) {
       myProgressListener.onFileUploadFailed(e.getMessage(), false);

@@ -12,21 +12,10 @@ dependencies {
   compileOnly "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${jacksonVersion}"
   compileOnly 'com.google.guava:guava:13.0.1'
 
-  testCompile "org.testng:testng:6.8.21"
-  testCompile "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
-  testCompile "org.mockito:mockito-core:3.9.0"
+  testImplementation "org.testng:testng:6.8.21"
+  testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+  testImplementation "org.mockito:mockito-core:3.9.0"
 }
-
-tasks.withType(JavaCompile) {
-  sourceCompatibility = "1.8"
-  targetCompatibility = "1.8"
-
-
-  if (project.hasProperty('JDK_18')) {
-    options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
-  }
-}
-
 
 publishing {
   repositories {

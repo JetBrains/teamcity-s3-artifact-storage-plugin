@@ -17,7 +17,6 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="annotations.jar" level="project" />
-    <orderEntry type="library" name="gson" level="project" />
     <orderEntry type="library" scope="PROVIDED" name="jdom" level="project" />
     <orderEntry type="module" module-name="common" scope="PROVIDED" />
     <orderEntry type="library" scope="TEST" name="hamcrest-1.3" level="project" />

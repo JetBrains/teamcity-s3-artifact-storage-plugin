@@ -199,7 +199,7 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
       assertContains(request, "POST /httpAuth" + ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML);
 
       final PresignedUrlListRequestDto dto = PresignedUrlRequestSerializer.deserializeRequest(requestBody);
-      assertEquals(new Long(1000), dto.getCustomTtl());
+      assertEquals(Long.valueOf(1000), dto.getCustomTtl());
       assertEquals(1, dto.getPresignedUrlRequests().size());
       PresignedUrlRequestDto presignedUrlRequestDto = new ArrayList<>(dto.getPresignedUrlRequests()).get(0);
       assertEquals(OBJECT_KEY, presignedUrlRequestDto.getObjectKey());
