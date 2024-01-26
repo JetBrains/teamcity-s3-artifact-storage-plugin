@@ -34,7 +34,7 @@ allprojects {
     if (localRepo) {
       maven {
         name = "local-teamcity-artifacts"
-        url "file:///${localRepo}"
+        url "file:///${getRootDir().toPath().resolve(localRepo)}"
       }
     }
     mavenCentral()
