@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <dsl-add-on kind="projectFeature">
   <extends>
-    <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_storage'" />
     <dsl type="storage_settings" applicable="params['storage.type'] == 'S3_storage_compatible'" />
   </extends>
   <params>
