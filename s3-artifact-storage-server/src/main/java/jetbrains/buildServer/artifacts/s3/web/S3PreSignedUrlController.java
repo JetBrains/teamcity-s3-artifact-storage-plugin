@@ -85,7 +85,32 @@ public class S3PreSignedUrlController extends BaseController {
   @Override
   protected ModelAndView doHandle(@NotNull HttpServletRequest httpServletRequest, @NotNull HttpServletResponse httpServletResponse) throws Exception {
     try {
-      final Pair<RequestType, CloudFrontSettings> request = parseRequest(httpServletRequest);
+      if (!isPost(httpServletRequest)) {
+        throw new HttpServerErrorException(HttpStatus.METHOD_NOT_ALLOWED, httpServletRequest.getMethod() + " not allowed");
+      }
+
+      AuthorizationHeader header = AuthorizationHeader.getFrom(httpServletRequest);
+
+      if (header == null) {
+        LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". No authorization provided.");
+        throw new HttpServerErrorException(HttpStatus.UNAUTHORIZED, "No authorization header in request");
+      }
+
+      final SimpleCredentials credentials = header.getBasicAuthCredentials();
+
+      final RunningBuildEx runningBuild = getRunningBuild(credentials);
+      if (runningBuild == null) {
+        LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Can't resolve running build.");
+        throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "build is missing in request");
+      }
+
+      final String receivedPassword = credentials.getPassword();
+      if (!StringUtil.areEqual(runningBuild.getAgentAccessCode(), receivedPassword)) {
+        LOG.debug("Failed to provide presigned urls for request " + httpServletRequest + ". Wrong access code provided.");
+        throw new HttpServerErrorException(HttpStatus.UNAUTHORIZED, "Invalid credentials provided");
+      }
+
+      final Pair<RequestType, CloudFrontSettings> request = parseRequest(httpServletRequest, runningBuild);
 
       httpServletResponse.setContentType("application/xml; charset=" + StandardCharsets.UTF_8.name());
       if (request.getFirst() == RequestType.FINISH_MULTIPART_UPLOAD) {
@@ -99,9 +124,8 @@ public class S3PreSignedUrlController extends BaseController {
         if (customTtl != null) {
           settings.setTtl(customTtl);
         }
-        RunningBuildEx runningBuild = getRunningBuild(httpServletRequest);
         Disposable threadName = NamedDaemonThreadFactory.patchThreadName("Generating " + urlsRequest.getPresignedUrlRequests().size() + " pre-signed URLs"
-                                                                         + (runningBuild != null ? " for a running build with id: " + runningBuild.getBuildId() : ""));
+                                                                         + " for a running build with id: " + runningBuild.getBuildId());
         final String response;
         try {
           response = urlsRequest.isVersion2()
@@ -170,17 +194,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @NotNull
-  private Pair<RequestType, CloudFrontSettings> parseRequest(@NotNull final HttpServletRequest request) {
-    if (!isPost(request)) {
-      throw new HttpServerErrorException(HttpStatus.METHOD_NOT_ALLOWED, request.getMethod() + " not allowed");
-    }
-
-    final RunningBuildEx runningBuild = getRunningBuild(request);
-    if (runningBuild == null) {
-      LOG.debug("Failed to provide presigned urls for request " + request + ". Can't resolve running build.");
-      throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "build is missing in request");
-    }
-
+  private Pair<RequestType, CloudFrontSettings> parseRequest(@NotNull final HttpServletRequest request, RunningBuildEx runningBuild) {
     final Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
     try {
       S3Util.validateParameters(storageSettings);
@@ -291,15 +305,11 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @Nullable
-  private RunningBuildEx getRunningBuild(@NotNull final HttpServletRequest request) {
-    AuthorizationHeader header = AuthorizationHeader.getFrom(request);
-    if (header != null) {
-      SimpleCredentials cre = header.getBasicAuthCredentials();
-      if (cre != null) {
-        long buildId = BuildAuthUtil.getBuildId(cre.getUsername());
-        if (buildId == -1) return null;
-        return myRunningBuildsManager.findRunningBuildById(buildId);
-      }
+  private RunningBuildEx getRunningBuild(SimpleCredentials credentials) {
+    if (credentials != null) {
+      long buildId = BuildAuthUtil.getBuildId(credentials.getUsername());
+      if (buildId == -1) return null;
+      return myRunningBuildsManager.findRunningBuildById(buildId);
     }
     return null;
   }
