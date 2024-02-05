@@ -88,7 +88,9 @@ The plugin artifact will be produced in the following location `s3-artifact-stor
 
 Gradle property `shouldIncludeMigrationTool` exists for internal builds and allows to include Artifact migration tool as part of plugin distribution. 
 
-Plugin can be build and can function without including this tool. 
+The plugin can be built and can function without including this tool. 
+
+If there are dependency problems with the build, try to uncomment lines in gradle.properties file.
 
 # Reporting issues
 
