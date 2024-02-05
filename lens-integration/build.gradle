@@ -5,7 +5,7 @@ plugins {
 dependencies {
   implementation project(':teamcity-s3-sdk')
 
-  compileOnly "org.jetbrains.teamcity:agent-openapi:${teamcityVersion}"
+  compileOnly "org.jetbrains.teamcity:agent-api:${teamcityVersion}"
 
   compileOnly "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
 
