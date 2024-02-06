@@ -40,12 +40,13 @@ allprojects {
     maven { url "https://repo.labs.intellij.net/teamcity" }
     mavenLocal()
     maven { url "https://download.jetbrains.com/teamcity-repository" }
-    maven { url "https://repo.labs.intellij.net/teamcity" }
-    maven {
-      url "https://packages.jetbrains.team/maven/p/tc/maven"
-      credentials {
-        username = spaceUsername as String
-        password = spacePassword as String
+    if (spaceUsername && spacePassword) {
+      maven {
+        url "https://packages.jetbrains.team/maven/p/tc/maven"
+        credentials {
+          username = spaceUsername as String
+          password = spacePassword as String
+        }
       }
     }
     mavenCentral()
@@ -59,6 +60,14 @@ subprojects {
 
   test.useTestNG()
   jar.version = null
+
+  configurations.configureEach {
+    resolutionStrategy {
+      force "org.jetbrains.teamcity:connections-api-core:${connectionsApiCoreVersion}",
+            "org.jetbrains.teamcity:oauth:${teamcityVersion}",
+            "org.jetbrains.teamcity:common-api:${teamcityVersion}"
+    }
+  }
 
   dependencies{
     api("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
