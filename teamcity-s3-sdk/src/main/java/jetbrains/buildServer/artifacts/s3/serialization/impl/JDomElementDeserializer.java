@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.serialization.impl;
 
 import java.io.IOException;
 import java.io.StringReader;
+import jetbrains.buildServer.util.XMLParser;
 import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
@@ -12,7 +13,7 @@ public class JDomElementDeserializer {
   public Element deserialize(@NotNull final String xml) {
     final StringReader stringReader = new StringReader(xml);
     try {
-      return new SAXBuilder().build(stringReader).detachRootElement();
+      return XMLParser.createSAXBuilder(false).build(stringReader).detachRootElement();
     } catch (JDOMException | IOException e) {
       throw new RuntimeException(e);
     }
