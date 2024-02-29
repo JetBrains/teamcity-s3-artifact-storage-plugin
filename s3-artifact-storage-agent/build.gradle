@@ -4,6 +4,7 @@ plugins {
 
 teamcity {
     version = teamcityVersion
+    allowSnapshotVersions = true
     agent {
         descriptor = project.file('teamcity-plugin.xml')
     }

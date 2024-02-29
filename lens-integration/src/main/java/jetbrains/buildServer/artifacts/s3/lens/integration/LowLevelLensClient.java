@@ -17,8 +17,8 @@ import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
 
 public class LowLevelLensClient {
-  private static final String S3_UPLOAD_SUCCESS_EVENT = "s3UploadFileEvent";
-  private static final String S3_UPLOAD_INFO_EVENT = "s3UploadInfoEvent";
+  private static final String S3_UPLOAD_OBJECT_EVENT = "artifact_object_upload";
+  private static final String S3_UPLOAD_INFO_EVENT = "artifacts_upload";
   private static final String LENS_CUSTOM_EVENTS_ENDPOINT = "/lens/customBuildEvent?buildId=%d&eventName=%s";
   private final String myLensEndpointUrl;
   private final String myLensProbingEndpointUrl;
@@ -32,7 +32,7 @@ public class LowLevelLensClient {
 
   public CompletableFuture<HttpResponseAdapter> publishUploadFileEvent(final long buildId, @NotNull final UploadFileEvent event)
     throws URISyntaxException, JsonProcessingException {
-    return publishEvent(buildId, event, S3_UPLOAD_SUCCESS_EVENT);
+    return publishEvent(buildId, event, S3_UPLOAD_OBJECT_EVENT);
   }
 
   public CompletableFuture<HttpResponseAdapter> publishUploadInfoEvent(final long buildId, @NotNull final UploadInfoEvent event)

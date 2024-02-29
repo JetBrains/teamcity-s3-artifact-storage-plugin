@@ -72,7 +72,7 @@ public class LensIntegrationServiceImpl implements LensIntegrationService {
                        stat.getChunkSize(),
                        stat.getDuration().toMillis(),
                        stat.getErrors().size(),
-                       stat.isSuccessful()
+                       stat.isSuccessful() ? "success" : "failure"
                      ))
                      // and then we need to send them to the lens
                      .map(event -> {

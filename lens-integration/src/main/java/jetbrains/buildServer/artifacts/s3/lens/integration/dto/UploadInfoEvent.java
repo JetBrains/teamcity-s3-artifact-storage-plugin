@@ -1,8 +1,13 @@
 package jetbrains.buildServer.artifacts.s3.lens.integration.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class UploadInfoEvent {
+  @JsonProperty("build.artifacts.upload.duration")
   private long duration;
+  @JsonProperty("build.artifacts.count")
   private long numberOfFiles;
+  @JsonProperty("build.artifacts.size")
   private long totalSize;
 
   public UploadInfoEvent() {

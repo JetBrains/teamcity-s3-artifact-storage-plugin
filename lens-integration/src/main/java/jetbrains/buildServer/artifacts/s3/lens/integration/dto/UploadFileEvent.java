@@ -1,31 +1,38 @@
 package jetbrains.buildServer.artifacts.s3.lens.integration.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class UploadFileEvent {
-  private boolean successful;
-
+  @JsonProperty("build.artifacts.object.upload.result")
+  private String uploadResult;
+  @JsonProperty("build.artifacts.object.key")
   private String objectKey;
-
+  @JsonProperty("build.artifacts.object.size")
   private long fileSize;
+  @JsonProperty("build.artifacts.object.chunk_count")
   private int numberOfParts;
+  @JsonProperty("build.artifacts.object.chunk_size")
   private long chunkSize;
+  @JsonProperty("build.artifacts.object.upload.duration")
   private long duration;
+  @JsonProperty("build.artifacts.object.upload_retry_count")
   private int restartCount;
 
   public UploadFileEvent() {
   }
 
-  public UploadFileEvent(String objectKey, long fileSize, int numberOfParts, long chunkSize, long duration, int restartCount, boolean isSuccessful) {
+  public UploadFileEvent(String objectKey, long fileSize, int numberOfParts, long chunkSize, long duration, int restartCount, String uploadResult) {
     this.objectKey = objectKey;
     this.fileSize = fileSize;
     this.numberOfParts = numberOfParts > 0 ? numberOfParts : 1;
     this.chunkSize = numberOfParts > 0 ? chunkSize : fileSize;
     this.duration = duration;
     this.restartCount = restartCount;
-    successful = isSuccessful;
+    this.uploadResult = uploadResult;
   }
 
-  public boolean isSuccessful() {
-    return successful;
+  public String getUploadResult() {
+    return uploadResult;
   }
 
   public void setObjectKey(String objectKey) {
@@ -76,8 +83,8 @@ public class UploadFileEvent {
     return restartCount;
   }
 
-  public void setSuccessful(boolean successful) {
-    this.successful = successful;
+  public void setUploadResult(String uploadResult) {
+    this.uploadResult = uploadResult;
   }
 
   @Override
@@ -89,7 +96,7 @@ public class UploadFileEvent {
            ", chunkSize=" + chunkSize +
            ", duration=" + duration +
            ", restartCount=" + restartCount +
-           ", successful=" + successful +
+           ", uploadResult=" + uploadResult +
            '}';
   }
 }

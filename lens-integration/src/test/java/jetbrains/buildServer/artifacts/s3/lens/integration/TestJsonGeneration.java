@@ -9,7 +9,7 @@ import org.testng.annotations.Test;
 @Test
 public class TestJsonGeneration {
   private static final String TEST_JSON_STRING =
-    "{\"successful\":false,\"objectKey\":\"file.zip\",\"fileSize\":123456789,\"numberOfParts\":1,\"chunkSize\":123456789,\"duration\":123456789,\"restartCount\":0}";
+    "{\"build.artifacts.object.upload.result\":\"successful\",\"build.artifacts.object.key\":\"file.zip\",\"build.artifacts.object.size\":123456789,\"build.artifacts.object.chunk_count\":1,\"build.artifacts.object.chunk_size\":123456789,\"build.artifacts.object.upload.duration\":123456789,\"build.artifacts.object.upload_retry_count\":0}";
 
   @Test
   public void testDtoToJson() throws JsonProcessingException {
@@ -20,6 +20,7 @@ public class TestJsonGeneration {
     event.setNumberOfParts(1);
     event.setChunkSize(123456789L);
     event.setRestartCount(0);
+    event.setUploadResult("successful");
 
     ObjectMapper mapper = new ObjectMapper();
     String json = mapper.writeValueAsString(event);
