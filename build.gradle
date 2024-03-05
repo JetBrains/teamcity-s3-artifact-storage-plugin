@@ -6,7 +6,7 @@ ext {
   teamcityVersion = project.hasProperty('teamcityVersion') ? property('teamcityVersion') : '2022.10'
   awsCoreVersion = findProperty('awsCoreVersion') ?: teamcityVersion ?: 'SNAPSHOT'
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
-  migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2023.03.tcbuildtag'
+  migrationToolVersion = project.hasProperty('migrationToolVersion') ? property('migrationToolVersion') : '2024.03.tcbuildtag'
   shouldIncludeMigrationTool = project.hasProperty('shouldIncludeMigrationTool') ? property('shouldIncludeMigrationTool') : false
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
   spacePassword = findProperty("space.repository.password") ?: findProperty("spacePassword")
