@@ -131,11 +131,15 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                   }
 
                   String name = "generated_" + UUID.randomUUID().toString().substring(0, 8);
+                  CreatePublicKeyResult publicKeyResult = null;
+                  CreateKeyGroupResult keyGroupResult = null;
                   String publicKeyId = null;
                   String keyGroupId = null;
                   try {
-                    publicKeyId = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
-                    keyGroupId = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
+                    publicKeyResult = uploadPublicKey(publicKey, name, comment, cloudFrontClient);
+                    publicKeyId = publicKeyResult.getPublicKey().getId();
+                    keyGroupResult = createKeyGroup(publicKeyId, name, comment, cloudFrontClient);
+                    keyGroupId = keyGroupResult.getKeyGroup().getId();
                     Distribution uploadDistribution = createDistribution(keyGroupId, comment, bucketName, cloudFrontClient, s3Client, true);
                     final DistributionDTO uploadDTO = new DistributionDTO(uploadDistribution.getId(), uploadDistribution.getDistributionConfig().getComment());
 
@@ -143,23 +147,27 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                     final DistributionDTO downloadDTO = new DistributionDTO(downloadDistribution.getId(), downloadDistribution.getDistributionConfig().getComment());
                     return new DistributionCreationResultDTO(uploadDTO, downloadDTO, publicKeyId, name, privateKey);
                   } catch (SdkClientException e) {
-                    errors.addException(S3_CLOUDFRONT_CREATE_DISTRIBUTIONS, e);
-                    if (keyGroupId != null) {
+                    if (keyGroupResult != null) {
                       try {
-                        cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest().withId(keyGroupId));
+                        cloudFrontClient.deleteKeyGroup(new DeleteKeyGroupRequest()
+                          .withId(keyGroupId)
+                          .withIfMatch(keyGroupResult.getETag()));
                       } catch (SdkClientException clientException) {
                         LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront key group", clientException);
                       }
                     }
-                    if (publicKeyId != null) {
+                    if (publicKeyResult != null) {
                       try {
-                        cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest().withId(publicKeyId));
+                        cloudFrontClient.deletePublicKey(new DeletePublicKeyRequest()
+                          .withId(publicKeyId)
+                          .withIfMatch(publicKeyResult.getETag()));
                       } catch (SdkClientException clientException) {
                         LOG.warnAndDebugDetails("Encountered exception while trying to delete CloudFront public key", clientException);
                       }
                     }
+
+                    throw e;
                   }
-                  return null;
               });
             });
             if (distributionCreationResultDTO != null) {
@@ -204,27 +212,24 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   }
 
   @NotNull
-  private String createKeyGroup(@NotNull String publicKeyId, @NotNull String name, @NotNull String comment, @NotNull AmazonCloudFront cloudFrontClient) {
+  private CreateKeyGroupResult createKeyGroup(@NotNull String publicKeyId, @NotNull String name, @NotNull String comment, @NotNull AmazonCloudFront cloudFrontClient) {
     CreateKeyGroupRequest createKeyGroupRequest = new CreateKeyGroupRequest()
       .withKeyGroupConfig(new KeyGroupConfig()
                             .withName(name)
                             .withComment(comment)
                             .withItems(publicKeyId));
-    CreateKeyGroupResult keyGroup = cloudFrontClient.createKeyGroup(createKeyGroupRequest);
-
-    return keyGroup.getKeyGroup().getId();
+    return cloudFrontClient.createKeyGroup(createKeyGroupRequest);
   }
 
   @NotNull
-  private String uploadPublicKey(@NotNull String publicKey, @NotNull String name, @NotNull String comment, @NotNull AmazonCloudFront cloudFrontClient) {
+  private CreatePublicKeyResult uploadPublicKey(@NotNull String publicKey, @NotNull String name, @NotNull String comment, @NotNull AmazonCloudFront cloudFrontClient) {
     PublicKeyConfig config = new PublicKeyConfig()
       .withName(name)
       .withComment(comment)
       .withEncodedKey(publicKey)
       .withCallerReference(ZonedDateTime.now(ZoneOffset.UTC).toString());
 
-    CreatePublicKeyResult result = cloudFrontClient.createPublicKey(new CreatePublicKeyRequest().withPublicKeyConfig(config));
-    return result.getPublicKey().getId();
+    return cloudFrontClient.createPublicKey(new CreatePublicKeyRequest().withPublicKeyConfig(config));
   }
 
   @NotNull
@@ -287,7 +292,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
 
     return existingPolicies
       .stream()
-      .map(p -> p.getCachePolicy())
+      .map(CachePolicySummary::getCachePolicy)
       .filter(IS_GENERATED_POLICY)
       .findAny()
       .orElseGet(() -> createNewPolicy(cloudFrontClient, existingPolicies));
@@ -297,7 +302,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   private CachePolicy createNewPolicy(@NotNull AmazonCloudFront cloudFrontClient, @NotNull List<CachePolicySummary> existingPolicies) {
     CachePolicy defaultPolicy = existingPolicies
       .stream()
-      .map(p -> p.getCachePolicy())
+      .map(CachePolicySummary::getCachePolicy)
       .filter(IS_DEFAULT_POLICY)
       .findAny()
       .orElseThrow(() -> new AmazonCloudFrontException(String.format("Managed Cache policy '%s' not found", S3_CLOUDFRONT_DEFAULT_CACHE_POLICY)));
