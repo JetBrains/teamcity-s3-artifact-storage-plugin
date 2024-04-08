@@ -168,8 +168,10 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     });
 
     try {
+      final Map<String, String> correctedSettings = myAmazonS3Provider.correctRegionAndAcceleration(bucketName, storageSettings, projectId);
+
       myAmazonS3Provider.withS3ClientShuttingDownImmediately(
-        ParamUtil.putSslValues(myServerPaths, storageSettings),
+        ParamUtil.putSslValues(myServerPaths, correctedSettings),
         projectId,
         client -> {
           String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
