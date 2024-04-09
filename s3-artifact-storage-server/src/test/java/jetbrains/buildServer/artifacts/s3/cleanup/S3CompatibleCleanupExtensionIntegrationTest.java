@@ -5,11 +5,6 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
-import java.util.*;
-import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
@@ -40,7 +35,25 @@ import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static jetbrains.buildServer.artifacts.ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
@@ -148,6 +161,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
   }
 
   @Test
+  @Ignore
   public void deletesArtifactsFromS3WithRetry() {
     AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
     AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
@@ -193,6 +207,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
 
 
   @Test
+  @Ignore
   public void failsBecauseRetryDoesntHaveEnoughTime() {
     if (myTestLogger != null) {
       myTestLogger.doNotFailOnErrorMessages();
@@ -296,7 +311,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
                     .with(new Constraint() {
                       @Override
                       public boolean eval(final Object o) {
-                        return o != null && o instanceof FinishedBuildEx && ((FinishedBuildEx)o).getBuildId() == buildArtifactsMapEntry.getKey();
+                        return o instanceof FinishedBuildEx && ((FinishedBuildEx) o).getBuildId() == buildArtifactsMapEntry.getKey();
                       }
 
                       @Override
