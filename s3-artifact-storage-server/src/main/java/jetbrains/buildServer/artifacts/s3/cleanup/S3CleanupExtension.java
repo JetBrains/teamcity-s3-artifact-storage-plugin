@@ -45,6 +45,8 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
 
   private static final String CONCURRENCY_LEVEL_PROPERTY = "teamcity.cleanup.extensions.s3CleanupExtension.concurrencyLevel";
   private static final String EXCEPTION_MESSAGE = "Got an exception while removing artifacts: ";
+  @NotNull
+  private static final String BUILD_STORAGE_INFOS_KEY = S3CleanupExtension.class.getName() + ".BUILD_STORAGE_INFOS_KEY";
 
   @NotNull
   private final ServerArtifactStorageSettingsProvider mySettingsProvider;
@@ -56,7 +58,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
   private final AmazonS3Provider myAmazonS3Provider;
   @NotNull
   private final List<CleanupListener> myCleanupListeners = new CopyOnWriteArrayList<>(); // is filled from tests only
-  private final Map<Long, BuildStorageInfo> myBuildStorageInfos = new ConcurrentHashMap<>();
+//  private final Map<Long, BuildStorageInfo> myBuildStorageInfos = new ConcurrentHashMap<>();
 
   public S3CleanupExtension(
     @NotNull ServerArtifactHelper helper,
@@ -79,12 +81,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
 
   @Override
   public void prepareBuildsData(@NotNull BuildCleanupContext cleanupContext) {
-    if (!myBuildStorageInfos.isEmpty()) {
-      for (BuildStorageInfo buildStorageInfo : new ArrayList<>(myBuildStorageInfos.values())) {
-        CLEANUP.warn("Unexpected S3 artifacts metadadata for " + LogUtil.describe(buildStorageInfo.myBuild) + ". S3 artifacts for this build might not have been fully cleaned.");
-      }
-      myBuildStorageInfos.clear();
-    }
+    Map<Long, BuildStorageInfo> buildStorageInfos = new ConcurrentHashMap<>();
     for (SFinishedBuild build : cleanupContext.getBuilds()) {
       try {
         ArtifactListData artifactsInfo = myHelper.getArtifactList(build);
@@ -106,7 +103,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
           cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to incorrect storage settings configuration.");
           continue;
         }
-        myBuildStorageInfos.put(build.getBuildId(), new BuildStorageInfo(build, pathPrefix, pathsToDelete, storageSettings));
+        buildStorageInfos.put(build.getBuildId(), new BuildStorageInfo(build, pathPrefix, pathsToDelete, storageSettings));
       } catch (IOException e) {
         CLEANUP.warn("Failed to get S3 artifacts list in build " + LogUtil.describe(build) + ": " + e.getMessage());
         cleanupContext.onBuildCleanupError(this, build, "Failed to get S3 artifacts list due to IO error.");
@@ -115,12 +112,18 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
         cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
       }
     }
+    cleanupContext.setExtensionData(BUILD_STORAGE_INFOS_KEY, buildStorageInfos);
   }
 
   @Override
   public void cleanupBuildsData(@NotNull BuildCleanupContext cleanupContext) throws CleanupInterruptedException {
+    //noinspection unchecked
+    Map<Long, BuildStorageInfo> buildStorageInfos = (Map<Long, BuildStorageInfo>)cleanupContext.getExtensionData(BUILD_STORAGE_INFOS_KEY);
+    if (buildStorageInfos == null) {
+      throw new IllegalStateException("Extension data should have been initialized during `prepareBuildsData` stage.");
+    }
     for (long buildId : cleanupContext.getBuildIds()) {
-      BuildStorageInfo buildStorageInfo = myBuildStorageInfos.remove(buildId);
+      BuildStorageInfo buildStorageInfo = buildStorageInfos.remove(buildId);
       if (buildStorageInfo != null) {
         cleanupContext.getCleanupState().throwIfInterrupted();
         SFinishedBuild build = buildStorageInfo.myBuild;

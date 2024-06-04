@@ -24,8 +24,11 @@ import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectio
 import jetbrains.buildServer.serverSide.impl.FinishedBuildEx;
 import jetbrains.buildServer.serverSide.impl.cleanup.CleanupProcessStateEx;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.jmock.Mock;
 import org.jmock.core.Constraint;
+import org.jmock.core.Invocation;
+import org.jmock.core.stub.CustomStub;
 import org.jmock.core.stub.DefaultResultStub;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
@@ -44,13 +47,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -146,10 +143,12 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       s3.putObject(BUCKET_NAME, artifactsEntry.getValue().getPath(), expectedContents);
     }
 
-    cleanupExtension.prepareBuildsData(getContext(1L, 2L, 3L));
+    final Map<String, Object> contextDataStorage = new ConcurrentHashMap<>();
 
-    cleanupExtension.cleanupBuildsData(getContext(1L));
-    cleanupExtension.cleanupBuildsData(getContext(2L, 3L));
+    cleanupExtension.prepareBuildsData((BuildCleanupContext)getContextMock(Arrays.asList(1L, 2L, 3L), contextDataStorage).proxy());
+
+    cleanupExtension.cleanupBuildsData((BuildCleanupContext)getContextMock(Arrays.asList(1L), contextDataStorage).proxy());
+    cleanupExtension.cleanupBuildsData((BuildCleanupContext)getContextMock(Arrays.asList(2L, 3L), contextDataStorage).proxy());
 
     for (Map.Entry<Long, ArtifactData> artifactsEntry : buildArtifacts.entrySet()) {
       assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactsEntry.getValue().getPath()));
@@ -190,7 +189,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       }
     });
 
-    Mock contextMock = getContextMock(Collections.singletonList(1L));
+    Mock contextMock = getContextMock(Collections.singletonList(1L), null);
     contextMock.stubs().method("onBuildCleanupError").will(throwException(new RuntimeException("Build cleanup error")));
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
 
@@ -236,7 +235,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       }
     });
 
-    Mock contextMock = getContextMock(Collections.singletonList(1L));
+    Mock contextMock = getContextMock(Collections.singletonList(1L), null);
     contextMock.stubs().method("onBuildCleanupError");
 
     BuildCleanupContext context = (BuildCleanupContext)contextMock.proxy();
@@ -268,14 +267,8 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
       .build();
   }
 
-
   @NotNull
-  private BuildCleanupContext getContext(Long... buildIds) {
-    return (BuildCleanupContext)getContextMock(Arrays.asList(buildIds)).proxy();
-  }
-
-  @NotNull
-  private Mock getContextMock(List<Long> buildIds) {
+  private Mock getContextMock(@NotNull List<Long> buildIds, @Nullable Map<String, Object> contextDataStorage) {
     Mock cleanupState = mock(CleanupProcessStateEx.class);
 
     List<FinishedBuildEx> builds = buildIds.stream()
@@ -290,11 +283,28 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
                                            .collect(Collectors.toList());
     List<Long> buildIdsCopy = new ArrayList<>(buildIds);
 
+    final Map<String, Object> extensionDataMap = contextDataStorage != null ? contextDataStorage : new ConcurrentHashMap<>();
     Mock context = mock(BuildCleanupContextEx.class);
 
     context.stubs().method("getBuilds").will(returnValue(Collections.unmodifiableList(builds)));
     context.stubs().method("getBuildIds").will(returnValue(Collections.unmodifiableList(buildIdsCopy)));
     context.stubs().method("getCleanupLevel").will(returnValue(CleanupLevel.EVERYTHING));
+    context.stubs().method("getExtensionData").will(new CustomStub("getExtensionData mock implementation") {
+      @Override
+      public Object invoke(Invocation invocation) {
+        String key = (String)invocation.parameterValues.get(0);
+        return extensionDataMap.get(key);
+      }
+    });
+    context.stubs().method("setExtensionData").will(new CustomStub("setExtensionData mock implementation") {
+      @Override
+      public Object invoke(Invocation invocation) {
+        String key = (String)invocation.parameterValues.get(0);
+        Object data = invocation.parameterValues.get(1);
+        extensionDataMap.put(key, data);
+        return null;
+      }
+    });
 
     cleanupState.setDefaultStub(new DefaultResultStub());
     context.stubs().method("getCleanupState").will(returnValue(cleanupState.proxy()));
