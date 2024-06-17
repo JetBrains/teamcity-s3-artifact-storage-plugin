@@ -16,7 +16,8 @@ import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.UptodateValue;
 import jetbrains.buildServer.util.amazon.S3Util;
-import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
+import jetbrains.buildServer.util.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,7 +52,7 @@ public class S3SignedUploadManager {
     myS3ObjectKeys = new ArrayList<>(s3ObjectKeys);
     myPrecalculatedDigests = precalculatedDigests;
     myMaxUrlChunkSize = s3Config.getPresignedUrlMaxChunkSize();
-    myRetrier = Retrier.defaultRetrier(s3Config.getRetriesNum(), s3Config.getRetryDelay(), LOGGER);
+    myRetrier = AmazonRetrier.defaultAwsRetrier(s3Config.getRetriesNum(), s3Config.getRetryDelay(), LOGGER);
     myCache = new UptodateValue<>(this::fetchPresignedUrlsFromProvider, s3Config.getUrlTtlSeconds() * 1000L);
   }
 

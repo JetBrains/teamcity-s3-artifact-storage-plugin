@@ -8,9 +8,9 @@ import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseAdapter;
 import jetbrains.buildServer.artifacts.s3.publish.errors.HttpResponseErrorHandler;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.retry.RecoverableException;
 import jetbrains.buildServer.util.executors.ExecutorsFactory;
 import jetbrains.buildServer.util.impl.Lazy;
+import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

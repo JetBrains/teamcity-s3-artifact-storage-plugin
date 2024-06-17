@@ -1,7 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.exceptions;
 
 import jetbrains.buildServer.util.ExceptionUtil;
-import jetbrains.buildServer.util.amazon.retry.RecoverableException;
+import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 
 public class FileUploadFailedException extends RecoverableException {

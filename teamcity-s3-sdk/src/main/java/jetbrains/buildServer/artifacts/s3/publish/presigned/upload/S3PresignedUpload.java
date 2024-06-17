@@ -20,11 +20,10 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.Throwables;
 import jetbrains.buildServer.util.amazon.S3Util;
-import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
-import jetbrains.buildServer.util.amazon.retry.Retrier;
-import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
-import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
-import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
+import jetbrains.buildServer.util.retry.AbortRetriesException;
+import jetbrains.buildServer.util.retry.Retrier;
+import jetbrains.buildServer.util.retry.impl.AbortingListener;
+import jetbrains.buildServer.util.retry.impl.LoggingRetrierListener;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
@@ -86,12 +85,12 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
     if (myTtl.get() == null) {
       myTtl.set((long)configuration.getUrlTtlSeconds());
     }
-    myRetrier = Retrier.withRetries(configuration.getRetriesNum())
+    myRetrier = Retrier.withRetries(configuration.getRetriesNum(), Retrier.DelayStrategy.linearBackOff(configuration.getRetryDelay()))
                        .registerListener(new LoggingRetrierListener(LOGGER))
                        .registerListener(
                          new AbortingListener(arrayOfRetriableErrors) {
                            @Override
-                           public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception failure) {
+                           public <T> void onFailure(@NotNull   Callable<T> callable, int retry, @NotNull Exception failure) {
                              Exception e = stripRootCause(failure);
 
                              if (S3SignedUrlFileUploader.isPublishingInterruptedException(e) ||
@@ -120,8 +119,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
 
                              super.onFailure(callable, retry, e);
                            }
-                         })
-                       .registerListener(new ExponentialDelayListener(configuration.getRetryDelay()));
+                         });
 
     progressListener.setUpload(this);
   }

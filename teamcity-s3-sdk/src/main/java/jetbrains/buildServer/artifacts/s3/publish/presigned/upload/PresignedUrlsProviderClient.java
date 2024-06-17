@@ -7,7 +7,7 @@ import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadAbortRequestD
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadCompleteRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.MultipartUploadStartRequestDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
-import jetbrains.buildServer.util.amazon.retry.RecoverableException;
+import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 

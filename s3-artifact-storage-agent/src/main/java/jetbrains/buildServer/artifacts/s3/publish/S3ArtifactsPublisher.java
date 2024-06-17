@@ -32,7 +32,7 @@ import jetbrains.buildServer.serverSide.PublishArtifactCondition;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.retry.RecoverableException;
+import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;

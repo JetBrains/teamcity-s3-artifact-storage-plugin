@@ -28,12 +28,12 @@ import jetbrains.buildServer.artifacts.s3.publish.presigned.util.CloseableS3Sign
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.LowLevelS3Client;
 import jetbrains.buildServer.util.ExceptionUtil;
-import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.retry.Retrier;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.util.amazon.retry.Retrier.defaultRetrier;
+import static jetbrains.buildServer.util.amazon.retry.AmazonRetrier.defaultAwsRetrier;
 
 public class S3SignedUrlFileUploader extends S3FileUploader {
   @NotNull
@@ -80,7 +80,7 @@ public class S3SignedUrlFileUploader extends S3FileUploader {
 
     final StatisticsLogger statisticsLogger = new StatisticsLogger();
 
-    final Retrier retrier = defaultRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
+    final Retrier retrier = defaultAwsRetrier(myS3Configuration.getAdvancedConfiguration().getRetriesNum(), myS3Configuration.getAdvancedConfiguration().getRetryDelay(), LOGGER);
 
     try (final CloseableS3SignedUrlUploadPool multipartUploadPool = new CloseableS3SignedUrlUploadPool(myS3Configuration.getAdvancedConfiguration().getNThreads());
          final LowLevelS3Client lowLevelS3Client = createAwsClient(myS3Configuration)) {

@@ -26,11 +26,10 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.retry.Retrier;
-import jetbrains.buildServer.util.amazon.retry.impl.AbortingListener;
-import jetbrains.buildServer.util.amazon.retry.impl.ExponentialDelayListener;
-import jetbrains.buildServer.util.amazon.retry.impl.LoggingRetrierListener;
 import jetbrains.buildServer.util.http.EntityProducer;
+import jetbrains.buildServer.util.retry.Retrier;
+import jetbrains.buildServer.util.retry.impl.AbortingListener;
+import jetbrains.buildServer.util.retry.impl.LoggingRetrierListener;
 import jetbrains.buildServer.xmlrpc.NodeIdCookie;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
 import jetbrains.buildServer.xmlrpc.XmlRpcConstants;
@@ -83,10 +82,9 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     myNodeIdHolder = teamCityConnectionConfiguration.getNodeIdHolder();
     myServerUrl = teamCityConnectionConfiguration.getTeamCityUrl();
 
-    myRetrier = Retrier.withRetries(myTeamCityConnectionConfiguration.getRetriesNum())
+    myRetrier = Retrier.withRetries(myTeamCityConnectionConfiguration.getRetriesNum(), Retrier.DelayStrategy.linearBackOff(myTeamCityConnectionConfiguration.getRetryDelay()))
                        .registerListener(new LoggingRetrierListener(LOGGER))
-                       .registerListener(new AbortingListener(ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class))
-                       .registerListener(new ExponentialDelayListener(myTeamCityConnectionConfiguration.getRetryDelay()));
+                       .registerListener(new AbortingListener(ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class));
   }
 
   @Override

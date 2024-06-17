@@ -11,8 +11,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -35,8 +40,9 @@ import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.Util;
-import jetbrains.buildServer.util.amazon.retry.AbstractRetrierEventListener;
-import jetbrains.buildServer.util.amazon.retry.Retrier;
+import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
+import jetbrains.buildServer.util.retry.Retrier;
+import jetbrains.buildServer.util.retry.RetrierEventListener;
 import org.jetbrains.annotations.NotNull;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
@@ -161,9 +167,9 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
 
     Map<String, String> projectParameters = project != null ? project.getParameters() : Collections.emptyMap();
 
-    Retrier retrier = Retrier.defaultRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
+    Retrier retrier = AmazonRetrier.defaultAwsRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
 
-    retrier.registerListener(new AbstractRetrierEventListener() {
+    retrier.registerListener(new RetrierEventListener() {
       @Override
       public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
         myCleanupListeners.forEach(listener -> listener.onError(e, true));

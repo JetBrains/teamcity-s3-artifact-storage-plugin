@@ -19,8 +19,8 @@ import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlDto;
 import jetbrains.buildServer.artifacts.s3.transport.PresignedUrlPartDto;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.amazon.S3Util;
-import jetbrains.buildServer.util.amazon.retry.AbortRetriesException;
-import jetbrains.buildServer.util.amazon.retry.RecoverableException;
+import jetbrains.buildServer.util.retry.AbortRetriesException;
+import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
