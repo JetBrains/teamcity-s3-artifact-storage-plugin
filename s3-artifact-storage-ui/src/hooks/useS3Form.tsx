@@ -15,6 +15,8 @@ import { S3_COMPATIBLE } from '../App/Storage/components/StorageType';
 
 import useStorageOptions from './useStorageOptions';
 
+export const PASSWORD_STUB = '\u2022'.repeat(40);
+
 export default function useS3Form() {
   const config = useAppContext();
   const { connectionOptions, withFake } = useAwsConnectionsContext();
@@ -77,6 +79,8 @@ export default function useS3Form() {
     }
   }, [storageTypeValue?.key]);
 
+  const secret = config.secretAcessKeyValue ? PASSWORD_STUB : undefined;
+
   const defaultValues = useMemo<IFormInput>(
     () => ({
       [FormFields.STORAGE_TYPE]: storageTypeValue,
@@ -91,7 +95,7 @@ export default function useS3Form() {
       [FormFields.CREDENTIALS_TYPE]:
         config.credentialsTypeValue || AWS_CREDENTIALS_TYPE_ARRAY[0].keyData,
       [FormFields.ACCESS_KEY_ID]: config.accessKeyIdValue,
-      [FormFields.SECRET_ACCESS_KEY]: config.secretAcessKeyValue,
+      [FormFields.SECRET_ACCESS_KEY]: secret,
       [FormFields.IAM_ROLE_ARN]: config.iamRoleArnValue,
       [FormFields.EXTERNAL_ID]: config.externalIdValue,
       [FormFields.S3_BUCKET_LIST_OR_NAME]: s3BucketListOrNameOption,
@@ -120,6 +124,7 @@ export default function useS3Form() {
       awsConnectionValue,
       multipartCustomizeFlagValue,
       forceVirtualHostAddressingValue,
+      secret,
     ]
   );
 

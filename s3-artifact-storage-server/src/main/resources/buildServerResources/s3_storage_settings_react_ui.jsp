@@ -34,7 +34,7 @@
 <c:set var="environment_name_value" value="${propertiesBean.properties[environment_name_param]}"/>
 <c:set var="credentials_type_value" value="${propertiesBean.properties[credentials_type_param]}"/>
 <c:set var="access_key_id_value" value="${propertiesBean.properties[access_key_id_param]}"/>
-<c:set var="secret_acess_key_value" value="${propertiesBean.properties[secure_secret_access_key_param]}"/>
+<c:set var="secret_acess_key_value" value="${empty propertiesBean.properties[secure_secret_access_key_param] ? '' : propertiesBean.getEncryptedPropertyValue(secure_secret_access_key_param)}"/>
 <c:set var="iam_role_arn_value" value="${propertiesBean.properties[iam_role_arn_param]}"/>
 <c:set var="external_id_value" value="${propertiesBean.properties[external_id_param]}"/>
 <c:set var="bucket" value="${propertiesBean.properties[params.bucketName]}"/>
