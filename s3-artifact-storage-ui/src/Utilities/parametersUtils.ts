@@ -4,6 +4,7 @@ import { FormFields, keyToFormDataName } from '../App/appConstants';
 import { Config, DistributionItem, IFormInput } from '../types';
 import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';
 import { AWS_S3, S3_COMPATIBLE } from '../App/Storage/components/StorageType';
+import { PASSWORD_STUB } from '../hooks/useS3Form';
 
 function valueOrDefault(
   condition: () => boolean,
@@ -131,7 +132,13 @@ export function serializeParameters(
         }
 
         if (key === FormFields.SECRET_ACCESS_KEY) {
-          return { [rkey]: encodeSecret(value, appProps.publicKey) };
+          const val = value as string;
+
+          if (val === PASSWORD_STUB) {
+            return { [rkey]: appProps.secretAcessKeyValue };
+          } else {
+            return { [rkey]: encodeSecret(value, appProps.publicKey) };
+          }
         }
 
         return { [rkey]: value };

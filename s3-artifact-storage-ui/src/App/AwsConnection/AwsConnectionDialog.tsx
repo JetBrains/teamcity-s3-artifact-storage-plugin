@@ -22,6 +22,8 @@ import { testAwsConnection } from '../../Utilities/testAwsConnection';
 
 import styles2 from '../styles.css';
 
+import { PASSWORD_STUB } from '../../hooks/useS3Form';
+
 import styles from './styles.css';
 import { AwsConnection } from './AvailableAwsConnectionsConstants';
 import TestAwsConnectionDialog from './TestAwsConnectionDialog';
@@ -83,7 +85,7 @@ export default function AwsConnectionDialog({
   onClose,
   parametersPreset,
 }: OwnProps) {
-  const { projectId, publicKey } = useAppContext();
+  const { projectId, publicKey, secretAcessKeyValue } = useAppContext();
   const [loading, setLoading] = React.useState(false);
   const [initialized, setInitialized] = React.useState(false);
   const [htmlContent, setHtmlContent] = React.useState('');
@@ -209,8 +211,10 @@ export default function AwsConnectionDialog({
       ) as HTMLInputElement | null
     )?.value;
 
-    if (secretAccessKey) {
+    if (secretAccessKey && secretAccessKey !== PASSWORD_STUB) {
       secretAccessKey = encodeSecret(secretAccessKey, publicKey);
+    } else {
+      secretAccessKey = secretAcessKeyValue;
     }
     const useSessionCredentials = (
       document.getElementById(
@@ -260,7 +264,7 @@ export default function AwsConnectionDialog({
     });
     // now all undefined values are removed
     return result as { [key: string]: string };
-  }, [awsConnectionIdProp, projectId, publicKey]);
+  }, [awsConnectionIdProp, projectId, publicKey, secretAcessKeyValue]);
 
   const submitConnection = React.useCallback(async () => {
     const formData = collectAwsConnectionFormData();
