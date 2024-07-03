@@ -24,6 +24,8 @@
   <bean class="jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProviderImpl"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3CloudFrontDistributionCreationController"/>
   <bean class="jetbrains.buildServer.artifacts.s3.web.S3PreSignedUrlController"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.web.S3OrphanedArtifactsController"/>
 
   <bean class="jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl"/>
 </beans>
