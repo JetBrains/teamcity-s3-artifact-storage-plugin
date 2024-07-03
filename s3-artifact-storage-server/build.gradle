@@ -46,7 +46,7 @@ dependencies {
     }
     provided "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
 
-    implementation "org.bouncycastle:bcprov-jdk18on:1.76"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.78"
 
     // TW-84426
     provided "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
