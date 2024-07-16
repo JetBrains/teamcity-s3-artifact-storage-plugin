@@ -1,11 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
 import com.amazonaws.HttpMethod;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import jetbrains.buildServer.artifacts.s3.orphans.OrphanedArtifacts;
 import jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner;
 import jetbrains.buildServer.controllers.AuthorizationInterceptor;
 import jetbrains.buildServer.controllers.BaseController;
+import jetbrains.buildServer.controllers.SimpleView;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.serverSide.SProject;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -17,12 +16,16 @@ import jetbrains.buildServer.web.util.SessionUser;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.security.Provider;
 import java.security.Security;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 /**
  * REST Controller for {@link S3OrphanedArtifactsScanner}
@@ -31,7 +34,9 @@ import java.security.Security;
 public class S3OrphanedArtifactsController extends BaseController {
 
   private static final String SCANNER_ENABLED_FLAG = "teamcity.s3.artifacts.scan.enabled";
-  public static final String CONTROLLER_PATH = "/artefacts/s3/scan.html";
+  private static final String SCANNER_PAUSE_INTERVAL_SECONDS = "teamcity.s3.artifacts.scan.pauseIntervalInSeconds";
+  private static final int SCANNER_DEFAULT_PAUSE_INTERVAL_SECONDS = 5;
+  public static final String CONTROLLER_PATH = "/artifacts/s3/scan.html";
   @NotNull
   private final S3OrphanedArtifactsScanner myScanner;
 
@@ -42,7 +47,6 @@ public class S3OrphanedArtifactsController extends BaseController {
     @NotNull final S3OrphanedArtifactsScanner scanner) {
     super(server);
     this.myScanner = scanner;
-
     controllerManager.registerController(CONTROLLER_PATH, this);
 
     authInterceptor.addPathBasedPermissionsChecker(CONTROLLER_PATH, (holder, request) -> {
@@ -71,8 +75,9 @@ public class S3OrphanedArtifactsController extends BaseController {
     }
 
     if (!TeamCityProperties.getBoolean(SCANNER_ENABLED_FLAG)) {
-      response.sendError(HttpServletResponse.SC_NOT_FOUND, "Service is disabled");
-      return null;
+      final ModelAndView error = SimpleView.createTextView("Artifact scanner is not enabled");
+      error.setStatus(HttpStatus.FORBIDDEN);
+      return error;
     }
 
     final String projectId = request.getParameter("projectId");
@@ -80,19 +85,27 @@ public class S3OrphanedArtifactsController extends BaseController {
     final boolean calculateSizes = Boolean.parseBoolean(request.getParameter("calculateSizes"));
     final boolean skipErrors = Boolean.parseBoolean(request.getParameter("skipErrors"));
     final SUser user = SessionUser.getUser(request);
-
-    final OrphanedArtifacts orphanedArtifacts = myScanner.scanArtifacts(projectId, user, scanBuilds, calculateSizes);
-    if (orphanedArtifacts != null) {
-      final ObjectMapper objectMapper = new ObjectMapper();
-      if (skipErrors) {
-        response.getWriter().println(objectMapper.writeValueAsString(orphanedArtifacts.getOrphanedPaths()));
-      } else {
-        response.getWriter().println(objectMapper.writeValueAsString(orphanedArtifacts));
+    final int pauseInterval = TeamCityProperties.getInteger(SCANNER_PAUSE_INTERVAL_SECONDS, SCANNER_DEFAULT_PAUSE_INTERVAL_SECONDS);
+    if (myScanner.getLastScanTimestamp().isBefore(Instant.now().minus(pauseInterval, ChronoUnit.SECONDS))) {
+      final boolean scanStarted = myScanner.tryScanArtifacts(projectId, user, scanBuilds, calculateSizes, skipErrors);
+      if (scanStarted) {
+        response.getWriter().println("Starting the scan");
+        response.setStatus(HttpServletResponse.SC_ACCEPTED);
+      } else if (myScanner.isScanning()) {
+        final int currentScannedPaths = myScanner.getScannedPathsCount();
+        response.getWriter().println("Scan in progress. Scanned: " + currentScannedPaths + " paths");
+        response.setStatus(HttpServletResponse.SC_ACCEPTED);
+      } else if (myScanner.getLastScanError() != null) {
+        final ModelAndView error = SimpleView.createTextView("Scan ended with an error: " + myScanner.getLastScanError());
+        error.setStatus(HttpStatus.INTERNAL_SERVER_ERROR);
+        return error;
       }
+    } else {
+      response.getWriter().println("Last scan finished at " + DateTimeFormatter.ISO_INSTANT.format(myScanner.getLastScanTimestamp()));
+      response.getWriter().println("Please wait for " + pauseInterval + " seconds before starting another scan");
+      response.setStatus(HttpServletResponse.SC_ACCEPTED);
     }
-
     return null;
   }
-
 
 }
