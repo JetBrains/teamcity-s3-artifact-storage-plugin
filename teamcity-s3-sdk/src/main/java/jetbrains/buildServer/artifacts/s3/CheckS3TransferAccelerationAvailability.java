@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3;
 
+import com.amazonaws.services.s3.model.AmazonS3Exception;
 import java.util.Map;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -30,10 +31,20 @@ public class CheckS3TransferAccelerationAvailability extends S3ClientResourceFet
           final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
           throw new IllegalArgumentException(message);
         }
-        // Verify that transfer acceleration is enabled for the bucket.
-        String accelerateStatus = s3Client.getBucketAccelerateConfiguration(bucketName).getStatus();
 
-        return new S3AccelerationDto(bucketName, accelerateStatus);
+        try {
+          // Verify that transfer acceleration is enabled for the bucket.
+          String accelerateStatus = s3Client.getBucketAccelerateConfiguration(bucketName).getStatus();
+
+          return new S3AccelerationDto(bucketName, accelerateStatus);
+        } catch (AmazonS3Exception e) {
+          // Some s3 compatible services don't have this endpoint implemented, and therefore we can assume transfer acceleration just doesn't exist there
+          if (e.getStatusCode() == 501) {
+            return new S3AccelerationDto(bucketName, "Disabled");
+          }
+
+          throw e;
+        }
       });
   }
 
