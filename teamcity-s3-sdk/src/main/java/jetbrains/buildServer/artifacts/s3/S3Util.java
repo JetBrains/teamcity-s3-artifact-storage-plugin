@@ -40,7 +40,8 @@ import static jetbrains.buildServer.util.amazon.S3Util.*;
  */
 public final class S3Util {
   public static final Pattern TRANSFER_ACC_ERROR_PATTERN =
-    Pattern.compile(".*S3 Transfer Acceleration is (not configured|disabled) on this bucket.*");
+    Pattern.compile(".*S3 Transfer Acceleration is (not configured|disabled) on this bucket.*|.*A header you provided implies functionality that is not implemented.*");
+
   private static final Pattern BEGIN_MATCHER = Pattern.compile("^(-----BEGIN[\\w\\s]+-----)\\n?");
   private static final Pattern END_MATCHER = Pattern.compile("\\n?(-----END[\\w\\s]+-----)$");
   @NotNull
