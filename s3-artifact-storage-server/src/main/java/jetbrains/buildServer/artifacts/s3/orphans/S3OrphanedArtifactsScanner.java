@@ -17,13 +17,14 @@ import jetbrains.buildServer.serverSide.auth.AuthUtil;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.users.SUser;
+import jetbrains.buildServer.util.Disposable;
+import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -100,6 +101,7 @@ public class S3OrphanedArtifactsScanner {
       lastScanError = null;
       try {
         myExecutorService.submit(() -> {
+          final Disposable patchedThreadName = NamedThreadFactory.patchThreadName(projectExternalId + "-orphans-scan");
           try {
             final OrphanedArtifacts artifacts = scanArtifacts(projectExternalId, user, scanBuilds, calculateSizes);
             if (artifacts != null) {
@@ -115,12 +117,13 @@ public class S3OrphanedArtifactsScanner {
                 Files.write(filePath, objectMapper.writeValueAsBytes(artifacts));
               }
             }
-          } catch (IOException e) {
+          } catch (Throwable e) {
             LOG.warnAndDebugDetails("Got an error while writing orphaned artifacts to a file", e);
             lastScanError = e.getMessage();
           } finally {
             lastScanTimestamp = Instant.now();
             isScanning.set(false);
+            patchedThreadName.dispose();
           }
         });
         return true;
