@@ -11,7 +11,7 @@ ext {
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
   spacePassword = findProperty("space.repository.password") ?: findProperty("spacePassword")
   localRepo = anyParamPath('TC_LOCAL_REPO')
-  localAwsRepo = anyParamPath('TC_AWS_LOCAL_REPO')
+  localAwsRepo = anyParamPath('TC_AWS_LOCAL_REPO') ?: anyParamPath('TC_LOCAL_REPO')
 }
 
 group = projectIds.group
