@@ -2,7 +2,6 @@ import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { FormFields, keyToFormDataName } from '../App/appConstants';
 import { Config, DistributionItem, IFormInput } from '../types';
-import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';
 import { AWS_S3, S3_COMPATIBLE } from '../App/Storage/components/StorageType';
 import { PASSWORD_STUB } from '../hooks/useS3Form';
 
@@ -56,14 +55,16 @@ function handleCfDistribution(rkey: string, value: any) {
   return { [rkey]: v.key };
 }
 function handleChosenAwsConnection(rkey: string, value: any) {
-  const v = value as Option<AwsConnection>;
-  return { [rkey]: v.key.id };
+  const v = value as Option;
+  return { [rkey]: v.key };
 }
 
 export function serializeParameters(
   formData: IFormInput,
   appProps: Config
 ): { [k: string]: string } {
+  const awsConnectionKey = formData[FormFields.AWS_CONNECTION_ID]?.key;
+
   if (!formData[FormFields.CONNECTION_MULTIPART_CUSTOMIZE_FLAG]) {
     formData[FormFields.CONNECTION_MULTIPART_THRESHOLD] = '';
     formData[FormFields.CONNECTION_MULTIPART_CHUNKSIZE] = '';
@@ -74,10 +75,7 @@ export function serializeParameters(
     formData[FormFields.CLOUD_FRONT_PUBLIC_KEY_ID] = undefined;
     formData[FormFields.CLOUD_FRONT_PRIVATE_KEY] = undefined;
   }
-  if (
-    formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 &&
-    (formData[FormFields.AWS_CONNECTION_ID]?.key ?? 'fake') !== 'fake'
-  ) {
+  if (formData[FormFields.STORAGE_TYPE]?.key === AWS_S3 && awsConnectionKey) {
     formData[FormFields.ACCESS_KEY_ID] = undefined;
     formData[FormFields.SECRET_ACCESS_KEY] = undefined;
     formData[FormFields.CREDENTIALS_TYPE] = undefined;
@@ -86,7 +84,7 @@ export function serializeParameters(
     formData[FormFields.AWS_CONNECTION_ID] = undefined;
     formData[FormFields.CUSTOM_AWS_REGION] = undefined;
   } else if (
-    formData[FormFields.AWS_CONNECTION_ID]?.key === 'fake' &&
+    !awsConnectionKey &&
     formData[FormFields.CUSTOM_AWS_ENDPOINT_URL]?.length === 0
   ) {
     formData[FormFields.CUSTOM_AWS_ENDPOINT_URL] = undefined;
@@ -123,7 +121,7 @@ export function serializeParameters(
             return handleCfDistribution(rkey, value);
           }
           if (key === FormFields.AWS_CONNECTION_ID) {
-            if (value.key === 'fake') {
+            if (!value.key) {
               return { [rkey]: '' };
             } else {
               return handleChosenAwsConnection(rkey, value);

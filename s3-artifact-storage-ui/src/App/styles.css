@@ -69,3 +69,15 @@
 .convertWarningBox button span > span {
   color: #0F5B99;
 }
+
+.awsConnections div[class*='label'] {
+    color: var(--ring-secondary-color);
+    font-size: var(--ring-font-size-smaller);
+    line-height: var(--ring-line-height-lowest);
+    margin-bottom: 0.25rem;
+}
+
+.awsConnections {
+    margin-top: 1rem;
+    display: block;
+}

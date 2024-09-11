@@ -7,6 +7,7 @@
 
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
+<jsp:useBean id="regionData" class="jetbrains.buildServer.artifacts.s3.util.RegionData" />
 
 <%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
 <%@ page import="jetbrains.buildServer.util.StringUtil" %>
@@ -41,6 +42,8 @@
 
 <c:set var="avail_connections_controller_url" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_CONTROLLER_URL%>"/>
 <c:set var="avail_connections_rest_resource_name" value="<%=AwsCloudConnectorConstants.AVAIL_AWS_CONNECTIONS_REST_RESOURCE_NAME%>"/>
+<c:set var="test_connection_url" value="<%=AwsCloudConnectorConstants.TEST_CONNECTION_CONTROLLER_URL%>"/>
+<c:set var="post_connection_url" value="<%=AwsCloudConnectorConstants.AWS_CONNECTIONS_URL%>"/>
 
 <%--@elvariable id="availableStorages" type="java.util.List<jetbrains.buildServer.serverSide.artifacts.ArtifactStorageType>"--%>
 <%--@elvariable id="newStorage" type="String"--%>
@@ -124,6 +127,11 @@
     availableAwsConnectionsControllerUrl: "<bs:forJs>${avail_connections_controller_url}</bs:forJs>",
     availableAwsConnectionsControllerResource: "<bs:forJs>${avail_connections_rest_resource_name}</bs:forJs>",
     chosenAwsConnectionId: "<bs:forJs>${propertiesBean.properties[params.chosenAwsConnectionId]}</bs:forJs>",
+    testConnectionUrl: "<bs:forJs>${test_connection_url}</bs:forJs>",
+    postConnectionUrl: "<bs:forJs>${post_connection_url}</bs:forJs>",
+
+    regionCodes: "<bs:forJs>${regionData.serializedRegionCodes}</bs:forJs>",
+    regionDescriptions: "<bs:forJs>${regionData.serializedRegionDescriptions}</bs:forJs>"
   };
 
   var loadJS = function (url, implementationCode, location) {

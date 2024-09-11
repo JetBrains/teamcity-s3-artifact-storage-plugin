@@ -16,8 +16,7 @@ import {
   ControlsHeightContext,
 } from '@jetbrains/ring-ui/components/global/controls-height';
 import { ResponseErrors } from '@jetbrains-internal/tcci-react-ui-components/dist/types';
-import Loader from '@jetbrains/ring-ui/components/loader/loader';
-import { useCallback } from 'react';
+import { BaseSyntheticEvent, useCallback } from 'react';
 
 import { displayErrorsFromResponseIfAny } from '../Utilities/responseParser';
 import { serializeParameters } from '../Utilities/parametersUtils';
@@ -27,10 +26,6 @@ import { ConfigWrapper, IFormInput } from '../types';
 import useStorageOptions from '../hooks/useStorageOptions';
 import { AppContextProvider, useAppContext } from '../contexts/AppContext';
 
-import {
-  AwsConnectionsContextProvider,
-  useAwsConnectionsContext,
-} from '../contexts/AwsConnectionsContext';
 import { BucketsContextProvider } from '../contexts/BucketsContext';
 import useBucketOptions from '../hooks/useBucketOptions';
 
@@ -43,6 +38,8 @@ import AwsS3 from './S3/AwsS3';
 import MultipartUploadSection from './MultipartUpload/MultipartUploadSection';
 import ProtocolSettings from './ProtocolSettings/ProtocolSettings';
 import StorageTypeChangedWarningDialog from './components/StorageTypeChangedWarningDialog';
+
+const formId = 'S3ProfileForm';
 
 function MainFormComponent(props: {
   onReset: (option: Option | null) => void;
@@ -59,7 +56,11 @@ function MainFormComponent(props: {
   const [isSaving, setIsSaving] = React.useState(false);
 
   const onSubmit = useCallback(
-    async (data: IFormInput) => {
+    async (data: IFormInput, event?: BaseSyntheticEvent) => {
+      if (event?.target.id !== formId) {
+        return;
+      }
+
       setIsSaving(true);
       clearErrors();
       try {
@@ -131,6 +132,7 @@ function MainFormComponent(props: {
       className="ring-form"
       onSubmit={handleSubmit(onSubmit)}
       autoComplete="off"
+      id={formId}
     >
       <StorageSection onReset={props.onReset} />
 
@@ -207,24 +209,12 @@ function Main() {
   );
 }
 
-function AwaitConnections() {
-  const { isLoading } = useAwsConnectionsContext();
-
-  if (isLoading) {
-    return <Loader />;
-  }
-
-  return <Main />;
-}
-
 function App({ config }: ConfigWrapper) {
   useJspContainer('#storageParamsInner table.runnerFormTable, #saveButtons');
   return (
     <ReadOnlyContextProvider value={config.readOnly}>
       <AppContextProvider value={config}>
-        <AwsConnectionsContextProvider>
-          <AwaitConnections />
-        </AwsConnectionsContextProvider>
+        <Main />
       </AppContextProvider>
     </ReadOnlyContextProvider>
   );

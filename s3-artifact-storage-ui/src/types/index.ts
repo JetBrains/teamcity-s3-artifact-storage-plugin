@@ -1,7 +1,6 @@
 import { Option } from '@jetbrains-internal/tcci-react-ui-components';
 
 import { FormFields } from '../App/appConstants';
-import { AwsConnection } from '../App/AwsConnection/AvailableAwsConnectionsConstants';
 
 export type ConfigWrapper = {
   config: Config;
@@ -48,6 +47,10 @@ export type Config = {
   chosenAwsConnectionId: string;
   availableAwsConnectionsControllerUrl: string;
   availableAwsConnectionsControllerResource: string;
+  testConnectionUrl: string;
+  postConnectionUrl: string;
+  regionCodes: string;
+  regionDescriptions: string;
 };
 
 // Note: when changing types here fix related code in parametersUtils.tsx
@@ -57,7 +60,7 @@ export interface S3FormInput {
   [FormFields.STORAGE_ID]: string;
   [FormFields.AWS_CONNECTION_TYPE]: string;
   [FormFields.AWS_ENVIRONMENT_TYPE]: Option<number>;
-  [FormFields.AWS_CONNECTION_ID]: Option<AwsConnection>;
+  [FormFields.AWS_CONNECTION_ID]: Option;
   [FormFields.CUSTOM_AWS_ENDPOINT_URL]: string;
   [FormFields.CUSTOM_AWS_REGION]: string;
   [FormFields.CREDENTIALS_TYPE]: string;

@@ -101,7 +101,7 @@ module.exports = {
         'no-use-before-define': ignore,
         '@typescript-eslint/no-use-before-define': [error, 'nofunc'],
         'no-shadow': ignore,
-        '@typescript-eslint/no-shadow': error,
+        '@typescript-eslint/no-shadow': ignore,
         '@typescript-eslint/no-unused-vars': [error, {
           ignoreRestSiblings: true
         }],

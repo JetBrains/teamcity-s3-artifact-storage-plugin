@@ -14,7 +14,7 @@ export default function useCanLoadBucketInfoData() {
   const isAwsS3 = currentType?.key === AWS_S3;
   const isDisabled =
     (isS3Compatible && (!accessKeyId || !secretAccessKey)) ||
-    (isAwsS3 && !awsConnectionId);
+    (isAwsS3 && !awsConnectionId?.key && (!accessKeyId || !secretAccessKey));
 
   return !isDisabled;
 }

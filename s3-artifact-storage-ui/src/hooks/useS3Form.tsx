@@ -9,7 +9,6 @@ import {
 } from '../App/appConstants';
 import { IFormInput } from '../types';
 import { useAppContext } from '../contexts/AppContext';
-import { useAwsConnectionsContext } from '../contexts/AwsConnectionsContext';
 
 import { S3_COMPATIBLE } from '../App/Storage/components/StorageType';
 
@@ -19,7 +18,6 @@ export const PASSWORD_STUB = '\u2022'.repeat(40);
 
 export default function useS3Form() {
   const config = useAppContext();
-  const { connectionOptions, withFake } = useAwsConnectionsContext();
   const storageOptions = useStorageOptions();
   const s3BucketListOrNameOption = useMemo(() => {
     const listOrName = S3_BUCKET_FROM_LIST_OR_BY_NAME_ARRAY.find(
@@ -40,25 +38,6 @@ export default function useS3Form() {
     }
     return storageOptions.find((st) => st.key === selectedStorageType);
   }, [config, storageOptions]);
-
-  const awsConnectionValue = useMemo(() => {
-    if (connectionOptions) {
-      if (config.isNewStorage || withFake) {
-        return connectionOptions[0];
-      } else {
-        return connectionOptions.find(
-          ({ key }) => key.id === config.chosenAwsConnectionId
-        );
-      }
-    }
-
-    return undefined;
-  }, [
-    config.chosenAwsConnectionId,
-    config.isNewStorage,
-    connectionOptions,
-    withFake,
-  ]);
 
   const multipartCustomizeFlagValue = !!(
     config.multipartUploadThreshold || config.multipartUploadPartSize
@@ -86,7 +65,10 @@ export default function useS3Form() {
       [FormFields.STORAGE_TYPE]: storageTypeValue,
       [FormFields.STORAGE_NAME]: config.selectedStorageName,
       [FormFields.STORAGE_ID]: config.storageSettingsId || 'newS3Storage',
-      [FormFields.AWS_CONNECTION_ID]: awsConnectionValue,
+      [FormFields.AWS_CONNECTION_ID]: {
+        key: config.chosenAwsConnectionId,
+        label: config.chosenAwsConnectionId,
+      },
       [FormFields.AWS_ENVIRONMENT_TYPE]: environmentTypeValue,
       [FormFields.CUSTOM_AWS_ENDPOINT_URL]: config.serviceEndpointValue,
       [FormFields.CUSTOM_AWS_REGION]: config.awsRegionName,
@@ -121,7 +103,6 @@ export default function useS3Form() {
       storageTypeValue,
       config,
       s3BucketListOrNameOption,
-      awsConnectionValue,
       multipartCustomizeFlagValue,
       forceVirtualHostAddressingValue,
       secret,
