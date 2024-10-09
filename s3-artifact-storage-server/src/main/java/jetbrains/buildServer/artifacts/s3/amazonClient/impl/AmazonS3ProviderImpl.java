@@ -337,6 +337,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     return new AwsConnectionCredentials(connectionCredentials);
   }
 
+  @NotNull
   private ConnectionCredentials getConnectionCredentials(@NotNull SProject project, @NotNull Map<String, String> s3Settings) throws ConnectionCredentialsException {
     String linkedAwsConnectionId = ParamUtil.getLinkedAwsConnectionId(s3Settings);
     if (linkedAwsConnectionId == null) {

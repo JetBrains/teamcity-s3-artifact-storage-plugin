@@ -14,9 +14,7 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl;
 import jetbrains.buildServer.log.Loggers;
-import jetbrains.buildServer.serverSide.CleanupLevel;
-import jetbrains.buildServer.serverSide.ProjectManager;
-import jetbrains.buildServer.serverSide.ServerPaths;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
@@ -274,10 +272,13 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     List<FinishedBuildEx> builds = buildIds.stream()
                                            .map(buildId -> {
                                              Mock build = mock(FinishedBuildEx.class);
+                                             Mock buildPromotion = mock(BuildPromotionEx.class);
+                                             buildPromotion.stubs().method("getProjectPathIds").will(returnValue(Arrays.asList("_Root", "projectId")));
                                              build.stubs().method("getBuildNumber").will(returnValue(String.valueOf(buildId)));
                                              build.stubs().method("getBuildId").will(returnValue((long)buildId));
                                              build.stubs().method("getBuildTypeExternalId").will(returnValue("id"));
                                              build.stubs().method("getProjectId").will(returnValue("projectId"));
+                                             build.stubs().method("getBuildPromotion").will(returnValue(buildPromotion.proxy()));
                                              return (FinishedBuildEx)build.proxy();
                                            })
                                            .collect(Collectors.toList());
@@ -340,7 +341,10 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     ServerPaths serverPaths = new ServerPaths("./target");
 
     Mock projectManager = mock(ProjectManager.class);
-    projectManager.stubs().method("findProjectById").will(returnValue(null));
+    Mock project = mock(SProject.class);
+    project.stubs().method("getProjectId").will(returnValue("projectId"));
+    project.stubs().method("getParameters").will(returnValue(Collections.emptyMap()));
+    projectManager.stubs().method("findProjectById").will(returnValue(project.proxy()));
 
     Mock projectConnectionCredentialsManager = mock(ProjectConnectionCredentialsManager.class);
     AmazonS3Provider amazonS3Provider = new AmazonS3ProviderImpl((ProjectManager)projectManager.proxy(), (ProjectConnectionCredentialsManager)projectConnectionCredentialsManager.proxy());

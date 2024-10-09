@@ -11,9 +11,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +43,7 @@ import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
 import jetbrains.buildServer.util.retry.Retrier;
 import jetbrains.buildServer.util.retry.RetrierEventListener;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 
@@ -156,16 +156,17 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     String bucketName = S3Util.getBucketName(storageSettings);
     assert bucketName != null;
 
-    String projectId = build.getProjectId();
-    SProject project = myProjectManager.findProjectById(projectId);
-    if (projectId == null) {
+
+    SProject project = findProjectToGetConnection(build);
+    if (project == null) {
       String errMsg = String.format("Failed to cleanup S3 objects from %s bucket, project is not specified to get correct Connection", bucketName);
       CLEANUP.warn(errMsg);
       cleanupContext.onBuildCleanupError(this, build, errMsg);
       return;
     }
+    String projectId = project.getProjectId();
 
-    Map<String, String> projectParameters = project != null ? project.getParameters() : Collections.emptyMap();
+    Map<String, String> projectParameters = project.getParameters();
 
     Retrier retrier = AmazonRetrier.defaultAwsRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
 
@@ -247,6 +248,22 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     } catch (ConnectionCredentialsException e) {
       CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + e.getMessage(), e);
     }
+  }
+
+  @Nullable
+  private SProject findProjectToGetConnection(@NotNull SFinishedBuild build) {
+    final List<String> projectPathIds = ((BuildPromotionEx)build.getBuildPromotion()).getProjectPathIds();
+    if (projectPathIds.isEmpty()) {
+      return null;
+    }
+    ListIterator<String> iterator = projectPathIds.listIterator(projectPathIds.size());
+    while (iterator.hasPrevious()) {
+      final SProject project = myProjectManager.findProjectById(iterator.previous());
+      if (project != null) {
+        return project;
+      }
+    }
+    return null;
   }
 
   @NotNull
