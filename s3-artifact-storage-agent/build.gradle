@@ -11,6 +11,7 @@ teamcity {
 }
 
 dependencies {
+    compileOnly("org.jetbrains.teamcity:common-impl:${teamcityVersion}")
     implementation project(':s3-artifact-storage-common')
     implementation project(':lens-integration')
     provided ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){

@@ -40,6 +40,14 @@ public class S3Constants {
   public static final String S3_NUMBER_OF_THREADS_FOR_FILES = "teamcity.internal.storage.s3.upload.numberOfThreads";
   public static final String S3_NUMBER_OF_THREADS_FOR_FILE_PARTS = "teamcity.internal.storage.s3.upload.numberOfThreadsPerFile";
   public static final String S3_ENABLE_CONSISTENCY_CHECK = "teamcity.internal.storage.s3.upload.enableConsistencyCheck";
+  public static final String S3_PARALLEL_DOWNLOAD_ENABLED = "teamcity.internal.storage.s3.download.parallel.enabled"; // feature toggle
+  public static final String S3_PARALLEL_DOWNLOAD_FORCED = "teamcity.internal.storage.s3.download.parallel.forced"; // for all types of artifact storages (development, experiments)
+  public static final String S3_PARALLEL_DOWNLOAD_MAX_THREADS = "teamcity.internal.storage.s3.download.parallel.maxThreads";
+  public static final String S3_PARALLEL_DOWNLOAD_PART_SIZE_MB = "teamcity.internal.storage.s3.download.parallel.partSizeMB";
+  public static final String S3_PARALLEL_DOWNLOAD_BUFFER_SIZE_KB = "teamcity.internal.storage.s3.download.parallel.bufferSizeKB";
+  public static final String S3_PARALLEL_DOWNLOAD_FORCED_STRATEGY = "teamcity.internal.storage.s3.download.parallel.forcedStrategy";
+  public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS = "teamcity.internal.storage.s3.download.parallel.maxConnections";
+  public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS_PER_HOST = "teamcity.internal.storage.s3.download.parallel.maxConnectionsPerHost";
   public static final String S3_ACL = "storage.s3.acl";
   public static final String S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER = "teamcity.internal.storage.s3.url.request.keys.header.max.number";
 
@@ -58,7 +66,7 @@ public class S3Constants {
 
   public static final String S3_AMAZON_METADATA_REQUEST_TIMEOUT_IN_SECONDS = "teamcity.internal.storage.s3.metadata.request.timeout.sec";
 
-  public static final long S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS = 24*60*60; // 24 hours
+  public static final long S3_AMAZON_REQUEST_TIMEOUT_CAP_IN_SECONDS = 24 * 60 * 60; // 24 hours
 
   public static final String S3_ENABLE_MULTIPART_COMPLETION_RETRY =
     "teamcity.internal.storage.s3.multipart.completion.enableRetry";
