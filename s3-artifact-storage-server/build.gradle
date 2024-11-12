@@ -18,25 +18,6 @@ teamcity {
     }
 }
 
-if(shouldIncludeMigrationTool) {
-    repositories {
-        teamcityServer {
-            url = "https://buildserver.labs.intellij.net/"
-            credentials {
-                username = teamcity_username
-                password = (project.hasProperty("teamcity_password") ? teamcity_password : teamcity_token)
-            }
-        }
-    }
-}
-
-configurations {
-  artifactMigrationTool
-  configureEach {
-    exclude(group: 'org.jetbrains.teamcity', module: 'server-web-api')
-  }
-}
-
 dependencies {
     implementation project(':s3-artifact-storage-common')
     provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}") {
@@ -56,20 +37,7 @@ dependencies {
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
     server group: 'commons-codec', name: 'commons-codec', version: '1.13'
 
-    if(shouldIncludeMigrationTool){
-        artifactMigrationTool tc(buildTypeId: 'TC_TeamCityTools_TeamCityArtifactsMigrationTool', version: migrationToolVersion, artifactPath: "teamcity-artifacts-migration-tool.zip")
-    }
 }
 
 serverPlugin.version = null
 serverPlugin.baseName = projectIds.artifact
-
-task prepareArtifactMigrationTool(type: Sync) {
-    from { configurations.artifactMigrationTool.singleFile }
-    into "build/resources/main/buildServerResources/migration-tool/"
-    rename { "artifacts-migration-tool.zip" }
-}
-
-if(shouldIncludeMigrationTool){
-    processResources.finalizedBy(prepareArtifactMigrationTool)
-}
