@@ -19,6 +19,12 @@ dependencies {
 
 publishing {
   repositories {
+    if (localAwsRepo) {
+      maven {
+          name = "localAwsRepo"
+          url "file:///${localAwsRepo}"
+      }
+    }
     maven {
       name = "spacePackages"
       credentials {
