@@ -1543,10 +1543,10 @@
   resolved "https://registry.npmjs.org/@humanwhocodes/object-schema/-/object-schema-1.2.1.tgz"
   integrity sha512-ZnQMnLV4e7hDlUvw8H+U8ASL02SS2Gn6+9Ac3wGGLIe7+je2AeAOxPY+izIPJDfFDb7eDjev0Us8MO1iFRN8hA==
 
-"@jetbrains-internal/aws-connection-components@^0.1.61":
-  version "0.1.61"
-  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@jetbrains-internal/aws-connection-components/-/aws-connection-components-0.1.61.tgz"
-  integrity sha512-LCxnTALeFlS7rb7v7/R1wWSnndm0B87LpRTymsn+Bdq34LUvpuY8B2koleWUpFjQTzfX5iPYiIbt4R8H9dYx1A==
+"@jetbrains-internal/aws-connection-components@^0.1.69":
+  version "0.1.69"
+  resolved "https://packages.jetbrains.team/npm/p/tc/teamcity-npm/@jetbrains-internal/aws-connection-components/-/aws-connection-components-0.1.69.tgz"
+  integrity sha512-GEkOJBsj8QnhtRsb2bZDLBiVlURfCEU481klcicsDwcUbi2X+Fc7gE8DitntNg/pbtj/OkM2Obi9BLp52Q0ajg==
   dependencies:
     "@babel/preset-typescript" "^7.18.6"
     "@babel/runtime" "^7.20.13"

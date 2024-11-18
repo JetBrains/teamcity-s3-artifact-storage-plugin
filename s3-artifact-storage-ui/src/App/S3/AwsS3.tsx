@@ -39,8 +39,8 @@ export default function AwsS3() {
   const defaultProviderChain =
     watch(FormFields.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN) ?? false;
   const connectionsFilter = config.showDefaultCredentialsChain
-    ? (type: string) => type !== AwsConnectionCredentialsType.DEFAULT_PROVIDER
-    : undefined;
+    ? undefined
+    : (type: string) => type !== AwsConnectionCredentialsType.DEFAULT_PROVIDER;
   const shouldConvert =
     (config.secretAcessKeyValue || config.accessKeyIdValue) &&
     !currentConnectionKey;
@@ -135,7 +135,7 @@ function toConnectionsData(
     projectId: config.projectId,
     publicKey: config.publicKey,
     onSuccess,
-    defaultProviderChain: !config.showDefaultCredentialsChain,
+    defaultProviderChain: config.showDefaultCredentialsChain,
     credentialsType: dpc
       ? AwsConnectionCredentialsType.DEFAULT_PROVIDER
       : AwsConnectionCredentialsType.ACCESS_KEYS,

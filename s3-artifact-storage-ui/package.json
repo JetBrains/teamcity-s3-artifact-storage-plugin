@@ -21,7 +21,7 @@
     "@babel/runtime": "^7.19.4",
     "@hookform/devtools": "^4.1.0",
     "@jetbrains-internal/tcci-react-ui-components": "^0.3.24",
-    "@jetbrains-internal/aws-connection-components": "^0.1.61",
+    "@jetbrains-internal/aws-connection-components": "^0.1.69",
     "@jetbrains/icons": "^3.19.1",
     "@jetbrains/ring-ui": "^5.0.133",
     "@jetbrains/teamcity-api": "^2022.4.1-v.1",
