@@ -6,26 +6,29 @@ import jetbrains.buildServer.artifacts.RecoverableIOException;
 import org.apache.commons.httpclient.Header;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public final class S3DownloadHttpUtil {
-  public static long getResponseContentLength(@NotNull HttpMethod request) throws IOException {
+  @Nullable
+  public static Long getResponseContentLength(@NotNull GetMethod request) {
     try {
       return Optional.ofNullable(request.getResponseHeader(HttpHeaders.CONTENT_LENGTH))
                      .map(Header::getValue)
                      .map(Long::parseLong)
-                     .orElseThrow(() -> new RuntimeException(String.format("No %s header value found", HttpHeaders.CONTENT_LENGTH)));
-    } catch (Exception e) {
-      throw new IOException("Failed to extract content lenght from HTTP response", e);
+                     .orElse(null);
+    } catch (Exception ignored) {
+      return null;
     }
   }
 
-  public static void checkAcceptsByteRanges(@NotNull HttpMethod request) throws IOException {
-    Optional.ofNullable(request.getResponseHeader(HttpHeaders.ACCEPT_RANGES))
-            .map(Header::getValue)
-            .filter(value -> "bytes".equalsIgnoreCase(value))
-            .orElseThrow(() -> new IOException("Server doesn't accept byte ranges"));
+  public static boolean getAcceptsByteRanges(@NotNull HttpMethod request) {
+    return Optional.ofNullable(request.getResponseHeader(HttpHeaders.ACCEPT_RANGES))
+                   .map(Header::getValue)
+                   .map(value -> "bytes".equalsIgnoreCase(value))
+                   .orElse(false);
   }
 
   public static boolean isRedirectStatus(int statusCode) {

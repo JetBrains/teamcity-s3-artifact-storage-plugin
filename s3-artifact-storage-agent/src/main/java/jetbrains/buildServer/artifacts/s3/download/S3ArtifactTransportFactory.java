@@ -23,8 +23,8 @@ import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 
-public class S3TransportFactory extends AgentLifeCycleAdapter implements TransportFactoryExtension, PositionAware, InitializingBean, DisposableBean {
-  private static final Logger LOGGER = Logger.getInstance(S3TransportFactory.class);
+public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements TransportFactoryExtension, PositionAware, InitializingBean, DisposableBean {
+  private static final Logger LOGGER = Logger.getInstance(S3ArtifactTransportFactory.class);
   private static final String EXECUTOR_NAME = "S3 artifact storage download executor";
 
   @NotNull
@@ -36,7 +36,7 @@ public class S3TransportFactory extends AgentLifeCycleAdapter implements Transpo
   @NotNull
   private final EventDispatcher<AgentLifeCycleListener> myDispatcher;
   @NotNull
-  private final String mySimpleClassName = S3TransportFactory.class.getSimpleName();
+  private final String mySimpleClassName = S3ArtifactTransportFactory.class.getSimpleName();
 
   // state fields, access should be synchronized by this
   @Nullable
@@ -48,10 +48,10 @@ public class S3TransportFactory extends AgentLifeCycleAdapter implements Transpo
   private volatile int myExecutorParallelism;
   private volatile boolean myFactoryShutdown = false;
 
-  public S3TransportFactory(@NotNull DependencyHttpHelper dependencyHttpHelper,
-                            @NotNull HttpArtifactTransportFactory defaultTransportFactory,
-                            @NotNull CurrentBuildTracker currentBuildTracker,
-                            @NotNull EventDispatcher<AgentLifeCycleListener> dispatcher) {
+  public S3ArtifactTransportFactory(@NotNull DependencyHttpHelper dependencyHttpHelper,
+                                    @NotNull HttpArtifactTransportFactory defaultTransportFactory,
+                                    @NotNull CurrentBuildTracker currentBuildTracker,
+                                    @NotNull EventDispatcher<AgentLifeCycleListener> dispatcher) {
     myDependencyHttpHelper = dependencyHttpHelper;
     myDefaultTransportFactory = defaultTransportFactory;
     myCurrentBuildTracker = currentBuildTracker;
@@ -172,7 +172,13 @@ public class S3TransportFactory extends AgentLifeCycleAdapter implements Transpo
     }
 
     S3DownloadConfiguration configuration = ensurePreparedToBuild(runningBuild); // configuration, executor and clients map are prepared until we hold the lock
-    if (!configuration.isParallelDownloadEnabled() || !(configuration.isS3CompatibleStorage() || configuration.isParallelDownloadForced())) {
+    boolean parallelDownloadEnabled = configuration.isParallelDownloadEnabled();
+    boolean storageS3Compatible = configuration.isS3CompatibleStorage();
+    boolean parallelDownloadForced = configuration.isParallelDownloadForced();
+    if (!parallelDownloadEnabled || !(storageS3Compatible || parallelDownloadForced)) {
+      LOGGER.debug(String.format("Will not create transport for downloading S3 artifacts, build ID = %s, " +
+                                 "parallel download enabled = %s, storage is S3 compatible = %s, parallel download forced = %s",
+                                 runningBuild.getBuildId(), parallelDownloadEnabled, storageS3Compatible, parallelDownloadForced));
       return null;
     }
 
@@ -181,7 +187,7 @@ public class S3TransportFactory extends AgentLifeCycleAdapter implements Transpo
     String serverUrl = parameters.get(DependencyHttpHelper.SERVER_URL_PARAM);
     ExecutorService executor = myExecutor;
     Objects.requireNonNull(executor, "Executor is null");
-    return new S3UrlContentRetriever(serverUrl, client, executor, myDependencyHttpHelper, configuration);
+    return new S3ArtifactTransport(serverUrl, client, executor, myDependencyHttpHelper, configuration);
   }
 
   @NotNull

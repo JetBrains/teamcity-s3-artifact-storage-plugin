@@ -2,10 +2,7 @@ package jetbrains.buildServer.artifacts.s3.download;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.s3.download.strategy.FileDownloadStrategyType;
 import jetbrains.buildServer.util.StringUtil;
@@ -16,15 +13,20 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 
 public final class S3DownloadConfiguration {
   private static final Logger LOGGER = Logger.getInstance(S3DownloadConfiguration.class);
-  private static final boolean DEFAULT_PARALLEL_DOWNLOAD_ENABLED = false;
+
+  // parameter defaults
+  private static final boolean DEFAULT_PARALLEL_DOWNLOAD_ENABLED = true;
   private static final boolean DEFAULT_PARALLEL_DOWNLOAD_FORCED = false;
-  private static final int DEFAULT_MAX_THREADS = 10;
-  private static final int DEFAULT_PART_SIZE_MB = 100;
+  private static final int DEFAULT_MAX_THREADS = 5;
+  private static final int DEFAULT_MIN_PART_SIZE_MB = 100;
+  private static final int DEFAULT_MAX_FILE_SIZE_GB = 100;
   private static final int DEFAULT_BUFFER_SIZE_KB = 10;
   private static final int DEFAULT_MAX_CONNECTIONS = 100;
   private static final int DEFAULT_MAX_CONNECTIONS_PER_HOST = 100;
-  private static final int MIN_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
-  private static final int MIN_BUFFER_SIZE_BYTES = 1 * 1024; // 1 KB
+
+  // parameter bounds
+  private static final int LOWER_BOUND_MIN_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
+  private static final int LOWER_BOUND_BUFFER_SIZE_BYTES = 1 * 1024; // 1 KB
 
   private final long buildId;
   @NotNull
@@ -33,6 +35,11 @@ public final class S3DownloadConfiguration {
   private final Map<String, String> artifactStorageSettings;
   @NotNull
   private final Path buildTempDirectory;
+
+  @NotNull
+  private final Map<String, Boolean> memoizedBooleanParameters = new HashMap<>();
+  @NotNull
+  private final Map<String, Integer> memoizedIntegerParameters = new HashMap<>();
 
   public S3DownloadConfiguration(@NotNull AgentRunningBuild runningBuild) {
     buildId = runningBuild.getBuildId();
@@ -57,17 +64,22 @@ public final class S3DownloadConfiguration {
     return getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_THREADS, DEFAULT_MAX_THREADS);
   }
 
-  public long getPartSizeBytes() {
-    long partSizeMB = getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_PART_SIZE_MB, DEFAULT_PART_SIZE_MB);
-    return Math.max(getMinPartSizeBytes(), partSizeMB * 1024 * 1024);
+  public long getMinPartSizeBytes() {
+    long minPartSizeMB = getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB, DEFAULT_MIN_PART_SIZE_MB);
+    return Math.max(getMinPartSizeBytesLowerBound(), minPartSizeMB * 1024 * 1024);
   }
 
-  public long getMinPartSizeBytes() {
-    return MIN_PART_SIZE_BYTES;
+  public long getMaxFileSizeBytes() {
+    return (long)getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_FILE_SIZE_GB, DEFAULT_MAX_FILE_SIZE_GB) * 1024 * 1024 * 1024;
+  }
+
+  public long getMinPartSizeBytesLowerBound() {
+    return LOWER_BOUND_MIN_PART_SIZE_BYTES;
   }
 
   public long getParallelDownloadFileSizeThreshold() {
-    return getPartSizeBytes() + getMinPartSizeBytes(); // there should be at least minimum part size bytes left for the second thread to make it worth using it
+    // there should be at least the lower bound for minimum part size bytes left for the second thread to make it worth using it
+    return getMinPartSizeBytes() + getMinPartSizeBytesLowerBound();
   }
 
   public boolean isS3CompatibleStorage() {
@@ -78,7 +90,7 @@ public final class S3DownloadConfiguration {
   // todo split into two separate buffers for network and disk IO?
   public int getBufferSizeBytes() {
     int bufferSizeKB = getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_BUFFER_SIZE_KB, DEFAULT_BUFFER_SIZE_KB);
-    return Math.min(MIN_BUFFER_SIZE_BYTES, bufferSizeKB * 1024);
+    return Math.min(LOWER_BOUND_BUFFER_SIZE_BYTES, bufferSizeKB * 1024);
   }
 
   @Nullable
@@ -102,15 +114,19 @@ public final class S3DownloadConfiguration {
   }
 
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
-    return Optional.ofNullable(buildConfigurationParameters.get(paramName))
-                   .map(Boolean::parseBoolean)
-                   .orElse(defaultValue);
+    return memoizedBooleanParameters.computeIfAbsent(paramName, name -> {
+      return Optional.ofNullable(buildConfigurationParameters.get(paramName))
+                     .map(Boolean::parseBoolean)
+                     .orElse(defaultValue);
+    });
   }
 
-  private int getPositiveIntegerParameterOrDefault(String paramName, int defaultValue) {
-    return Optional.ofNullable(buildConfigurationParameters.get(paramName))
-                   .map(intString -> safeParsePositiveInteger(intString, paramName))
-                   .orElse(defaultValue);
+  private int getPositiveIntegerParameterOrDefault(@NotNull String paramName, int defaultValue) {
+    return memoizedIntegerParameters.computeIfAbsent(paramName, name -> {
+      return Optional.ofNullable(buildConfigurationParameters.get(paramName))
+                     .map(intString -> safeParsePositiveInteger(intString, paramName))
+                     .orElse(defaultValue);
+    });
   }
 
   @Nullable
@@ -120,7 +136,7 @@ public final class S3DownloadConfiguration {
       if (parsedInt > 0) return parsedInt;
       LOGGER.warn(String.format("Configuration parameter %s with non-positive value %s will be ignored", paramName, intString));
     } catch (NumberFormatException e) {
-      LOGGER.warnAndDebugDetails(String.format("Failed to parse integer configuration parameter %s from value %s", paramName, intString), e);
+      LOGGER.warn(String.format("Failed to parse integer configuration parameter %s from value %s: %s", paramName, intString, e.getMessage()));
     }
     return null;
   }
