@@ -7,7 +7,6 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
@@ -63,7 +62,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
     reserveBytes(partTargetFile, partSizeBytes);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          WritableByteChannel partFileChannel = Files.newByteChannel(partTargetFile, StandardOpenOption.WRITE)) {
-      transferBytes(
+      transferExpectedBytes(
         responseBodyChannel,
         partFileChannel,
         partSizeBytes,
@@ -105,9 +104,14 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
         if (totalCopied < fileSizeBytes) throw new IOException(String.format("Merged parts contain less bytes (%s) than expected (%s)", totalCopied, fileParts));
       }
 
-      // rename file
+      // rename file and delete parts
       checkIfInterrupted(downloadState);
       FileUtil.atomicRename(unfinishedTargetFile.toFile(), targetFile.toFile(), 10);
+      for (FilePart filePart : fileParts) {
+        checkIfInterrupted(downloadState);
+        Files.deleteIfExists(filePart.getTargetFile());
+      }
+
       LOGGER.debug(String.format("Restored file %s from parts", targetFile));
     } catch (IOException | RuntimeException e) {
       LOGGER.debug(String.format("Failed to restore file %s from parts", targetFile), e);
@@ -118,7 +122,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
   private void copyPart(@NotNull FilePart filePart, @NotNull SeekableByteChannel targetFileChannel, @NotNull ParallelDownloadState downloadState) throws IOException {
     Path partFile = filePart.getTargetFile();
     try (ReadableByteChannel partFileChannel = Files.newByteChannel(partFile)) {
-      transferBytesToPositionedTarget(
+      transferExpectedBytesToPositionedTarget(
         partFileChannel,
         targetFileChannel,
         filePart.getStartByte(),
@@ -134,19 +138,24 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
   }
 
   @Override
-  protected void cleanupUnfinishedDownload(@NotNull Path targetFile, long fileSizeBytes, @NotNull List<FilePart> fileParts) {
+  protected void cleanupUnfinishedDownload(@NotNull Path targetFile, @NotNull List<FilePart> fileParts, @NotNull ParallelDownloadState downloadState) {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     try {
+      checkIfInterrupted(downloadState);
       Files.deleteIfExists(unfinishedTargetFile);
       Files.deleteIfExists(targetFile);
+      for (FilePart filePart : fileParts) {
+        checkIfInterrupted(downloadState);
+        Files.deleteIfExists(filePart.getTargetFile());
+      }
     } catch (IOException e) {
-      LOGGER.warnAndDebugDetails(String.format("Failed to delete unfinished file %s or %s", unfinishedTargetFile, targetFile), e);
+      LOGGER.warnAndDebugDetails(String.format("Failed to cleanup unfinished download of file %s: %s", targetFile, e.getMessage()), e);
     }
   }
 
   @NotNull
   @Override
   public String getName() {
-    return "Separate part files parallel download strategy";
+    return FileDownloadStrategyType.SEPARATE_PART_FILES_PARALLEL.name();
   }
 }

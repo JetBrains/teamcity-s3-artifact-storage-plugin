@@ -10,7 +10,7 @@
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisher"/>
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3CompatibleArtifactsPublisher"/>
   <bean class="jetbrains.buildServer.artifacts.s3.publish.S3FileUploaderFactoryImpl"/>
-  <bean class="jetbrains.buildServer.artifacts.s3.download.S3TransportFactory"/>
+  <bean class="jetbrains.buildServer.artifacts.s3.download.S3ArtifactTransportFactory"/>
   <bean class="jetbrains.buildServer.artifacts.s3.S3AdditionalHeadersProvider"/>
   <bean class="jetbrains.buildServer.artifacts.s3.lens.integration.LensIntegrationServiceImpl"/>
 </beans>

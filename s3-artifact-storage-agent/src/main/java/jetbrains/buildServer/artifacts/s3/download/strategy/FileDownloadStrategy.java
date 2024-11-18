@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
 
 public interface FileDownloadStrategy {
-  void download(String srcUrl, Path targetFile, long fileSizeBytes) throws IOException;
+  void download(@NotNull String srcUrl, @NotNull Path targetFile, long fileSize) throws IOException;
 
   @NotNull
   String getName();

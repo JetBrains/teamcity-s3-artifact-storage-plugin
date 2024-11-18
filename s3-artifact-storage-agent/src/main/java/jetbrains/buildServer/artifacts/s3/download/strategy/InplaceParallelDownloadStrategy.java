@@ -54,7 +54,7 @@ public final class InplaceParallelDownloadStrategy extends ParallelDownloadStrat
     checkIfInterruptedOrOtherPartFailed(downloadState);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, StandardOpenOption.WRITE)) {
-      transferBytesToPositionedTarget(
+      transferExpectedBytesToPositionedTarget(
         responseBodyChannel,
         targetFileChannel,
         startByte,
@@ -79,19 +79,20 @@ public final class InplaceParallelDownloadStrategy extends ParallelDownloadStrat
   }
 
   @Override
-  protected void cleanupUnfinishedDownload(@NotNull Path targetFile, long fileSizeBytes, @NotNull List<FilePart> fileParts) {
+  protected void cleanupUnfinishedDownload(@NotNull Path targetFile, @NotNull List<FilePart> fileParts, @NotNull ParallelDownloadState downloadState) {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     try {
+      checkIfInterrupted(downloadState);
       Files.deleteIfExists(unfinishedTargetFile);
       Files.deleteIfExists(targetFile);
     } catch (IOException e) {
-      LOGGER.warnAndDebugDetails(String.format("Failed to delete unfinished file %s or %s", unfinishedTargetFile, targetFile), e);
+      LOGGER.warnAndDebugDetails(String.format("Failed to cleanup unfinished download of file %s: %s", targetFile, e.getMessage()), e);
     }
   }
 
   @NotNull
   @Override
   public String getName() {
-    return "Inplace parallel download strategy";
+    return FileDownloadStrategyType.INPLACE_PARALLEL.name();
   }
 }
