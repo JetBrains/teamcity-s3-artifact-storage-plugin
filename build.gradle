@@ -3,7 +3,7 @@ import java.nio.file.Paths
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-  teamcityVersion = anyParam('teamcityVersion') ?: '2024.07-SNAPSHOT'
+  teamcityVersion = anyParam('teamcityVersion') ?: '2024.11-SNAPSHOT'
   awsCoreVersion = anyParam('awsCoreVersion') ?: teamcityVersion ?: 'SNAPSHOT'
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")

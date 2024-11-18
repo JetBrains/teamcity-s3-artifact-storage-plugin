@@ -16,7 +16,7 @@
 
 <c:set var="region_name_param" value="<%=AWSCommonParams.REGION_NAME_PARAM%>"/>
 <c:set var="region_name_default" value="<%=AWSRegions.DEFAULT_REGION%>"/>
-<c:set var="default_cred_chain_disabled" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_DISABLED_PARAM %>"/>
+<c:set var="default_cred_chain_enabled" value="<%= AwsCloudConnectorConstants.DEFAULT_CREDS_PROVIDER_FEATURE_PROPERTY_NAME %>"/>
 <c:set var="default_cred_chain_hidden" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_HIDDEN_PARAM %>"/>
 <c:set var="service_endpoint_param" value="<%=AWSCommonParams.SERVICE_ENDPOINT_PARAM%>"/>
 <c:set var="environment_name_param" value="<%=AWSCommonParams.ENVIRONMENT_NAME_PARAM%>"/>
@@ -29,7 +29,7 @@
 <c:set var="regionName" value="${propertiesBean.properties[region_name_param]}"/>
 <c:set var="cloudfrontFeatureOn" value="${intprop:getBooleanOrTrue('teamcity.s3.use.cloudfront.enabled')}"/>
 <c:set var="transferAccelerationOn" value="${intprop:getBooleanOrTrue(params.transferAccelerationEnabled)}"/>
-<c:set var="showDefaultCredentialsChain" value="${not intprop:getBoolean(default_cred_chain_disabled) and not intprop:getBoolean(default_cred_chain_hidden)}"/>
+<c:set var="showDefaultCredentialsChain" value="${intprop:getBoolean(default_cred_chain_enabled)}"/>
 <c:set var="isDefaultCredentialsChain" value="${Boolean.parseBoolean(propertiesBean.properties[AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM])}"/>
 <c:set var="service_endpoint_value" value="${propertiesBean.properties[service_endpoint_param]}"/>
 <c:set var="environment_name_value" value="${propertiesBean.properties[environment_name_param]}"/>
