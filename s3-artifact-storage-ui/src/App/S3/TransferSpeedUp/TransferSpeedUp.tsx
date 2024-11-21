@@ -5,7 +5,7 @@ import {
   Switcher,
   SwitcherOption,
 } from '@jetbrains-internal/tcci-react-ui-components';
-import inputStyles from '@jetbrains/ring-ui/components/input/input.css';
+import labelStyles from '@jetbrains/ring-ui/components/control-label/control-label.css';
 
 import { useFormContext } from 'react-hook-form';
 
@@ -112,11 +112,13 @@ export default function TransferSpeedUp() {
     [setValue]
   );
 
+  const style = [labelStyles.secondaryLabel, labelStyles.label].join(' ');
+
   return (
     <section>
       <SectionHeader>{'Transfer speed-up'}</SectionHeader>
       <div>
-        <span className={inputStyles.label}>{'Type'}</span>
+        <span className={style}>{'Type'}</span>
         <Switcher
           options={speedUpOptions}
           active={currentActive}
