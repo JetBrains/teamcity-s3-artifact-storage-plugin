@@ -49,6 +49,7 @@ public class S3Constants {
   public static final String S3_PARALLEL_DOWNLOAD_FORCED_STRATEGY = "teamcity.internal.storage.s3.download.parallel.forcedStrategy";
   public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS = "teamcity.internal.storage.s3.download.parallel.maxConnections";
   public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS_PER_HOST = "teamcity.internal.storage.s3.download.parallel.maxConnectionsPerHost";
+  public static final String S3_PARALLEL_DOWNLOAD_EXPERIMENT_TRUNCATE_EXISTING = "teamcity.internal.storage.s3.download.parallel.experiment.truncateExistingFile";
   public static final String S3_ACL = "storage.s3.acl";
   public static final String S3_ARTIFACT_KEYS_HEADER_MAX_NUMBER = "teamcity.internal.storage.s3.url.request.keys.header.max.number";
 

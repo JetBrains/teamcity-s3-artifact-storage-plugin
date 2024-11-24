@@ -199,8 +199,13 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
 
   private void writeFile(@NotNull HttpMethod ongoingRequest, @NotNull Path targetFile, @Nullable Long fileSize, @NotNull FileProgress downloadProgress) throws IOException {
     checkIfInterrupted();
+    boolean truncateExisting = myDownloadConfiguration.isTruncateExisting();
+    StandardOpenOption[] openOptions = truncateExisting
+                                       ? new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING}
+                                       : new StandardOpenOption[]{StandardOpenOption.CREATE, StandardOpenOption.WRITE};
+    LOGGER.debug(String.format("TRUNCATE_EXISTING is %s for file %s", truncateExisting, targetFile));
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
-         WritableByteChannel targetFileChannel = Files.newByteChannel(targetFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+         WritableByteChannel targetFileChannel = Files.newByteChannel(targetFile, openOptions)) {
       if (fileSize != null && fileSize >= 0) {
         transferExpectedBytes(
           responseBodyChannel,

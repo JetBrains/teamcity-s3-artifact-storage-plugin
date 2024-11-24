@@ -52,6 +52,10 @@ public final class S3DownloadConfiguration {
     return buildId;
   }
 
+  public boolean isTruncateExisting() {
+    return getBooleanParameterOrDefault(S3_PARALLEL_DOWNLOAD_EXPERIMENT_TRUNCATE_EXISTING, false);
+  }
+
   public boolean isParallelDownloadEnabled() {
     return getBooleanParameterOrDefault(S3_PARALLEL_DOWNLOAD_ENABLED, DEFAULT_PARALLEL_DOWNLOAD_ENABLED);
   }
