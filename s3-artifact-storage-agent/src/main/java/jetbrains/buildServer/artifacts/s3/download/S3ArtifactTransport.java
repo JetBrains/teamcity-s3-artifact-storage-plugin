@@ -1,7 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
 import com.intellij.openapi.diagnostic.Logger;
-import com.intellij.openapi.util.TCSystemInfo;
 import java.io.*;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -124,7 +123,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
 
       Long contentLength = getResponseContentLength(request);
       String fileDigest = myDependencyHttpHelper.fetchDigest(request);
-      if (isParallelisationPossible(srcUrl, targetFile, contentLength, getAcceptsByteRanges(request))) {
+      if (isParallelisationPossible(srcUrl, targetFile, contentLength, isAcceptsByteRanges(request))) {
         // abort request not to wait until full response body arrives
         // this closes the associated connection, but this is fine because it happens only once per large file that will be downloaded in parallel
         request.abort();
