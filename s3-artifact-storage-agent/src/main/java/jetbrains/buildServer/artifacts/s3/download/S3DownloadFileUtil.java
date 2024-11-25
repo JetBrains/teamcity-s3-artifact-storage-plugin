@@ -7,33 +7,38 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
+import java.util.EnumSet;
+import java.util.Objects;
 import java.util.function.IntConsumer;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import org.jetbrains.annotations.NotNull;
 
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.WRITE;
+
 public final class S3DownloadFileUtil {
   @NotNull
   public static Path getUnfinishedFilePath(@NotNull Path file) {
-    String fileName = file.getFileName().toString();
-    return file.getParent().resolve(fileName + ".unfinished");
+    Path absoluteFilePath = file.toAbsolutePath();
+    Path fileNamePath = absoluteFilePath.getFileName();
+    Path parentDirectoryPath = absoluteFilePath.getParent();
+    Objects.requireNonNull(fileNamePath, String.format("File name must not be null, file=%s", file));
+    Objects.requireNonNull(parentDirectoryPath, String.format("Parent directory must not be null, file=%s", file));
+    return parentDirectoryPath.resolve(fileNamePath + ".unfinished");
   }
 
   public static void ensureDirectoryExists(@NotNull Path directory) throws IOException {
-    try {
-      if (Files.isDirectory(directory)) return;
-      Files.createDirectories(directory);
-    } catch (IOException e) {
-      throw new IOException(String.format("Failed to create directory hierarchy %s", directory), e);
-    }
+    if (Files.isDirectory(directory)) return;
+    Files.createDirectories(directory);
   }
 
   public static void reserveBytes(@NotNull Path file, long bytes) throws IOException {
-    if (bytes < 0) throw new IllegalArgumentException(String.format("Number of bytes is negative (%s)", bytes));
+    if (bytes < 0) throw new IllegalArgumentException(String.format("Number of bytes is negative: %s", bytes));
 
-    try (SeekableByteChannel fileChannel = Files.newByteChannel(file, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+    try (SeekableByteChannel fileChannel = Files.newByteChannel(file, EnumSet.of(CREATE, WRITE))) {
       fileChannel.position(bytes - 1);
       fileChannel.write(ByteBuffer.wrap(new byte[]{0}));
+      fileChannel.truncate(bytes); // needed if the file already exists and is larger than bytes
     }
   }
 
