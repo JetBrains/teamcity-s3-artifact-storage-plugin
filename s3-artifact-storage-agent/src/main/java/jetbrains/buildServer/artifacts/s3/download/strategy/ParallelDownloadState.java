@@ -4,7 +4,6 @@ package jetbrains.buildServer.artifacts.s3.download.strategy;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BooleanSupplier;
 import jetbrains.buildServer.artifacts.FileProgress;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -58,7 +57,7 @@ final class ParallelDownloadState {
     externalDownloadProgress.setExpectedLength(bytes);
   }
 
-  void addDownloadedBytes(int bytes) {
+  void addDownloadedBytes(long bytes) {
     externalDownloadProgress.transferred(bytes);
   }
 }

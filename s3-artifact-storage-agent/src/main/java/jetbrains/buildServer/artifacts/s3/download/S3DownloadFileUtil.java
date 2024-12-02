@@ -10,6 +10,7 @@ import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.function.IntConsumer;
+import java.util.function.LongConsumer;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import org.jetbrains.annotations.NotNull;
 
@@ -48,7 +49,7 @@ public final class S3DownloadFileUtil {
                                                              long expectedBytes,
                                                              int bufferSize,
                                                              @NotNull IORunnable interruptedCheck,
-                                                             @NotNull IntConsumer progressTracker
+                                                             @NotNull LongConsumer progressTracker
   ) throws IOException {
     if (targetPosition < 0) throw new IllegalArgumentException(String.format("Target position is negative (%s)", targetPosition));
 
@@ -62,7 +63,7 @@ public final class S3DownloadFileUtil {
                                            long expectedBytes,
                                            int bufferSize,
                                            @NotNull IORunnable interruptedCheck,
-                                           @NotNull IntConsumer progressTracker
+                                           @NotNull LongConsumer progressTracker
   ) throws IOException {
     long transferred = 0L;
     if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
