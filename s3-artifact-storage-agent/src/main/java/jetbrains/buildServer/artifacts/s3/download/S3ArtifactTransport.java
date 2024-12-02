@@ -26,7 +26,7 @@ import org.apache.commons.httpclient.params.HttpClientParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import static jetbrains.buildServer.artifacts.s3.download.S3DownloadFileUtil.*;
+import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil.*;
 
 public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackingURLContentRetriever {
@@ -69,7 +69,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
     LOGGER.debug(String.format("Start downloading file %s from %s", target, srcUrl));
     try {
       checkIfInterrupted();
-      Path targetFile = target.toPath();
+      Path targetFile = getAbsoluteNormalizedPath(target.toPath());
       RedirectFollowingResult result = followRedirects(srcUrl, targetFile, downloadProgress, 0);
       if (result.isShouldDownloadInParallel()) {
         checkIfInterrupted();

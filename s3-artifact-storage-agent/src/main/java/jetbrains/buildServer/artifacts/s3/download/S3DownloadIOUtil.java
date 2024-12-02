@@ -17,12 +17,17 @@ import org.jetbrains.annotations.NotNull;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
 
-public final class S3DownloadFileUtil {
+public final class S3DownloadIOUtil {
+  @NotNull
+  public static Path getAbsoluteNormalizedPath(@NotNull Path path) {
+    return path.toAbsolutePath().normalize();
+  }
+
   @NotNull
   public static Path getUnfinishedFilePath(@NotNull Path file) {
-    Path absoluteFilePath = file.toAbsolutePath();
-    Path fileNamePath = absoluteFilePath.getFileName();
-    Path parentDirectoryPath = absoluteFilePath.getParent();
+    Path absoluteNormalizedFilePath = getAbsoluteNormalizedPath(file);
+    Path fileNamePath = absoluteNormalizedFilePath.getFileName();
+    Path parentDirectoryPath = absoluteNormalizedFilePath.getParent();
     Objects.requireNonNull(fileNamePath, String.format("File name must not be null, file=%s", file));
     Objects.requireNonNull(parentDirectoryPath, String.format("Parent directory must not be null, file=%s", file));
     return parentDirectoryPath.resolve(fileNamePath + ".unfinished");
@@ -33,7 +38,7 @@ public final class S3DownloadFileUtil {
     Files.createDirectories(directory);
   }
 
-  public static void reserveBytes(@NotNull Path file, long bytes) throws IOException {
+  public static void reserveFileBytes(@NotNull Path file, long bytes) throws IOException {
     if (bytes < 0) throw new IllegalArgumentException(String.format("Number of bytes is negative: %s", bytes));
 
     try (SeekableByteChannel fileChannel = Files.newByteChannel(file, EnumSet.of(CREATE, WRITE))) {

@@ -131,7 +131,7 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
   }
 
   @NotNull
-  protected List<FilePart> splitIntoParts(@NotNull Path targetFile, long fileSize) {
+  private List<FilePart> splitIntoParts(@NotNull Path targetFile, long fileSize) {
     final long fileSizeThreshold = myDownloadConfiguration.getParallelDownloadFileSizeThreshold();
     if (fileSize < fileSizeThreshold) {
       // only one part of size fileSize

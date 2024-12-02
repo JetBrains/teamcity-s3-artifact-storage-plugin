@@ -17,7 +17,7 @@ import jetbrains.buildServer.util.FileUtil;
 import org.apache.commons.httpclient.HttpMethod;
 import org.jetbrains.annotations.NotNull;
 
-import static jetbrains.buildServer.artifacts.s3.download.S3DownloadFileUtil.*;
+import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 
 /**
  * Parallel downloader that downloads parts into the target file directly using SeekableByteChannel.
@@ -44,7 +44,7 @@ public final class InplaceParallelDownloadStrategy extends ParallelDownloadStrat
     throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
-    reserveBytes(unfinishedTargetFile, fileSizeBytes);
+    reserveFileBytes(unfinishedTargetFile, fileSizeBytes);
   }
 
   @Override

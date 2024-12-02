@@ -1,10 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.download.strategy;
 
 import java.io.IOException;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.SeekableByteChannel;
-import java.nio.channels.WritableByteChannel;
+import java.nio.channels.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -22,7 +19,7 @@ import jetbrains.buildServer.util.FileUtil;
 import org.apache.commons.httpclient.HttpMethod;
 import org.jetbrains.annotations.NotNull;
 
-import static jetbrains.buildServer.artifacts.s3.download.S3DownloadFileUtil.*;
+import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 
 /**
  * Parallel downloader that downloads parts into separate files in the build temp directory first, and then merges them into the target file.
@@ -59,7 +56,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
     long partSizeBytes = filePart.getSizeBytes();
     checkIfInterruptedOrOtherPartFailed(downloadState);
     ensureDirectoryExists(downloadedPartsDirectory);
-    reserveBytes(partTargetFile, partSizeBytes);
+    reserveFileBytes(partTargetFile, partSizeBytes);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          WritableByteChannel partFileChannel = Files.newByteChannel(partTargetFile, StandardOpenOption.WRITE)) {
       transferExpectedBytes(
@@ -86,7 +83,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends ParallelDow
 
       checkIfInterrupted(downloadState);
       ensureDirectoryExists(unfinishedTargetFile.getParent());
-      reserveBytes(unfinishedTargetFile, fileSizeBytes);
+      reserveFileBytes(unfinishedTargetFile, fileSizeBytes);
 
       Map<Integer, FilePart> partsByNumber = fileParts.stream().collect(Collectors.toMap(part -> part.getPartNumber(), Function.identity()));
       checkIfInterrupted(downloadState);
