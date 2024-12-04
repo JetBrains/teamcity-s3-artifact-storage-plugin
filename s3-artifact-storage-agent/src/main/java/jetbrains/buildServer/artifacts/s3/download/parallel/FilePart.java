@@ -1,40 +1,40 @@
-package jetbrains.buildServer.artifacts.s3.download.strategy;
+package jetbrains.buildServer.artifacts.s3.download.parallel;
 
 import java.nio.file.Path;
 import org.jetbrains.annotations.NotNull;
 
-final class FilePart {
+public final class FilePart {
   private final int partNumber;
   private final long startByte;
   private final long endByte;
   @NotNull
   private final Path targetFile;
 
-  FilePart(int partNumber, long startByte, long endByte, @NotNull Path targetFile) {
+  public FilePart(int partNumber, long startByte, long endByte, @NotNull Path targetFile) {
     this.partNumber = partNumber;
     this.startByte = startByte;
     this.endByte = endByte;
     this.targetFile = targetFile;
   }
 
-  int getPartNumber() {
+  public int getPartNumber() {
     return partNumber;
   }
 
-  long getStartByte() {
+  public long getStartByte() {
     return startByte;
   }
 
-  long getEndByte() {
+  public long getEndByte() {
     return endByte;
   }
 
-  long getSizeBytes() {
+  public long getSizeBytes() {
     return endByte - startByte + 1;
   }
 
   @NotNull
-  Path getTargetFile() {
+  public Path getTargetFile() {
     return targetFile;
   }
 }

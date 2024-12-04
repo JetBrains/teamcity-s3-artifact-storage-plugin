@@ -1,4 +1,4 @@
-package jetbrains.buildServer.artifacts.s3.download.strategy;
+package jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
@@ -7,13 +7,12 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
-import jetbrains.buildServer.artifacts.s3.download.S3HttpClient;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil;
+import jetbrains.buildServer.artifacts.s3.download.parallel.*;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
 import org.apache.commons.httpclient.methods.GetMethod;
@@ -22,83 +21,61 @@ import org.jetbrains.annotations.NotNull;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil.checkResponseStatus;
 
 /**
- * Abstract downloader that download a file in parts if it is large enough.
+ * Abstract strategy that downloads a file in parts.
  */
-public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
-  @NotNull
-  private final S3HttpClient myHttpClient;
-  @NotNull
-  private final ExecutorService myPartDownloadTaskExecutor;
-  @NotNull
-  private final AtomicBoolean myIsInterrupted;
-  @NotNull
-  private final FileProgress myExternalDownloadProgress;
-
+public abstract class AbstractParallelDownloadStrategy implements ParallelDownloadStrategy {
   @NotNull
   protected final Logger LOGGER = Logger.getInstance(getClass());
-  @NotNull
-  protected final S3DownloadConfiguration myDownloadConfiguration;
-
-  public ParallelDownloadStrategy(@NotNull S3HttpClient httpClient,
-                                  @NotNull ExecutorService partDownloadTaskExecutor,
-                                  @NotNull S3DownloadConfiguration downloadConfiguration,
-                                  @NotNull AtomicBoolean isInterrupted,
-                                  @NotNull FileProgress externalDownloadProgress) {
-    myHttpClient = httpClient;
-    myPartDownloadTaskExecutor = partDownloadTaskExecutor;
-    myDownloadConfiguration = downloadConfiguration;
-    myIsInterrupted = isInterrupted;
-    myExternalDownloadProgress = externalDownloadProgress;
-  }
 
   @Override
-  public void download(@NotNull String srcUrl, @NotNull Path targetFile, long fileSize) throws IOException {
+  public void download(@NotNull String srcUrl,
+                       @NotNull Path targetFile,
+                       long fileSize,
+                       @NotNull FileProgress downloadProgress,
+                       @NotNull ParallelDownloadContext downloadContext) throws IOException {
     if (fileSize <= 0) throw new IllegalArgumentException(String.format("File size is not positive (%s)", fileSize));
+    S3DownloadConfiguration configuration = downloadContext.getConfiguration();
 
     List<FilePart> fileParts;
     try {
-      fileParts = splitIntoParts(targetFile, fileSize); // should be under try-catch because might be accessing filesystem
+      fileParts = splitIntoParts(targetFile, fileSize, downloadContext); // should be under try-catch because might be accessing filesystem
       LOGGER.debug(String.format(
         "Start downloading file %s from %s in %s parts of min %s MB each (except, possibly, the last) by max %s threads", // MB in logs because not less than 1 MB
-        targetFile, srcUrl, fileParts.size(), myDownloadConfiguration.getMinPartSizeBytes() / (1024 * 1024), Math.min(myDownloadConfiguration.getMaxThreads(), fileParts.size())
+        targetFile, srcUrl, fileParts.size(), configuration.getMinPartSizeBytes() / (1024 * 1024), Math.min(configuration.getMaxThreads(), fileParts.size())
       ));
     } catch (RuntimeException e) {
       throw new RuntimeException(String.format("Failed to split file %s into parts", targetFile), e);
     }
 
-    ParallelDownloadState downloadState = new ParallelDownloadState(myIsInterrupted, myExternalDownloadProgress);
+    ParallelDownloadState downloadState = new ParallelDownloadState(downloadProgress, downloadContext.getInterruptedFlag());
     try {
       // prepare before downloading parts
-      checkIfInterrupted(downloadState);
-      beforeDownloadingParts(targetFile, fileSize, fileParts, downloadState);
+      checkDownloadInterrupted(downloadState);
+      beforeDownloadingParts(targetFile, fileSize, fileParts, downloadState, downloadContext);
       LOGGER.debug(String.format("Finished preparations before downloading parts of file %s from %s", targetFile, srcUrl));
 
       // start downloading parts
       downloadState.expectDownloadedBytes(fileSize);
       List<CompletableFuture<Void>> partDownloadFutures = new CopyOnWriteArrayList<>();
-      checkIfInterrupted(downloadState);
+      checkDownloadInterrupted(downloadState);
       fileParts.stream()
         .map(filePart -> {
           if (downloadState.isInterrupted() || downloadState.hasFailedParts()) return null;
           return CompletableFuture.runAsync(() -> {
             try {
-              downloadPart(srcUrl, filePart, downloadState);
+              downloadPart(srcUrl, filePart, downloadState, downloadContext);
             } catch (IOException | RuntimeException partDownloadException) {
-              if (partDownloadException instanceof IOException) {
-                downloadState.failPart(filePart.getPartNumber(), (IOException)partDownloadException);
-              } else {
-                downloadState.failPart(filePart.getPartNumber(), (RuntimeException)partDownloadException);
-              }
+              downloadState.partFailed(filePart.getPartNumber(), partDownloadException);
               partDownloadFutures.forEach(future -> future.cancel(false)); // will cancel unstarted part downloads at the executor level
             }
-          }, myPartDownloadTaskExecutor);
+          }, downloadContext.getExecutor());
         })
         .filter(Objects::nonNull) // null when interrupted or detected failure
         .forEach(partDownloadFuture -> partDownloadFutures.add(partDownloadFuture));
 
       // wait until part downloads finish and check for uncaught errors and executor level exceptions
       CompletableFuture<Void> allPartsDownloadFuture = CompletableFuture.allOf(partDownloadFutures.toArray(new CompletableFuture[]{}));
-      checkIfInterrupted(downloadState);
+      checkDownloadInterrupted(downloadState);
       try {
         allPartsDownloadFuture.join();
       } catch (CompletionException allPartsDownloadException) {
@@ -110,37 +87,39 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
 
         // exception is from executor
         // it might be a cancellation exception if some part failed, throw this part's exception instead
-        downloadState.throwFirstFailedPartExceptionIfFailed();
+        throwFirstFailedPartExceptionIfFailed(downloadState);
 
         // this happens when executor fails to run any of the part tasks (e.g. executor shut down)
         throw new IOException("Failed to start all part downloads", somePartException);
       }
 
       // check for caught part download exceptions
-      downloadState.throwFirstFailedPartExceptionIfFailed();
+      throwFirstFailedPartExceptionIfFailed(downloadState);
       LOGGER.debug(String.format("Finished downloading parts of file %s from %s", targetFile, srcUrl));
 
       // do something with downloaded parts
-      checkIfInterrupted(downloadState);
-      afterDownloadingParts(targetFile, fileSize, fileParts, downloadState);
+      checkDownloadInterrupted(downloadState);
+      afterDownloadingParts(targetFile, fileSize, fileParts, downloadState, downloadContext);
       LOGGER.debug(String.format("Finished processing after downloading parts of file %s from %s", targetFile, srcUrl));
     } catch (IOException | RuntimeException e) {
-      cleanupUnfinishedDownload(targetFile, fileParts, downloadState);
+      cleanupUnfinishedDownload(targetFile, fileParts, downloadState, downloadContext);
       throw e;
     }
   }
 
+  // todo test extensively
   @NotNull
-  private List<FilePart> splitIntoParts(@NotNull Path targetFile, long fileSize) {
-    final long fileSizeThreshold = myDownloadConfiguration.getParallelDownloadFileSizeThreshold();
+  private List<FilePart> splitIntoParts(@NotNull Path targetFile, long fileSize, @NotNull ParallelDownloadContext downloadContext) {
+    S3DownloadConfiguration configuration = downloadContext.getConfiguration();
+    final long fileSizeThreshold = configuration.getParallelDownloadFileSizeThreshold();
     if (fileSize < fileSizeThreshold) {
       // only one part of size fileSize
-      return Collections.singletonList(createPart(0, 0, fileSize - 1, targetFile));
+      return Collections.singletonList(createPart(0, 0, fileSize - 1, targetFile, downloadContext));
     }
 
     List<FilePart> parts = new ArrayList<>();
-    final long minPartSize = myDownloadConfiguration.getMinPartSizeBytes();
-    final int maxThreads = myDownloadConfiguration.getMaxThreads();
+    final long minPartSize = configuration.getMinPartSizeBytes();
+    final int maxThreads = configuration.getMaxThreads();
     final long partSize;
     if (fileSize < maxThreads * minPartSize) {
       // from 2 to maxThreads parts of size = minPartSize except, possibly, the last
@@ -148,24 +127,24 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
 
       long residualSize = fileSize % partSize;
       int fullParts = (int)(fileSize / partSize); // fileSize / partSize < maxThreads, safe to case to int
-      boolean extendLastFullPart = residualSize < myDownloadConfiguration.getMinPartSizeBytesLowerBound(); // don't create new part for too few bytes, extend the last full part
+      boolean extendLastFullPart = residualSize < configuration.getMinPartSizeBytesLowerBound(); // don't create new part for too few bytes, extend the last full part
 
       for (int partNumber = 0; partNumber < fullParts - 1; partNumber++) {
         long startByte = partSize * partNumber;
         long endByte = startByte + partSize - 1;
-        parts.add(createPart(partNumber, startByte, endByte, targetFile));
+        parts.add(createPart(partNumber, startByte, endByte, targetFile, downloadContext));
       }
 
       int lastFullPartNumber = fullParts - 1;
       long lastFullPartStartByte = partSize * lastFullPartNumber;
       long lastFullPartEndByte = extendLastFullPart ? fileSize - 1 : lastFullPartStartByte + partSize - 1;
-      parts.add(createPart(lastFullPartNumber, lastFullPartStartByte, lastFullPartEndByte, targetFile));
+      parts.add(createPart(lastFullPartNumber, lastFullPartStartByte, lastFullPartEndByte, targetFile, downloadContext));
 
       if (!extendLastFullPart && residualSize > 0) {
         int lastPartNumber = lastFullPartNumber + 1;
         long lastPartStartByte = partSize * lastPartNumber;
         long lastPartEndByte = fileSize - 1;
-        parts.add(createPart(lastPartNumber, lastPartStartByte, lastPartEndByte, targetFile));
+        parts.add(createPart(lastPartNumber, lastPartStartByte, lastPartEndByte, targetFile, downloadContext));
       }
     } else {
       // maxThreads parts of size >= minPartSize
@@ -174,7 +153,7 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
       for (int partNumber = 0; partNumber < maxThreads; partNumber++) {
         long startByte = partSize * partNumber;
         long endByte = partNumber != maxThreads - 1 ? startByte + partSize - 1 : fileSize - 1;
-        parts.add(createPart(partNumber, startByte, endByte, targetFile));
+        parts.add(createPart(partNumber, startByte, endByte, targetFile, downloadContext));
       }
     }
 
@@ -182,16 +161,18 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
   }
 
   @NotNull
-  protected abstract FilePart createPart(int partNumber, long startByte, long endByte, @NotNull Path targetFile);
+  protected abstract FilePart createPart(int partNumber, long startByte, long endByte, @NotNull Path targetFile, @NotNull ParallelDownloadContext downloadContext);
 
-  protected final void checkIfInterrupted(@NotNull ParallelDownloadState downloadState) throws RecoverableIOException {
-    if (downloadState.isInterrupted()) throw new RecoverableIOException("Download was interrupted");
-  }
+  protected abstract void beforeDownloadingParts(@NotNull Path targetFile,
+                                                 long fileSize,
+                                                 @NotNull List<FilePart> fileParts,
+                                                 @NotNull ParallelDownloadState downloadState,
+                                                 @NotNull ParallelDownloadContext downloadContext) throws IOException;
 
-  protected abstract void beforeDownloadingParts(@NotNull Path targetFile, long fileSizeBytes, @NotNull List<FilePart> fileParts, @NotNull ParallelDownloadState downloadState)
-    throws IOException;
-
-  private void downloadPart(String srcUrl, FilePart filePart, ParallelDownloadState downloadState) throws IOException {
+  private void downloadPart(@NotNull String srcUrl,
+                            @NotNull FilePart filePart,
+                            @NotNull ParallelDownloadState downloadState,
+                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
     long startByte = filePart.getStartByte();
     long endByte = filePart.getEndByte();
     Path partTarget = filePart.getTargetFile();
@@ -202,12 +183,12 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
       request = new GetMethod(srcUrl);
       request.addRequestHeader(S3DownloadHttpUtil.createRangeHeader(startByte, endByte));
 
-      checkIfInterruptedOrOtherPartFailed(downloadState);
-      int statusCode = myHttpClient.execute(request);
+      checkDownloadInterruptedOrFailed(downloadState);
+      int statusCode = downloadContext.getHttpClient().execute(request);
 
       checkResponseStatus(statusCode, HttpStatus.SC_PARTIAL_CONTENT);
-      checkIfInterruptedOrOtherPartFailed(downloadState);
-      writePart(request, filePart, downloadState);
+      checkDownloadInterruptedOrFailed(downloadState);
+      writePart(request, filePart, downloadState, downloadContext);
       LOGGER.debug(String.format("Part %s-%s downloaded to file %s", startByte, endByte, partTarget));
     } catch (IOException | RuntimeException e) {
       LOGGER.debug(String.format("Failed to download part %s-%s to file %s", startByte, endByte, partTarget), e); // debug because there is a general log for the whole file failure
@@ -218,15 +199,43 @@ public abstract class ParallelDownloadStrategy implements FileDownloadStrategy {
     }
   }
 
-  protected final void checkIfInterruptedOrOtherPartFailed(@NotNull ParallelDownloadState downloadState) throws RecoverableIOException {
-    checkIfInterrupted(downloadState);
-    if (downloadState.hasFailedParts()) throw new RecoverableIOException("Detected other part download failure", downloadState.getFirstFailedPartException());
+  private void throwFirstFailedPartExceptionIfFailed(@NotNull ParallelDownloadState downloadState) throws IOException {
+    PartDownloadFailedException exception = downloadState.getFirstFailedPartException();
+    if (exception != null) {
+      throw exception;
+    }
   }
 
-  protected abstract void writePart(@NotNull HttpMethod ongoingRequest, @NotNull FilePart filePart, @NotNull ParallelDownloadState downloadState) throws IOException;
+  protected final void checkDownloadInterruptedOrFailed(@NotNull ParallelDownloadState downloadState) throws IOException {
+    checkDownloadInterrupted(downloadState);
+    checkDownloadFailed(downloadState);
+  }
 
-  protected abstract void afterDownloadingParts(@NotNull Path targetFile, long fileSizeBytes, @NotNull List<FilePart> fileParts, @NotNull ParallelDownloadState downloadState)
-    throws IOException;
+  protected final void checkDownloadInterrupted(@NotNull ParallelDownloadState downloadState) throws RecoverableIOException {
+    if (downloadState.isInterrupted()) {
+      throw new RecoverableIOException("Download was interrupted");
+    }
+  }
 
-  protected abstract void cleanupUnfinishedDownload(@NotNull Path targetFile, @NotNull List<FilePart> fileParts, @NotNull ParallelDownloadState downloadState);
+  protected final void checkDownloadFailed(@NotNull ParallelDownloadState downloadState) throws IOException {
+    if (downloadState.hasFailedParts()) {
+      throw new IOException("Download failed in part " + downloadState.getFirstFailedPartNumber(), downloadState.getFirstFailedPartException());
+    }
+  }
+
+  protected abstract void writePart(@NotNull HttpMethod ongoingRequest,
+                                    @NotNull FilePart filePart,
+                                    @NotNull ParallelDownloadState downloadState,
+                                    @NotNull ParallelDownloadContext downloadContext) throws IOException;
+
+  protected abstract void afterDownloadingParts(@NotNull Path targetFile,
+                                                long fileSize,
+                                                @NotNull List<FilePart> fileParts,
+                                                @NotNull ParallelDownloadState downloadState,
+                                                @NotNull ParallelDownloadContext downloadContext) throws IOException;
+
+  protected abstract void cleanupUnfinishedDownload(@NotNull Path targetFile,
+                                                    @NotNull List<FilePart> fileParts,
+                                                    @NotNull ParallelDownloadState downloadState,
+                                                    @NotNull ParallelDownloadContext downloadContext);
 }

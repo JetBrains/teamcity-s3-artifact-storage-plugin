@@ -13,12 +13,17 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.ProgressTrackingURLContentRetriever;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.impl.DependencyHttpHelper;
-import jetbrains.buildServer.artifacts.s3.download.strategy.*;
+import jetbrains.buildServer.artifacts.s3.download.parallel.*;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.AbstractParallelDownloadStrategy;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.SeparatePartFilesParallelDownloadStrategy;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.HeadMethod;
@@ -32,24 +37,27 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil.*;
 public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackingURLContentRetriever {
   private static final Logger LOGGER = Logger.getInstance(S3ArtifactTransport.class);
 
-  @NotNull private final S3HttpClient myHttpClient;
-  @NotNull private final ExecutorService myExecutorService;
-  @NotNull private final DependencyHttpHelper myDependencyHttpHelper;
-  @NotNull private final S3DownloadConfiguration myDownloadConfiguration;
+  @NotNull private final S3HttpClient httpClient;
+  @NotNull private final ExecutorService executorService;
+  @NotNull private final DependencyHttpHelper dependencyHttpHelper;
+  @NotNull private final S3DownloadConfiguration configuration;
+  @NotNull private final AgentRunningBuild runningBuild;
   @NotNull private final ConcurrentHashMap<UUID, HttpMethod> myPendingRequestsById = new ConcurrentHashMap<>();
   @NotNull private final AtomicBoolean myIsInterrupted = new AtomicBoolean(false);
-  private final int myMaxRedirects;
+  private final int maxRedirects;
 
   public S3ArtifactTransport(@NotNull String serverUrl,
                              @NotNull HttpClient httpClient,
                              @NotNull ExecutorService executorService,
                              @NotNull DependencyHttpHelper dependencyHttpHelper,
-                             @NotNull S3DownloadConfiguration downloadConfiguration) {
-    myHttpClient = new S3HttpClient(httpClient, dependencyHttpHelper, serverUrl);
-    myExecutorService = executorService;
-    myDependencyHttpHelper = dependencyHttpHelper;
-    myDownloadConfiguration = downloadConfiguration;
-    myMaxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
+                             @NotNull S3DownloadConfiguration configuration,
+                             @NotNull AgentRunningBuild runningBuild) {
+    this.httpClient = new S3HttpClient(httpClient, dependencyHttpHelper, serverUrl);
+    this.executorService = executorService;
+    this.dependencyHttpHelper = dependencyHttpHelper;
+    this.configuration = configuration;
+    this.runningBuild = runningBuild;
+    maxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
   }
 
   @Override
@@ -73,11 +81,12 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       RedirectFollowingResult result = followRedirects(srcUrl, targetFile, downloadProgress, 0);
       if (result.isShouldDownloadInParallel()) {
         checkIfInterrupted();
-        FileDownloadStrategy parallelStrategy = selectParallelStrategy(downloadProgress);
+        ParallelDownloadStrategy parallelStrategy = selectParallelStrategy();
         LOGGER.debug(String.format("Using strategy %s for downloading file %s", parallelStrategy.getName(), target));
         Long contentLength = result.getContentLength();
         Objects.requireNonNull(contentLength, "Content length must not be null");
-        parallelStrategy.download(result.getDirectUrl(), targetFile, contentLength);
+        ParallelDownloadContext parallelDownloadContext = new ParallelDownloadContext(configuration, runningBuild, httpClient, executorService, myIsInterrupted);
+        parallelStrategy.download(result.getDirectUrl(), targetFile, contentLength, downloadProgress, parallelDownloadContext);
       }
 
       LOGGER.debug(String.format("Finished downloading file %s from %s", targetFile, srcUrl));
@@ -105,11 +114,11 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       });
 
       checkIfInterrupted();
-      int statusCode = myHttpClient.execute(request);
+      int statusCode = httpClient.execute(request);
 
       if (isRedirectStatus(statusCode)) {
         checkIfInterrupted();
-        if (redirectLevel >= myMaxRedirects) throw new RedirectException(String.format("Maximum number of redirects (%s) exceeded", myMaxRedirects));
+        if (redirectLevel >= maxRedirects) throw new RedirectException(String.format("Maximum number of redirects (%s) exceeded", maxRedirects));
 
         Header location = request.getResponseHeader("Location");
         if (location == null) throw new IOException(String.format("Status code %s requires redirect, but no \"Location\" header provided", statusCode));
@@ -122,7 +131,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       LOGGER.debug(String.format("Found direct URL for downloading file %s: %s", targetFile, srcUrl));
 
       Long contentLength = getResponseContentLength(request);
-      String fileDigest = myDependencyHttpHelper.fetchDigest(request);
+      String fileDigest = dependencyHttpHelper.fetchDigest(request);
       if (isParallelisationPossible(srcUrl, targetFile, contentLength, isAcceptsByteRanges(request))) {
         // abort request not to wait until full response body arrives
         // this closes the associated connection, but this is fine because it happens only once per large file that will be downloaded in parallel
@@ -149,7 +158,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   }
 
   private boolean isParallelisationPossible(@NotNull String directUrl, @NotNull Path targetFile, @Nullable Long contentLength, boolean acceptsRanges) {
-    if (myDownloadConfiguration.getMaxThreads() == 1) {
+    if (configuration.getMaxThreads() == 1) {
       LOGGER.debug(String.format("File %s will not be downloaded in parallel: max parallelism is 1", targetFile));
       return false;
     }
@@ -159,13 +168,13 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       return false;
     }
 
-    long minFileSize = myDownloadConfiguration.getParallelDownloadFileSizeThreshold();
+    long minFileSize = configuration.getParallelDownloadFileSizeThreshold();
     if (contentLength < minFileSize) {
       LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is less than threshold %s", targetFile, contentLength, minFileSize));
       return false;
     }
 
-    long maxFileSize = myDownloadConfiguration.getMaxFileSizeBytes();
+    long maxFileSize = configuration.getMaxFileSizeBytes();
     if (contentLength >= maxFileSize) {
       LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is greater than threshold %s", targetFile, contentLength, maxFileSize));
       return false;
@@ -205,7 +214,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
           responseBodyChannel,
           targetFileChannel,
           fileSize,
-          myDownloadConfiguration.getBufferSizeBytes(),
+          configuration.getBufferSizeBytes(),
           () -> checkIfInterrupted(),
           (transferred) -> downloadProgress.transferred(transferred)
         );
@@ -214,7 +223,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
         transferAllBytes(
           responseBodyChannel,
           targetFileChannel,
-          myDownloadConfiguration.getBufferSizeBytes(),
+          configuration.getBufferSizeBytes(),
           () -> checkIfInterrupted(),
           (transferred) -> downloadProgress.transferred(transferred)
         );
@@ -240,21 +249,21 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   }
 
   @NotNull
-  private ParallelDownloadStrategy selectParallelStrategy(@NotNull FileProgress downloadProgress) {
-    FileDownloadStrategyType forcedStrategyType = myDownloadConfiguration.getForcedDownloadStrategyType();
+  private ParallelDownloadStrategy selectParallelStrategy() {
+    ParallelStrategyType forcedStrategyType = configuration.getForcedDownloadStrategyType();
     if (forcedStrategyType != null) {
       LOGGER.debug(String.format("Parallel download strategy is forced to %s", forcedStrategyType));
       switch (forcedStrategyType) {
         case INPLACE_PARALLEL:
-          return new InplaceParallelDownloadStrategy(myHttpClient, myExecutorService, myDownloadConfiguration, myIsInterrupted, downloadProgress);
+          return new InplaceParallelDownloadStrategy();
         case SEPARATE_PART_FILES_PARALLEL:
-          return new SeparatePartFilesParallelDownloadStrategy(myHttpClient, myExecutorService, myDownloadConfiguration, myIsInterrupted, downloadProgress);
+          return new SeparatePartFilesParallelDownloadStrategy();
         default:
           throw new RuntimeException(String.format("Forced unknown parallel download strategy %s", forcedStrategyType));
       }
     }
 
-    return new InplaceParallelDownloadStrategy(myHttpClient, myExecutorService, myDownloadConfiguration, myIsInterrupted, downloadProgress);
+    return new InplaceParallelDownloadStrategy();
   }
 
   @Override
@@ -269,10 +278,10 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
     HttpMethod request = new HeadMethod(srcUrl);
     try {
       checkIfInterrupted();
-      int statusCode = myHttpClient.execute(request);
+      int statusCode = httpClient.execute(request);
 
       checkResponseStatus(statusCode, HttpStatus.SC_OK);
-      String digest = myDependencyHttpHelper.fetchDigest(request);
+      String digest = dependencyHttpHelper.fetchDigest(request);
       LOGGER.debug(String.format("Got digest from %s", srcUrl));
       return digest;
     } catch (IOException | RuntimeException e) {

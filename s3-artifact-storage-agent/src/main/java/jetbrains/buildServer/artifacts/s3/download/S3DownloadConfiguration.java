@@ -1,10 +1,9 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.nio.file.Path;
 import java.util.*;
 import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.artifacts.s3.download.strategy.FileDownloadStrategyType;
+import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelStrategyType;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -28,13 +27,11 @@ public final class S3DownloadConfiguration {
   private static final int LOWER_BOUND_MIN_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
   private static final int LOWER_BOUND_BUFFER_SIZE_BYTES = 1 * 1024; // 1 KB
 
-  private final long buildId;
+  private final long buildId; // todo delete if S3ArtifactTransportFactory is made stateless
   @NotNull
   private final Map<String, String> buildConfigurationParameters;
   @NotNull
   private final Map<String, String> artifactStorageSettings;
-  @NotNull
-  private final Path buildTempDirectory;
 
   @NotNull
   private final Map<String, Boolean> memoizedBooleanParameters = new HashMap<>();
@@ -42,12 +39,12 @@ public final class S3DownloadConfiguration {
   private final Map<String, Integer> memoizedIntegerParameters = new HashMap<>();
 
   public S3DownloadConfiguration(@NotNull AgentRunningBuild runningBuild) {
-    buildId = runningBuild.getBuildId();
+    buildId = runningBuild.getBuildId(); // todo delete if S3ArtifactTransportFactory is made stateless
     buildConfigurationParameters = runningBuild.getSharedConfigParameters();
     artifactStorageSettings = runningBuild.getArtifactStorageSettings();
-    buildTempDirectory = runningBuild.getBuildTempDirectory().toPath();
   }
 
+  // todo delete if S3ArtifactTransportFactory is made stateless
   public long getBuildId() {
     return buildId;
   }
@@ -94,8 +91,8 @@ public final class S3DownloadConfiguration {
   }
 
   @Nullable
-  public FileDownloadStrategyType getForcedDownloadStrategyType() {
-    return Arrays.stream(FileDownloadStrategyType.values())
+  public ParallelStrategyType getForcedDownloadStrategyType() {
+    return Arrays.stream(ParallelStrategyType.values())
                  .filter(strategy -> strategy.name().equals(buildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_FORCED_STRATEGY)))
                  .findAny().orElse(null);
   }
@@ -106,11 +103,6 @@ public final class S3DownloadConfiguration {
 
   public int getMaxConnectionsTotal() {
     return getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS);
-  }
-
-  @NotNull
-  public Path getBuildTempDirectory() {
-    return buildTempDirectory;
   }
 
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
@@ -141,6 +133,7 @@ public final class S3DownloadConfiguration {
     return null;
   }
 
+  // todo delete if S3ArtifactTransportFactory is made stateless
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -149,6 +142,7 @@ public final class S3DownloadConfiguration {
     return buildId == that.buildId;
   }
 
+  // todo delete if S3ArtifactTransportFactory is made stateless
   @Override
   public int hashCode() {
     return Objects.hash(buildId);
