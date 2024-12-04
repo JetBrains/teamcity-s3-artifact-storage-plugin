@@ -3,7 +3,7 @@ package jetbrains.buildServer.artifacts.s3.download;
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.*;
 import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelStrategyType;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,6 +22,7 @@ public final class S3DownloadConfiguration {
   private static final int DEFAULT_BUFFER_SIZE_KB = 10;
   private static final int DEFAULT_MAX_CONNECTIONS = 100;
   private static final int DEFAULT_MAX_CONNECTIONS_PER_HOST = 100;
+  private static final String DEFAULT_PARALLEL_STRATEGY = InplaceParallelDownloadStrategy.NAME;
 
   // parameter bounds
   private static final int LOWER_BOUND_MIN_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
@@ -90,11 +91,10 @@ public final class S3DownloadConfiguration {
     return Math.min(LOWER_BOUND_BUFFER_SIZE_BYTES, bufferSizeKB * 1024);
   }
 
-  @Nullable
-  public ParallelStrategyType getForcedDownloadStrategyType() {
-    return Arrays.stream(ParallelStrategyType.values())
-                 .filter(strategy -> strategy.name().equals(buildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_FORCED_STRATEGY)))
-                 .findAny().orElse(null);
+  @NotNull
+  public String getParallelStrategyName() {
+    return Optional.ofNullable(buildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_STRATEGY))
+      .orElse(DEFAULT_PARALLEL_STRATEGY);
   }
 
   public int getMaxConnectionsPerHost() {
@@ -108,16 +108,16 @@ public final class S3DownloadConfiguration {
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
     return memoizedBooleanParameters.computeIfAbsent(paramName, name -> {
       return Optional.ofNullable(buildConfigurationParameters.get(paramName))
-                     .map(Boolean::parseBoolean)
-                     .orElse(defaultValue);
+        .map(Boolean::parseBoolean)
+        .orElse(defaultValue);
     });
   }
 
   private int getPositiveIntegerParameterOrDefault(@NotNull String paramName, int defaultValue) {
     return memoizedIntegerParameters.computeIfAbsent(paramName, name -> {
       return Optional.ofNullable(buildConfigurationParameters.get(paramName))
-                     .map(intString -> safeParsePositiveInteger(intString, paramName))
-                     .orElse(defaultValue);
+        .map(intString -> safeParsePositiveInteger(intString, paramName))
+        .orElse(defaultValue);
     });
   }
 

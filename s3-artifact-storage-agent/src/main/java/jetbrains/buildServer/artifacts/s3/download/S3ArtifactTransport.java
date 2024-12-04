@@ -9,10 +9,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.ProgressTrackingURLContentRetriever;
@@ -20,9 +22,6 @@ import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.impl.DependencyHttpHelper;
 import jetbrains.buildServer.artifacts.s3.download.parallel.*;
-import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.AbstractParallelDownloadStrategy;
-import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
-import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.SeparatePartFilesParallelDownloadStrategy;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
@@ -42,6 +41,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   @NotNull private final DependencyHttpHelper dependencyHttpHelper;
   @NotNull private final S3DownloadConfiguration configuration;
   @NotNull private final AgentRunningBuild runningBuild;
+  @NotNull private final List<ParallelDownloadStrategy> parallelDownloadStrategies;
   @NotNull private final ConcurrentHashMap<UUID, HttpMethod> myPendingRequestsById = new ConcurrentHashMap<>();
   @NotNull private final AtomicBoolean myIsInterrupted = new AtomicBoolean(false);
   private final int maxRedirects;
@@ -51,12 +51,14 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
                              @NotNull ExecutorService executorService,
                              @NotNull DependencyHttpHelper dependencyHttpHelper,
                              @NotNull S3DownloadConfiguration configuration,
-                             @NotNull AgentRunningBuild runningBuild) {
+                             @NotNull AgentRunningBuild runningBuild,
+                             @NotNull List<ParallelDownloadStrategy> parallelDownloadStrategies) {
     this.httpClient = new S3HttpClient(httpClient, dependencyHttpHelper, serverUrl);
     this.executorService = executorService;
     this.dependencyHttpHelper = dependencyHttpHelper;
     this.configuration = configuration;
     this.runningBuild = runningBuild;
+    this.parallelDownloadStrategies = parallelDownloadStrategies;
     maxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
   }
 
@@ -81,7 +83,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       RedirectFollowingResult result = followRedirects(srcUrl, targetFile, downloadProgress, 0);
       if (result.isShouldDownloadInParallel()) {
         checkIfInterrupted();
-        ParallelDownloadStrategy parallelStrategy = selectParallelStrategy();
+        ParallelDownloadStrategy parallelStrategy = selectParallelStrategy(parallelDownloadStrategies);
         LOGGER.debug(String.format("Using strategy %s for downloading file %s", parallelStrategy.getName(), target));
         Long contentLength = result.getContentLength();
         Objects.requireNonNull(contentLength, "Content length must not be null");
@@ -249,21 +251,16 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   }
 
   @NotNull
-  private ParallelDownloadStrategy selectParallelStrategy() {
-    ParallelStrategyType forcedStrategyType = configuration.getForcedDownloadStrategyType();
-    if (forcedStrategyType != null) {
-      LOGGER.debug(String.format("Parallel download strategy is forced to %s", forcedStrategyType));
-      switch (forcedStrategyType) {
-        case INPLACE_PARALLEL:
-          return new InplaceParallelDownloadStrategy();
-        case SEPARATE_PART_FILES_PARALLEL:
-          return new SeparatePartFilesParallelDownloadStrategy();
-        default:
-          throw new RuntimeException(String.format("Forced unknown parallel download strategy %s", forcedStrategyType));
-      }
-    }
-
-    return new InplaceParallelDownloadStrategy();
+  private ParallelDownloadStrategy selectParallelStrategy(@NotNull List<ParallelDownloadStrategy> availableStrategies) {
+    String configuredStrategyName = configuration.getParallelStrategyName();
+    return availableStrategies.stream()
+      .filter(strategy -> strategy.getName().equals(configuredStrategyName))
+      .findAny()
+      .orElseThrow(() -> new RuntimeException(
+        String.format(
+          "Parallel download strategy %s not found, available strategies: %s",
+          configuredStrategyName, availableStrategies.stream().map(ParallelDownloadStrategy::getName).collect(Collectors.toList()))
+      ));
   }
 
   @Override

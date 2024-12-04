@@ -8,7 +8,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.List;
-import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelStrategyType;
 import jetbrains.buildServer.artifacts.s3.download.parallel.FilePart;
 import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelDownloadContext;
 import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelDownloadState;
@@ -22,6 +21,7 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
  * Parallel strategy that downloads parts into the target file sectors directly using SeekableByteChannel.
  */
 public final class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
+  public static final String NAME = "INPLACE_PARALLEL";
 
   @NotNull
   @Override
@@ -96,6 +96,6 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
   @NotNull
   @Override
   public String getName() {
-    return ParallelStrategyType.INPLACE_PARALLEL.name();
+    return NAME;
   }
 }

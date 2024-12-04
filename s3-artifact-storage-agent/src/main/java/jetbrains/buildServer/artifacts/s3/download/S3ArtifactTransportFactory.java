@@ -8,6 +8,7 @@ import jetbrains.buildServer.artifacts.TransportFactoryExtension;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.impl.DependencyHttpHelper;
 import jetbrains.buildServer.artifacts.impl.HttpArtifactTransportFactory;
+import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import jetbrains.buildServer.http.HttpUtil;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.ThreadUtil;
@@ -36,6 +37,8 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   @NotNull
   private final EventDispatcher<AgentLifeCycleListener> myAgentLifecycleDispatcher;
   @NotNull
+  private final List<ParallelDownloadStrategy> myParallelDownloadStrategies;
+  @NotNull
   private final String mySimpleClassName = S3ArtifactTransportFactory.class.getSimpleName();
 
   // state fields, access should be synchronized by this
@@ -48,16 +51,16 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   private volatile int myExecutorParallelism;
   private volatile boolean myFactoryShutdown = false;
 
-  // todo wire download strategies as beans here and pass to constructed S3ArtifactTransport
-
   public S3ArtifactTransportFactory(@NotNull DependencyHttpHelper dependencyHttpHelper,
                                     @NotNull HttpArtifactTransportFactory defaultTransportFactory,
                                     @NotNull CurrentBuildTracker currentBuildTracker,
-                                    @NotNull EventDispatcher<AgentLifeCycleListener> agentLifecycleDispatcher) {
+                                    @NotNull EventDispatcher<AgentLifeCycleListener> agentLifecycleDispatcher,
+                                    @NotNull List<ParallelDownloadStrategy> parallelDownloadStrategies) {
     myDependencyHttpHelper = dependencyHttpHelper;
     myDefaultTransportFactory = defaultTransportFactory;
     myCurrentBuildTracker = currentBuildTracker;
     myAgentLifecycleDispatcher = agentLifecycleDispatcher;
+    myParallelDownloadStrategies = parallelDownloadStrategies;
   }
 
   @Override
@@ -191,7 +194,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
     String serverUrl = parameters.get(DependencyHttpHelper.SERVER_URL_PARAM);
     ExecutorService executor = myExecutor;
     Objects.requireNonNull(executor, "Executor is null");
-    return new S3ArtifactTransport(serverUrl, client, executor, myDependencyHttpHelper, configuration, runningBuild);
+    return new S3ArtifactTransport(serverUrl, client, executor, myDependencyHttpHelper, configuration, runningBuild, myParallelDownloadStrategies);
   }
 
   @NotNull

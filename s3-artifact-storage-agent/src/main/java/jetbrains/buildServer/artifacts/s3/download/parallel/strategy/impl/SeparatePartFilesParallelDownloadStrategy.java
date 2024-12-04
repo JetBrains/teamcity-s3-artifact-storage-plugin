@@ -11,7 +11,6 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
-import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelStrategyType;
 import jetbrains.buildServer.artifacts.s3.download.parallel.FilePart;
 import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelDownloadContext;
 import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelDownloadState;
@@ -25,6 +24,7 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
  * Parallel strategy that downloads parts into separate files in the build temp directory first, and then merges them into the target file.
  */
 public final class SeparatePartFilesParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
+  public static final String NAME = "SEPARATE_PART_FILES_PARALLEL";
   private static final String BUILD_TEMP_SUBDIRECTORY_NAME = "s3_downloads";
 
   @NotNull
@@ -167,6 +167,6 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
   @NotNull
   @Override
   public String getName() {
-    return ParallelStrategyType.SEPARATE_PART_FILES_PARALLEL.name();
+    return NAME;
   }
 }
