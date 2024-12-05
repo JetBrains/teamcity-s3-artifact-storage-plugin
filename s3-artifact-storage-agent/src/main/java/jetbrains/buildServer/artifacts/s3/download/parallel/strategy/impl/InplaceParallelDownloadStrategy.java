@@ -6,7 +6,6 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 import jetbrains.buildServer.artifacts.s3.download.parallel.FilePart;
 import jetbrains.buildServer.artifacts.s3.download.parallel.ParallelDownloadContext;
@@ -15,6 +14,7 @@ import jetbrains.buildServer.util.FileUtil;
 import org.apache.commons.httpclient.HttpMethod;
 import org.jetbrains.annotations.NotNull;
 
+import static java.nio.file.StandardOpenOption.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 
 /**
@@ -44,18 +44,18 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
   @Override
   protected void writePart(@NotNull HttpMethod ongoingRequest,
                            @NotNull FilePart filePart,
+                           long fileSize,
                            @NotNull ParallelDownloadState downloadState,
                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path partTargetFile = filePart.getTargetFile();
-    long startByte = filePart.getStartByte();
     checkDownloadInterruptedOrFailed(downloadState);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
-         SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, StandardOpenOption.WRITE)) {
+         SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
       transferExpectedBytesToPositionedTarget(
         responseBodyChannel,
         targetFileChannel,
-        startByte,
         filePart.getSizeBytes(),
+        filePart.getStartByte(),
         downloadContext.getConfiguration().getBufferSizeBytes(),
         () -> checkDownloadInterruptedOrFailed(downloadState),
         (transferred) -> downloadState.addDownloadedBytes(transferred)
@@ -63,7 +63,7 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
     } catch (IOException | RuntimeException e) {
       // aborting the request allows not to wait until full body arrives, this needs to be done before closing the response body stream
       ongoingRequest.abort();
-      throw new IOException(String.format("Failed to write part %s-%s to file %s", startByte, filePart.getEndByte(), partTargetFile), e);
+      throw new IOException(String.format("Failed to write part %s to file %s", filePart.getDescription(), partTargetFile), e);
     }
   }
 

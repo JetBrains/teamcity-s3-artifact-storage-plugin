@@ -30,6 +30,7 @@ import org.apache.commons.httpclient.params.HttpClientParams;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static java.nio.file.StandardOpenOption.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil.*;
 
@@ -210,7 +211,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   private void writeFile(@NotNull HttpMethod ongoingRequest, @NotNull Path targetFile, @Nullable Long fileSize, @NotNull FileProgress downloadProgress) throws IOException {
     checkIfInterrupted();
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
-         WritableByteChannel targetFileChannel = Files.newByteChannel(targetFile, StandardOpenOption.CREATE, StandardOpenOption.WRITE)) {
+         WritableByteChannel targetFileChannel = Files.newByteChannel(targetFile, CREATE, WRITE, TRUNCATE_EXISTING)) {
       if (fileSize != null && fileSize >= 0) {
         transferExpectedBytes(
           responseBodyChannel,

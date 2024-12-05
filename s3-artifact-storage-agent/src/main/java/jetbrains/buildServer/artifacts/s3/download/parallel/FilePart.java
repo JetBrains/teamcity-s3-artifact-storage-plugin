@@ -37,4 +37,9 @@ public final class FilePart {
   public Path getTargetFile() {
     return targetFile;
   }
+
+  @NotNull
+  public String getDescription() {
+    return String.format("%s (bytes %s-%s)", partNumber, startByte, endByte);
+  }
 }

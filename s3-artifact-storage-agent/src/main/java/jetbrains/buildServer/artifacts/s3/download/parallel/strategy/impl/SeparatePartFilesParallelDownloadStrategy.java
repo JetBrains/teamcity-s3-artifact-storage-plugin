@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.channels.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +17,7 @@ import jetbrains.buildServer.util.FileUtil;
 import org.apache.commons.httpclient.HttpMethod;
 import org.jetbrains.annotations.NotNull;
 
+import static java.nio.file.StandardOpenOption.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 
 /**
@@ -55,6 +55,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
   @Override
   protected void writePart(@NotNull HttpMethod ongoingRequest,
                            @NotNull FilePart filePart,
+                           long fileSize,
                            @NotNull ParallelDownloadState downloadState,
                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path partTargetFile = filePart.getTargetFile();
@@ -62,7 +63,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
     checkDownloadInterruptedOrFailed(downloadState);
     reserveFileBytes(partTargetFile, partSizeBytes);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
-         WritableByteChannel partFileChannel = Files.newByteChannel(partTargetFile, StandardOpenOption.WRITE)) {
+         WritableByteChannel partFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
       transferExpectedBytes(
         responseBodyChannel,
         partFileChannel,
@@ -74,7 +75,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
     } catch (IOException | RuntimeException e) {
       // aborting the request allows not to wait until full body arrives, this needs to be done before closing the response body stream
       ongoingRequest.abort();
-      throw new IOException(String.format("Failed to write part %s-%s to file %s", filePart.getStartByte(), filePart.getEndByte(), partTargetFile), e);
+      throw new IOException(String.format("Failed to write part %s to file %s", filePart.getDescription(), partTargetFile), e);
     }
   }
 
@@ -95,7 +96,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
 
       Map<Integer, FilePart> partsByNumber = fileParts.stream().collect(Collectors.toMap(part -> part.getPartNumber(), Function.identity()));
       checkDownloadInterrupted(downloadState);
-      try (FileChannel targetFileChannel = FileChannel.open(unfinishedTargetFile, StandardOpenOption.WRITE)) {
+      try (FileChannel targetFileChannel = FileChannel.open(unfinishedTargetFile, WRITE)) {
         long totalCopied = 0L;
         for (int partNumber = 0; partNumber < fileParts.size(); partNumber++) {
           FilePart filePart = partsByNumber.get(partNumber);
@@ -129,19 +130,18 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
                         @NotNull ParallelDownloadState downloadState,
                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path partFile = filePart.getTargetFile();
-    try (FileChannel partFileChannel = FileChannel.open(partFile, StandardOpenOption.READ)) {
-      transferExpectedBytesToPositionedTarget(
+    try (FileChannel partFileChannel = FileChannel.open(partFile, READ)) {
+      transferExpectedFileBytesToPositionedTarget(
         partFileChannel,
         targetFileChannel,
-        filePart.getStartByte(),
         filePart.getSizeBytes(),
-        downloadContext.getConfiguration().getBufferSizeBytes(),
+        filePart.getStartByte(),
         () -> checkDownloadInterrupted(downloadState),
         (transferred) -> {
         }
       );
     } catch (IOException | RuntimeException e) {
-      throw new IOException(String.format("Failed to copy part %s-%s from %s", filePart.getStartByte(), filePart.getEndByte(), partFile), e);
+      throw new IOException(String.format("Failed to copy part %s from %s", filePart.getDescription(), partFile), e);
     }
   }
 

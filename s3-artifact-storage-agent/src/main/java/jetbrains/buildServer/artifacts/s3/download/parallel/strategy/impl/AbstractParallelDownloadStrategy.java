@@ -63,7 +63,7 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
           if (downloadState.isInterrupted() || downloadState.hasFailedParts()) return null;
           return CompletableFuture.runAsync(() -> {
             try {
-              downloadPart(srcUrl, filePart, downloadState, downloadContext);
+              downloadPart(srcUrl, filePart, fileSize, downloadState, downloadContext);
             } catch (IOException | RuntimeException partDownloadException) {
               downloadState.partFailed(filePart.getPartNumber(), partDownloadException);
               partDownloadFutures.forEach(future -> future.cancel(false)); // will cancel unstarted part downloads at the executor level
@@ -171,13 +171,15 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
 
   private void downloadPart(@NotNull String srcUrl,
                             @NotNull FilePart filePart,
+                            long fileSize,
                             @NotNull ParallelDownloadState downloadState,
                             @NotNull ParallelDownloadContext downloadContext) throws IOException {
     long startByte = filePart.getStartByte();
     long endByte = filePart.getEndByte();
     Path partTarget = filePart.getTargetFile();
+    String partDescription = filePart.getDescription();
 
-    LOGGER.debug(String.format("Start downloading part %s-%s to file %s", startByte, endByte, partTarget));
+    LOGGER.debug(String.format("Start downloading part %s to file %s", partDescription, partTarget));
     GetMethod request = null;
     try {
       request = new GetMethod(srcUrl);
@@ -188,12 +190,12 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
 
       checkResponseStatus(statusCode, HttpStatus.SC_PARTIAL_CONTENT);
       checkDownloadInterruptedOrFailed(downloadState);
-      writePart(request, filePart, downloadState, downloadContext);
-      LOGGER.debug(String.format("Part %s-%s downloaded to file %s", startByte, endByte, partTarget));
+      writePart(request, filePart, fileSize, downloadState, downloadContext);
+      LOGGER.debug(String.format("Part %s downloaded to file %s", partDescription, partTarget));
     } catch (IOException | RuntimeException e) {
-      LOGGER.debug(String.format("Failed to download part %s-%s to file %s", startByte, endByte, partTarget), e); // debug because there is a general log for the whole file failure
+      LOGGER.debug(String.format("Failed to download part %s to file %s", partDescription, partTarget), e); // debug because there is a general log for the whole file failure
       if (request != null) request.abort(); // aborting the request allows not to wait until full body arrives
-      throw new IOException(String.format("Failed to download part %s-%s", startByte, endByte), e);
+      throw new IOException(String.format("Failed to download part %s", partDescription), e);
     } finally {
       if (request != null) request.releaseConnection();
     }
@@ -225,6 +227,7 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
 
   protected abstract void writePart(@NotNull HttpMethod ongoingRequest,
                                     @NotNull FilePart filePart,
+                                    long fileSize,
                                     @NotNull ParallelDownloadState downloadState,
                                     @NotNull ParallelDownloadContext downloadContext) throws IOException;
 

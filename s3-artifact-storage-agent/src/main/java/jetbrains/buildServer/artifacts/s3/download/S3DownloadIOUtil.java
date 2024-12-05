@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.download;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
@@ -9,7 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.EnumSet;
 import java.util.Objects;
-import java.util.function.IntConsumer;
 import java.util.function.LongConsumer;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import org.jetbrains.annotations.NotNull;
@@ -48,19 +48,20 @@ public final class S3DownloadIOUtil {
     }
   }
 
+  // general channel transfer
+
   public static void transferExpectedBytesToPositionedTarget(@NotNull ReadableByteChannel sourceChannel,
                                                              @NotNull SeekableByteChannel targetChannel,
-                                                             long targetPosition,
                                                              long expectedBytes,
+                                                             long targetPosition,
                                                              int bufferSize,
                                                              @NotNull IORunnable interruptedCheck,
                                                              @NotNull LongConsumer progressTracker
   ) throws IOException {
-    if (targetPosition < 0) throw new IllegalArgumentException(String.format("Target position is negative (%s)", targetPosition));
-
+    checkTargetPosition(targetPosition);
     interruptedCheck.run();
     targetChannel.position(targetPosition);
-    transferExpectedBytes(sourceChannel, targetChannel, expectedBytes, bufferSize, interruptedCheck, progressTracker);
+    transferBytes(sourceChannel, targetChannel, true, expectedBytes, bufferSize, interruptedCheck, progressTracker);
   }
 
   public static void transferExpectedBytes(@NotNull ReadableByteChannel sourceChannel,
@@ -70,16 +71,40 @@ public final class S3DownloadIOUtil {
                                            @NotNull IORunnable interruptedCheck,
                                            @NotNull LongConsumer progressTracker
   ) throws IOException {
-    long transferred = 0L;
-    if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
+    interruptedCheck.run();
+    transferBytes(sourceChannel, targetChannel, true, expectedBytes, bufferSize, interruptedCheck, progressTracker);
+  }
+
+  public static void transferAllBytes(@NotNull ReadableByteChannel sourceChannel,
+                                      @NotNull WritableByteChannel targetChannel,
+                                      int bufferSize,
+                                      @NotNull IORunnable interruptedCheck,
+                                      @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    interruptedCheck.run();
+    transferBytes(sourceChannel, targetChannel, false, -1, bufferSize, interruptedCheck, progressTracker);
+  }
+
+  private static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
+                                    @NotNull WritableByteChannel targetChannel,
+                                    boolean expectedCheck,
+                                    long expectedBytes,
+                                    int bufferSize,
+                                    @NotNull IORunnable interruptedCheck,
+                                    @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    if (expectedCheck && expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
     if (bufferSize <= 0) throw new IllegalArgumentException(String.format("Buffer size is not positive (%s)", bufferSize));
 
-    ByteBuffer byteBuffer = ByteBuffer.allocate(expectedBytes > 0 ? (int)Math.min(expectedBytes, bufferSize) : bufferSize);
+    ByteBuffer byteBuffer = ByteBuffer.allocate(expectedCheck && expectedBytes > 0 ? (int)Math.min(expectedBytes, bufferSize) : bufferSize);
+    long transferred = 0;
     while (sourceChannel.read(byteBuffer) >= 0) {
       byteBuffer.flip();
       while (byteBuffer.hasRemaining()) {
         long toBeTransferred = byteBuffer.remaining() + transferred;
-        if (toBeTransferred > expectedBytes) throw new RecoverableIOException(String.format("More bytes (at least %s) than expected (%s)", toBeTransferred, expectedBytes));
+        if (expectedCheck && toBeTransferred > expectedBytes) {
+          throw new RecoverableIOException(String.format("Received more bytes from source channel (at least %s) than expected (%s)", toBeTransferred, expectedBytes));
+        }
 
         interruptedCheck.run();
         int written = targetChannel.write(byteBuffer);
@@ -89,26 +114,49 @@ public final class S3DownloadIOUtil {
       byteBuffer.clear();
     }
 
-    if (transferred < expectedBytes) throw new RecoverableIOException(String.format("Less bytes (%s) than expected (%s)", transferred, expectedBytes));
+    if (expectedCheck && transferred < expectedBytes) {
+      throw new RecoverableIOException(String.format("Received less bytes from source channel (%s) than expected (%s)", transferred, expectedBytes));
+    }
   }
 
-  public static void transferAllBytes(@NotNull ReadableByteChannel sourceChannel,
-                                      @NotNull WritableByteChannel targetChannel,
-                                      int bufferSize,
-                                      @NotNull IORunnable interruptedCheck,
-                                      @NotNull IntConsumer progressTracker
-  ) throws IOException {
-    if (bufferSize <= 0) throw new IllegalArgumentException(String.format("Buffer size is not positive (%s)", bufferSize));
+  // optimized file channel transfer that can bypass heap
 
-    ByteBuffer byteBuffer = ByteBuffer.allocate(bufferSize);
-    while (sourceChannel.read(byteBuffer) >= 0) {
-      byteBuffer.flip();
-      while (byteBuffer.hasRemaining()) {
-        interruptedCheck.run();
-        int written = targetChannel.write(byteBuffer);
-        progressTracker.accept(written);
-      }
-      byteBuffer.clear();
+  public static void transferExpectedFileBytesToPositionedTarget(@NotNull FileChannel sourceFileChannel,
+                                                                 @NotNull FileChannel targetFileChannel,
+                                                                 long expectedBytes,
+                                                                 long targetPosition,
+                                                                 @NotNull IORunnable interruptedCheck,
+                                                                 @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    checkTargetPosition(targetPosition);
+    interruptedCheck.run();
+    targetFileChannel.position(targetPosition);
+    transferExpectedFileBytes(sourceFileChannel, targetFileChannel, expectedBytes, interruptedCheck, progressTracker);
+  }
+
+  public static void transferExpectedFileBytes(@NotNull FileChannel sourceFileChannel,
+                                               @NotNull FileChannel targetFileChannel,
+                                               long expectedBytes,
+                                               @NotNull IORunnable interruptedCheck,
+                                               @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative file size (%s bytes)", expectedBytes));
+
+    long sourceFileSize = sourceFileChannel.size();
+    if (sourceFileSize != expectedBytes) {
+      throw new RecoverableIOException(String.format("Real file size (%s bytes) is different from the expected (%s bytes)", sourceFileSize, expectedBytes));
     }
+
+    long totalTransferred = 0;
+    while (totalTransferred < sourceFileSize) {
+      interruptedCheck.run();
+      long transferred = sourceFileChannel.transferTo(totalTransferred, sourceFileSize - totalTransferred, targetFileChannel);
+      totalTransferred += transferred;
+      progressTracker.accept(transferred);
+    }
+  }
+
+  private static void checkTargetPosition(long targetPosition) {
+    if (targetPosition < 0) throw new IllegalArgumentException(String.format("Target position is negative (%s)", targetPosition));
   }
 }
