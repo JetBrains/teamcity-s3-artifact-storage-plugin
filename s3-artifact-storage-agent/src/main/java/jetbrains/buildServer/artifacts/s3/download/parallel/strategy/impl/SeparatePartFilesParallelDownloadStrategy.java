@@ -159,7 +159,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
         checkDownloadInterrupted(downloadState);
         Files.deleteIfExists(filePart.getTargetFile());
       }
-    } catch (IOException e) {
+    } catch (IOException | RuntimeException e) {
       LOGGER.warnAndDebugDetails(String.format("Failed to cleanup unfinished download of file %s: %s", targetFile, e.getMessage()), e);
     }
   }

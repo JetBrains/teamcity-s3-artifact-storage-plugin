@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration;
@@ -157,6 +158,10 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
       }
     }
 
+    LOGGER.debug(String.format(
+      "File %s of size %s is split into the following parts: %s",
+      targetFile, fileSize, parts.stream().map(part -> part.getStartByte() + "-" + part.getEndByte()).collect(Collectors.toList()))
+    );
     return parts;
   }
 
