@@ -39,7 +39,7 @@ public final class S3DownloadIOUtil {
   }
 
   public static void reserveFileBytes(@NotNull Path file, long bytes) throws IOException {
-    if (bytes < 0) throw new IllegalArgumentException(String.format("Number of bytes is negative: %s", bytes));
+    if (bytes <= 0) throw new IllegalArgumentException(String.format("Number of bytes is not positive: %s", bytes));
 
     try (SeekableByteChannel fileChannel = Files.newByteChannel(file, EnumSet.of(CREATE, WRITE))) {
       fileChannel.position(bytes - 1);
@@ -50,20 +50,6 @@ public final class S3DownloadIOUtil {
 
   // general channel transfer
 
-  public static void transferExpectedBytesToPositionedTarget(@NotNull ReadableByteChannel sourceChannel,
-                                                             @NotNull SeekableByteChannel targetChannel,
-                                                             long expectedBytes,
-                                                             long targetPosition,
-                                                             int bufferSize,
-                                                             @NotNull IORunnable interruptedCheck,
-                                                             @NotNull LongConsumer progressTracker
-  ) throws IOException {
-    checkTargetPosition(targetPosition);
-    interruptedCheck.run();
-    targetChannel.position(targetPosition);
-    transferBytes(sourceChannel, targetChannel, true, expectedBytes, bufferSize, interruptedCheck, progressTracker);
-  }
-
   public static void transferExpectedBytes(@NotNull ReadableByteChannel sourceChannel,
                                            @NotNull WritableByteChannel targetChannel,
                                            long expectedBytes,
@@ -71,7 +57,6 @@ public final class S3DownloadIOUtil {
                                            @NotNull IORunnable interruptedCheck,
                                            @NotNull LongConsumer progressTracker
   ) throws IOException {
-    interruptedCheck.run();
     transferBytes(sourceChannel, targetChannel, true, expectedBytes, bufferSize, interruptedCheck, progressTracker);
   }
 
@@ -81,18 +66,18 @@ public final class S3DownloadIOUtil {
                                       @NotNull IORunnable interruptedCheck,
                                       @NotNull LongConsumer progressTracker
   ) throws IOException {
-    interruptedCheck.run();
     transferBytes(sourceChannel, targetChannel, false, -1, bufferSize, interruptedCheck, progressTracker);
   }
 
   private static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
-                                    @NotNull WritableByteChannel targetChannel,
-                                    boolean expectedCheck,
-                                    long expectedBytes,
-                                    int bufferSize,
-                                    @NotNull IORunnable interruptedCheck,
-                                    @NotNull LongConsumer progressTracker
+                            @NotNull WritableByteChannel targetChannel,
+                            boolean expectedCheck,
+                            long expectedBytes,
+                            int bufferSize,
+                            @NotNull IORunnable interruptedCheck,
+                            @NotNull LongConsumer progressTracker
   ) throws IOException {
+    interruptedCheck.run();
     if (expectedCheck && expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
     if (bufferSize <= 0) throw new IllegalArgumentException(String.format("Buffer size is not positive (%s)", bufferSize));
 
@@ -121,25 +106,13 @@ public final class S3DownloadIOUtil {
 
   // optimized file channel transfer that can bypass heap
 
-  public static void transferExpectedFileBytesToPositionedTarget(@NotNull FileChannel sourceFileChannel,
-                                                                 @NotNull FileChannel targetFileChannel,
-                                                                 long expectedBytes,
-                                                                 long targetPosition,
-                                                                 @NotNull IORunnable interruptedCheck,
-                                                                 @NotNull LongConsumer progressTracker
-  ) throws IOException {
-    checkTargetPosition(targetPosition);
-    interruptedCheck.run();
-    targetFileChannel.position(targetPosition);
-    transferExpectedFileBytes(sourceFileChannel, targetFileChannel, expectedBytes, interruptedCheck, progressTracker);
-  }
-
   public static void transferExpectedFileBytes(@NotNull FileChannel sourceFileChannel,
                                                @NotNull FileChannel targetFileChannel,
                                                long expectedBytes,
                                                @NotNull IORunnable interruptedCheck,
                                                @NotNull LongConsumer progressTracker
   ) throws IOException {
+    interruptedCheck.run();
     if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative file size (%s bytes)", expectedBytes));
 
     long sourceFileSize = sourceFileChannel.size();
@@ -154,9 +127,5 @@ public final class S3DownloadIOUtil {
       totalTransferred += transferred;
       progressTracker.accept(transferred);
     }
-  }
-
-  private static void checkTargetPosition(long targetPosition) {
-    if (targetPosition < 0) throw new IllegalArgumentException(String.format("Target position is negative (%s)", targetPosition));
   }
 }

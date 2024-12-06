@@ -50,11 +50,11 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
     checkDownloadInterruptedOrFailed(downloadState);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
-      transferExpectedBytesToPositionedTarget(
+      targetFileChannel.position(filePart.getStartByte());
+      transferExpectedBytes(
         responseBodyChannel,
         targetFileChannel,
         filePart.getSizeBytes(),
-        filePart.getStartByte(),
         downloadContext.getConfiguration().getBufferSizeBytes(),
         () -> checkDownloadInterruptedOrFailed(downloadState),
         (transferred) -> downloadState.addDownloadedBytes(transferred)

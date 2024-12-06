@@ -99,8 +99,6 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
         for (int partNumber = 0; partNumber < fileParts.size(); partNumber++) {
           FilePart filePart = partsByNumber.get(partNumber);
           Objects.requireNonNull(filePart, String.format("Part retrieved by number %s is null, some parts missing?", partNumber));
-
-          checkDownloadInterrupted(downloadState);
           copyPart(filePart, targetFileChannel, downloadState);
           totalCopied += filePart.getSizeBytes();
         }
@@ -125,12 +123,13 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
 
   private void copyPart(@NotNull FilePart filePart, @NotNull FileChannel targetFileChannel, @NotNull ParallelDownloadState downloadState) throws IOException {
     Path partFile = filePart.getTargetFile();
+    checkDownloadInterrupted(downloadState);
     try (FileChannel partFileChannel = FileChannel.open(partFile, READ)) {
-      transferExpectedFileBytesToPositionedTarget(
+      targetFileChannel.position(filePart.getStartByte());
+      transferExpectedFileBytes(
         partFileChannel,
         targetFileChannel,
         filePart.getSizeBytes(),
-        filePart.getStartByte(),
         () -> checkDownloadInterrupted(downloadState),
         (transferred) -> {
         }
