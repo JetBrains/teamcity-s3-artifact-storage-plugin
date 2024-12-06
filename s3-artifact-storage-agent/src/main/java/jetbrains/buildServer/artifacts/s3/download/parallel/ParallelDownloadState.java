@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.download.parallel;
 
 
+import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import jetbrains.buildServer.artifacts.FileProgress;
@@ -21,8 +22,8 @@ public final class ParallelDownloadState {
     firstPartFailure = new AtomicReference<>(null);
   }
 
-  public void partFailed(int partNumber, @NotNull Exception exception) {
-    firstPartFailure.compareAndSet(null, new PartFailure(partNumber, new PartDownloadFailedException(exception)));
+  public void partFailed(@NotNull FilePart filePart, @NotNull IOException exception) {
+    firstPartFailure.compareAndSet(null, new PartFailure(filePart, exception));
   }
 
   public boolean hasFailedParts() {
@@ -30,15 +31,8 @@ public final class ParallelDownloadState {
   }
 
   @Nullable
-  public Integer getFirstFailedPartNumber() {
-    PartFailure partFailure = firstPartFailure.get();
-    return partFailure != null ? partFailure.partNumber : null;
-  }
-
-  @Nullable
-  public PartDownloadFailedException getFirstFailedPartException() {
-    PartFailure partFailure = firstPartFailure.get();
-    return partFailure != null ? partFailure.exception : null;
+  public PartFailure getFirstPartFailure() {
+    return firstPartFailure.get();
   }
 
   public void expectDownloadedBytes(long bytes) {
@@ -51,16 +45,5 @@ public final class ParallelDownloadState {
 
   public boolean isInterrupted() {
     return interruptedFlag.get();
-  }
-
-  private class PartFailure {
-    private final int partNumber;
-    @NotNull
-    private final PartDownloadFailedException exception;
-
-    private PartFailure(int partNumber, @NotNull PartDownloadFailedException exception) {
-      this.partNumber = partNumber;
-      this.exception = exception;
-    }
   }
 }

@@ -32,8 +32,8 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
 
   @Override
   protected void beforeDownloadingParts(@NotNull Path targetFile,
-                                        long fileSize,
                                         @NotNull List<FilePart> fileParts,
+                                        long fileSize,
                                         @NotNull ParallelDownloadState downloadState,
                                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
@@ -44,7 +44,6 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
   @Override
   protected void writePart(@NotNull HttpMethod ongoingRequest,
                            @NotNull FilePart filePart,
-                           long fileSize,
                            @NotNull ParallelDownloadState downloadState,
                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path partTargetFile = filePart.getTargetFile();
@@ -63,14 +62,14 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
     } catch (IOException | RuntimeException e) {
       // aborting the request allows not to wait until full body arrives, this needs to be done before closing the response body stream
       ongoingRequest.abort();
-      throw new IOException(String.format("Failed to write part %s to file %s", filePart.getDescription(), partTargetFile), e);
+      throw e;
     }
   }
 
   @Override
   protected void afterDownloadingParts(@NotNull Path targetFile,
-                                       long fileSize,
                                        @NotNull List<FilePart> fileParts,
+                                       long fileSize,
                                        @NotNull ParallelDownloadState downloadState,
                                        @NotNull ParallelDownloadContext downloadContext) throws IOException {
     // rename file
@@ -82,15 +81,10 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
   protected void cleanupUnfinishedDownload(@NotNull Path targetFile,
                                            @NotNull List<FilePart> fileParts,
                                            @NotNull ParallelDownloadState downloadState,
-                                           @NotNull ParallelDownloadContext downloadContext) {
+                                           @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
-    try {
-      checkDownloadInterrupted(downloadState);
-      Files.deleteIfExists(unfinishedTargetFile);
-      Files.deleteIfExists(targetFile);
-    } catch (IOException e) {
-      LOGGER.warnAndDebugDetails(String.format("Failed to cleanup unfinished download of file %s: %s", targetFile, e.getMessage()), e);
-    }
+    Files.deleteIfExists(unfinishedTargetFile);
+    Files.deleteIfExists(targetFile);
   }
 
   @NotNull

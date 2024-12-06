@@ -43,8 +43,8 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
 
   @Override
   protected void beforeDownloadingParts(@NotNull Path targetFile,
-                                        long fileSize,
                                         @NotNull List<FilePart> fileParts,
+                                        long fileSize,
                                         @NotNull ParallelDownloadState downloadState,
                                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path tempPartsDirectory = getTempPartsDirectory(downloadContext.getRunningBuild());
@@ -55,7 +55,6 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
   @Override
   protected void writePart(@NotNull HttpMethod ongoingRequest,
                            @NotNull FilePart filePart,
-                           long fileSize,
                            @NotNull ParallelDownloadState downloadState,
                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path partTargetFile = filePart.getTargetFile();
@@ -75,17 +74,16 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
     } catch (IOException | RuntimeException e) {
       // aborting the request allows not to wait until full body arrives, this needs to be done before closing the response body stream
       ongoingRequest.abort();
-      throw new IOException(String.format("Failed to write part %s to file %s", filePart.getDescription(), partTargetFile), e);
+      throw e;
     }
   }
 
   @Override
   protected void afterDownloadingParts(@NotNull Path targetFile,
-                                       long fileSize,
                                        @NotNull List<FilePart> fileParts,
+                                       long fileSize,
                                        @NotNull ParallelDownloadState downloadState,
-                                       @NotNull ParallelDownloadContext downloadContext)
-    throws IOException {
+                                       @NotNull ParallelDownloadContext downloadContext) throws IOException {
     try {
       LOGGER.debug(String.format("Restoring file %s from parts", targetFile));
       Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
@@ -103,7 +101,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
           Objects.requireNonNull(filePart, String.format("Part retrieved by number %s is null, some parts missing?", partNumber));
 
           checkDownloadInterrupted(downloadState);
-          copyPart(filePart, targetFileChannel, downloadState, downloadContext);
+          copyPart(filePart, targetFileChannel, downloadState);
           totalCopied += filePart.getSizeBytes();
         }
 
@@ -125,10 +123,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
     }
   }
 
-  private void copyPart(@NotNull FilePart filePart,
-                        @NotNull FileChannel targetFileChannel,
-                        @NotNull ParallelDownloadState downloadState,
-                        @NotNull ParallelDownloadContext downloadContext) throws IOException {
+  private void copyPart(@NotNull FilePart filePart, @NotNull FileChannel targetFileChannel, @NotNull ParallelDownloadState downloadState) throws IOException {
     Path partFile = filePart.getTargetFile();
     try (FileChannel partFileChannel = FileChannel.open(partFile, READ)) {
       transferExpectedFileBytesToPositionedTarget(
@@ -149,18 +144,12 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
   protected void cleanupUnfinishedDownload(@NotNull Path targetFile,
                                            @NotNull List<FilePart> fileParts,
                                            @NotNull ParallelDownloadState downloadState,
-                                           @NotNull ParallelDownloadContext downloadContext) {
+                                           @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
-    try {
-      checkDownloadInterrupted(downloadState);
-      Files.deleteIfExists(unfinishedTargetFile);
-      Files.deleteIfExists(targetFile);
-      for (FilePart filePart : fileParts) {
-        checkDownloadInterrupted(downloadState);
-        Files.deleteIfExists(filePart.getTargetFile());
-      }
-    } catch (IOException | RuntimeException e) {
-      LOGGER.warnAndDebugDetails(String.format("Failed to cleanup unfinished download of file %s: %s", targetFile, e.getMessage()), e);
+    Files.deleteIfExists(unfinishedTargetFile);
+    Files.deleteIfExists(targetFile);
+    for (FilePart filePart : fileParts) {
+      Files.deleteIfExists(filePart.getTargetFile());
     }
   }
 
