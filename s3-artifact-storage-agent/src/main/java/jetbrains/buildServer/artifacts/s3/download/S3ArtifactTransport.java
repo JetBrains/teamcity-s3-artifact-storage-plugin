@@ -64,38 +64,39 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
 
   @Override
   @Nullable
-  public String downloadUrlTo(@NotNull String srcUrl, @NotNull File target) throws IOException {
-    return doDownload(srcUrl, target, new FileProgress.Adapter());
+  public String downloadUrlTo(@NotNull String srcUrl, @NotNull File targetFile) throws IOException {
+    return doDownload(srcUrl, targetFile, new FileProgress.Adapter());
   }
 
   @Override
   @Nullable
-  public String downloadUrlTo(@NotNull String srcUrl, @NotNull File target, @NotNull FileProgress fileDownloadProgress) throws IOException {
-    return doDownload(srcUrl, target, fileDownloadProgress);
+  public String downloadUrlTo(@NotNull String srcUrl, @NotNull File targetFile, @NotNull FileProgress downloadProgress) throws IOException {
+    return doDownload(srcUrl, targetFile, downloadProgress);
   }
 
   @NotNull
-  private String doDownload(@NotNull String srcUrl, @NotNull File target, @NotNull FileProgress downloadProgress) throws IOException {
-    LOGGER.debug(String.format("Start downloading file %s from %s", target, srcUrl));
+  private String doDownload(@NotNull String srcUrl, @NotNull File targetFile, @NotNull FileProgress downloadProgress) throws IOException {
+    LOGGER.debug(String.format("Start downloading file %s from %s", targetFile, srcUrl));
     try {
       checkIfInterrupted();
-      Path targetFile = getAbsoluteNormalizedPath(target.toPath());
-      RedirectFollowingResult result = followRedirects(srcUrl, targetFile, downloadProgress, 0);
+      Path targetFilePath = getAbsoluteNormalizedPath(targetFile.toPath());
+      LOGGER.debug(String.format("File path was normalized from %s to %s", targetFile, targetFilePath));
+      RedirectFollowingResult result = followRedirects(srcUrl, targetFilePath, downloadProgress, 0);
       if (result.isShouldDownloadInParallel()) {
         checkIfInterrupted();
         ParallelDownloadStrategy parallelStrategy = selectParallelStrategy(parallelDownloadStrategies);
-        LOGGER.debug(String.format("Using strategy %s for downloading file %s", parallelStrategy.getName(), target));
+        LOGGER.debug(String.format("File %s will be downloaded in parallel using startegy %s", targetFilePath, parallelStrategy.getName()));
         Long contentLength = result.getContentLength();
         Objects.requireNonNull(contentLength, "Content length must not be null");
         ParallelDownloadContext parallelDownloadContext = new ParallelDownloadContext(configuration, runningBuild, httpClient, executorService, myIsInterrupted);
-        parallelStrategy.download(result.getDirectUrl(), targetFile, contentLength, downloadProgress, parallelDownloadContext);
+        parallelStrategy.download(result.getDirectUrl(), targetFilePath, contentLength, downloadProgress, parallelDownloadContext);
       }
 
       LOGGER.debug(String.format("Finished downloading file %s from %s", targetFile, srcUrl));
       return result.getDigest();
     } catch (IOException | RuntimeException e) {
-      LOGGER.warn(String.format("Failed to download file %s from %s: %s", target, srcUrl, e.getMessage()), e);
-      throw new IOException(String.format("Failed to download file %s from %s", target, srcUrl), e);
+      LOGGER.warn(String.format("Failed to download file %s from %s: %s", targetFile, srcUrl, e.getMessage()), e);
+      throw new IOException(String.format("Failed to download file %s from %s", targetFile, srcUrl), e);
     }
   }
 
@@ -191,8 +192,10 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
     return true;
   }
 
-  public void downloadSequentially(@NotNull HttpMethod ongoingRequest, @NotNull Path targetFile, @Nullable Long fileSize, @NotNull FileProgress downloadProgress)
-    throws IOException {
+  public void downloadSequentially(@NotNull HttpMethod ongoingRequest,
+                                   @NotNull Path targetFile,
+                                   @Nullable Long fileSize,
+                                   @NotNull FileProgress downloadProgress) throws IOException {
     try {
       checkIfInterrupted();
       ensureDirectoryExists(targetFile.getParent());
