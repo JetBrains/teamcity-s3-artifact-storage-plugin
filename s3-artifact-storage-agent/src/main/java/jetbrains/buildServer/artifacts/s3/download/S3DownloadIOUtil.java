@@ -113,17 +113,20 @@ public final class S3DownloadIOUtil {
                                                @NotNull LongConsumer progressTracker
   ) throws IOException {
     interruptedCheck.run();
-    if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative file size (%s bytes)", expectedBytes));
+    if (expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
 
     long sourceFileSize = sourceFileChannel.size();
-    if (sourceFileSize != expectedBytes) {
-      throw new RecoverableIOException(String.format("Real file size (%s bytes) is different from the expected (%s bytes)", sourceFileSize, expectedBytes));
+    long sourceChannelPosition = sourceFileChannel.position();
+    if (expectedBytes != sourceFileSize - sourceChannelPosition) {
+      throw new IOException(
+        String.format("Source file (size: %s) has different number of bytes to transfer from position (%s) than expected (%s)", sourceFileSize, sourceChannelPosition, expectedBytes)
+      );
     }
 
     long totalTransferred = 0;
-    while (totalTransferred < sourceFileSize) {
+    while (totalTransferred < expectedBytes) {
       interruptedCheck.run();
-      long transferred = sourceFileChannel.transferTo(totalTransferred, sourceFileSize - totalTransferred, targetFileChannel);
+      long transferred = sourceFileChannel.transferTo(sourceChannelPosition + totalTransferred, expectedBytes - totalTransferred, targetFileChannel);
       totalTransferred += transferred;
       progressTracker.accept(transferred);
     }
