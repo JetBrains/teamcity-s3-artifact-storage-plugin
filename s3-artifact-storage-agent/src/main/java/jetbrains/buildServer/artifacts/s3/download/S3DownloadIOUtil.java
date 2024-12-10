@@ -27,10 +27,18 @@ public final class S3DownloadIOUtil {
   public static Path getUnfinishedFilePath(@NotNull Path file) {
     Path absoluteNormalizedFilePath = getAbsoluteNormalizedPath(file);
     Path fileNamePath = absoluteNormalizedFilePath.getFileName();
-    Path parentDirectoryPath = absoluteNormalizedFilePath.getParent();
     Objects.requireNonNull(fileNamePath, String.format("File name must not be null, file=%s", file));
+    Path parentDirectoryPath = absoluteNormalizedFilePath.getParent();
     Objects.requireNonNull(parentDirectoryPath, String.format("Parent directory must not be null, file=%s", file));
     return parentDirectoryPath.resolve(fileNamePath + ".unfinished");
+  }
+
+  @NotNull
+  public static Path getFilePartPath(@NotNull Path file, int partNumber, @NotNull Path tempPartsDirectory) {
+    Path absoluteNormalizedFilePath = getAbsoluteNormalizedPath(file);
+    Path fileNamePath = absoluteNormalizedFilePath.getFileName();
+    Objects.requireNonNull(fileNamePath, String.format("File name must not be null, file=%s", file));
+    return tempPartsDirectory.resolve(fileNamePath + ".part." + partNumber);
   }
 
   public static void ensureDirectoryExists(@NotNull Path directory) throws IOException {

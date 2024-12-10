@@ -75,11 +75,6 @@ public final class S3DownloadConfiguration {
     return LOWER_BOUND_MIN_PART_SIZE_BYTES;
   }
 
-  public long getParallelDownloadFileSizeThreshold() {
-    // there should be at least the lower bound for minimum part size bytes left for the second thread to make it worth using it
-    return getMinPartSizeBytes() + getMinPartSizeBytesLowerBound();
-  }
-
   public boolean isS3CompatibleStorage() {
     String storageType = artifactStorageSettings.get(TEAMCITY_STORAGE_TYPE_KEY);
     return StringUtil.areEqual(storageType, S3_STORAGE_TYPE) || StringUtil.areEqual(storageType, S3_COMPATIBLE_STORAGE_TYPE);

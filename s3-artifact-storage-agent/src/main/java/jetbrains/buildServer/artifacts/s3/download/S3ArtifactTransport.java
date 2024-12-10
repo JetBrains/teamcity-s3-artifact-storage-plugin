@@ -42,6 +42,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   @NotNull private final S3DownloadConfiguration configuration;
   @NotNull private final AgentRunningBuild runningBuild;
   @NotNull private final List<ParallelDownloadStrategy> parallelDownloadStrategies;
+  @NotNull private final FileSplitter fileSplitter;
   @NotNull private final ConcurrentHashMap<UUID, HttpMethod> myPendingRequestsById = new ConcurrentHashMap<>();
   @NotNull private final AtomicBoolean myIsInterrupted = new AtomicBoolean(false);
   private final int maxRedirects;
@@ -59,6 +60,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
     this.configuration = configuration;
     this.runningBuild = runningBuild;
     this.parallelDownloadStrategies = parallelDownloadStrategies;
+    fileSplitter = new FileSplitter(configuration);
     maxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
   }
 
@@ -88,7 +90,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
         LOGGER.debug(String.format("File %s will be downloaded in parallel using startegy %s", targetFilePath, parallelStrategy.getName()));
         Long contentLength = result.getContentLength();
         Objects.requireNonNull(contentLength, "Content length must not be null");
-        ParallelDownloadContext parallelDownloadContext = new ParallelDownloadContext(configuration, runningBuild, httpClient, executorService, myIsInterrupted);
+        ParallelDownloadContext parallelDownloadContext = new ParallelDownloadContext(configuration, runningBuild, fileSplitter, httpClient, executorService, myIsInterrupted);
         parallelStrategy.download(result.getDirectUrl(), targetFilePath, contentLength, downloadProgress, parallelDownloadContext);
       }
 
@@ -171,9 +173,9 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       return false;
     }
 
-    long minFileSize = configuration.getParallelDownloadFileSizeThreshold();
-    if (contentLength < minFileSize) {
-      LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is less than threshold %s", targetFile, contentLength, minFileSize));
+    long parallelizationThreshold = fileSplitter.getSplitThreshold();
+    if (contentLength < parallelizationThreshold) {
+      LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is less than threshold %s", targetFile, contentLength, parallelizationThreshold));
       return false;
     }
 

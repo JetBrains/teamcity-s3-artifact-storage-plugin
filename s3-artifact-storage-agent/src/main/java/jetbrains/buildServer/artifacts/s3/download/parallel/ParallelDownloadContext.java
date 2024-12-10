@@ -13,6 +13,8 @@ public final class ParallelDownloadContext {
   @NotNull
   private final AgentRunningBuild runningBuild;
   @NotNull
+  private final FileSplitter fileSplitter;
+  @NotNull
   private final S3HttpClient httpClient;
   @NotNull
   private final Executor executor;
@@ -21,11 +23,13 @@ public final class ParallelDownloadContext {
 
   public ParallelDownloadContext(@NotNull S3DownloadConfiguration configuration,
                                  @NotNull AgentRunningBuild runningBuild,
+                                 @NotNull FileSplitter fileSplitter,
                                  @NotNull S3HttpClient httpClient,
                                  @NotNull Executor executor,
                                  @NotNull AtomicBoolean interruptedFlag) {
     this.configuration = configuration;
     this.runningBuild = runningBuild;
+    this.fileSplitter = fileSplitter;
     this.httpClient = httpClient;
     this.executor = executor;
     this.interruptedFlag = interruptedFlag;
@@ -39,6 +43,11 @@ public final class ParallelDownloadContext {
   @NotNull
   public AgentRunningBuild getRunningBuild() {
     return runningBuild;
+  }
+
+  @NotNull
+  public FileSplitter getFileSplitter() {
+    return fileSplitter;
   }
 
   @NotNull

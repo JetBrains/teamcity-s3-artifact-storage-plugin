@@ -23,13 +23,6 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 public final class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
   public static final String NAME = "INPLACE_PARALLEL";
 
-  @NotNull
-  @Override
-  protected FilePart createPart(int partNumber, long startByte, long endByte, @NotNull Path targetFile, @NotNull ParallelDownloadContext downloadContext) {
-    Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
-    return new FilePart(partNumber, startByte, endByte, unfinishedTargetFile);
-  }
-
   @Override
   protected void beforeDownloadingParts(@NotNull Path targetFile,
                                         @NotNull List<FilePart> fileParts,
@@ -44,9 +37,10 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
   @Override
   protected void writePart(@NotNull HttpMethod ongoingRequest,
                            @NotNull FilePart filePart,
+                           @NotNull Path targetFile,
                            @NotNull ParallelDownloadState downloadState,
                            @NotNull ParallelDownloadContext downloadContext) throws IOException {
-    Path partTargetFile = filePart.getTargetFile();
+    Path partTargetFile = getUnfinishedFilePath(targetFile);
     checkDownloadInterruptedOrFailed(downloadState);
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
@@ -72,7 +66,6 @@ public final class InplaceParallelDownloadStrategy extends AbstractParallelDownl
                                        long fileSize,
                                        @NotNull ParallelDownloadState downloadState,
                                        @NotNull ParallelDownloadContext downloadContext) throws IOException {
-    // rename file
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     FileUtil.atomicRename(unfinishedTargetFile.toFile(), targetFile.toFile(), 10);
   }
