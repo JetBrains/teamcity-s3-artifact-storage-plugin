@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.Used;
+import jetbrains.buildServer.artifacts.s3.BucketLocationFetcher;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
@@ -204,7 +205,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     String originId = bucketName + "." + UUID.randomUUID();
 
     String oaiId = getOriginAccessIdentityId(s3Client, cloudFrontClient, bucketName);
-    String bucketRegion = s3Client.getBucketLocation(bucketName);
+    String bucketRegion = BucketLocationFetcher.getRegionName(s3Client.getBucketLocation(bucketName));
     Origin origin = createOrigin(bucketName, bucketRegion, originId, oaiId);
     DistributionConfig distributionConfig = createDistributionConfig(cloudFrontClient, keyGroupId, origin, comment, uploadAllowed);
     CreateDistributionResult result = cloudFrontClient.createDistribution(new CreateDistributionRequest(distributionConfig));
