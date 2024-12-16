@@ -73,7 +73,7 @@ public final class SeparatePartFilesParallelDownloadStrategy extends AbstractPar
       LOGGER.debug(String.format("Restoring file %s from parts", targetFile));
       Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
       List<Path> partTargetFiles = fileParts.stream()
-        .map(part -> getPartTargetFile(part, unfinishedTargetFile, downloadContext))
+        .map(part -> getPartTargetFile(part, targetFile, downloadContext))
         .collect(Collectors.toList());
 
       checkDownloadInterrupted(downloadState);
