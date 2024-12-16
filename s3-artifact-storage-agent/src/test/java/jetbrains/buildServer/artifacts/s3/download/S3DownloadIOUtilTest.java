@@ -69,12 +69,33 @@ public class S3DownloadIOUtilTest {
   }
 
   @Test(dataProvider = "getUnfinishedFilePathTestData")
-  public void shouldReturnUnfinishedFilePath(Path targetPath, Path expectedUnfinishedFilePath) {
+  public void shouldReturnUnfinishedFilePath(Path file, Path expectedUnfinishedFilePath) {
     // act
-    Path unfinishedFilePath = S3DownloadIOUtil.getUnfinishedFilePath(targetPath);
+    Path unfinishedFilePath = S3DownloadIOUtil.getUnfinishedFilePath(file);
 
     // assert
     assertEquals(unfinishedFilePath, expectedUnfinishedFilePath);
+  }
+
+  @DataProvider
+  public Object[][] getFilePartPathTestData() {
+    return new Object[][]{
+      {USER_HOME_DIR.resolve("foo/bar"), 0, "bar.part.0"},
+      {USER_HOME_DIR.resolve("foo/bar.tar"), 1, "bar.tar.part.1"},
+      {USER_HOME_DIR.resolve("foo/bar/./baz/../../file/."), 17, "file.part.17"},
+      {Paths.get("foo/bar/baz/../../file"), 10, "file.part.10"},
+      {Paths.get("./foo/bar/baz/../../file"), 0, "file.part.0"},
+      {Paths.get("aaa/./../foo/bar/baz/.."), 100000, "bar.part.100000"},
+    };
+  }
+
+  @Test(dataProvider = "getFilePartPathTestData")
+  public void shouldReturnFilePartPath(Path file, int partNumber, String expectedFilePartPath) {
+    // act
+    Path filePartPath = S3DownloadIOUtil.getFilePartPath(file, partNumber, tempDir);
+
+    // assert
+    assertEquals(filePartPath, tempDir.resolve(expectedFilePartPath));
   }
 
   @Test
