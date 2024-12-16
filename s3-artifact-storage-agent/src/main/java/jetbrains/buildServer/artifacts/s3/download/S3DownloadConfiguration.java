@@ -6,11 +6,11 @@ import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
+import static jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration.IntegerParameterBounds.*;
 
-public final class S3DownloadConfiguration {
+public class S3DownloadConfiguration {
   private static final Logger LOGGER = Logger.getInstance(S3DownloadConfiguration.class);
 
   // parameter defaults
@@ -18,17 +18,21 @@ public final class S3DownloadConfiguration {
   private static final boolean DEFAULT_PARALLEL_DOWNLOAD_FORCED = false;
   private static final int DEFAULT_MAX_THREADS = 5;
   private static final int DEFAULT_MIN_PART_SIZE_MB = 100;
-  private static final int DEFAULT_MAX_FILE_SIZE_GB = 100;
+  private static final int DEFAULT_MAX_FILE_SIZE_GB = 1024;
   private static final int DEFAULT_BUFFER_SIZE_KB = 10;
   private static final int DEFAULT_MAX_CONNECTIONS = 100;
   private static final int DEFAULT_MAX_CONNECTIONS_PER_HOST = 100;
   private static final String DEFAULT_PARALLEL_STRATEGY = InplaceParallelDownloadStrategy.NAME;
 
-  // parameter bounds
-  private static final int LOWER_BOUND_MIN_PART_SIZE_BYTES = 1 * 1024 * 1024; // 1 MB
-  private static final int LOWER_BOUND_BUFFER_SIZE_BYTES = 1 * 1024; // 1 KB
+  // int parameter bounds: some sane numbers for lower and upper bounds
+  private static final IntegerParameterBounds BOUNDS_MAX_THREADS = lowerAndUpper(1, 1000);
+  private static final IntegerParameterBounds BOUNDS_MIN_PART_SIZE_MB = lower(1);
+  private static final IntegerParameterBounds BOUNDS_MAX_FILE_SIZE_GB = unbound();
+  private static final IntegerParameterBounds BOUNDS_BUFFER_SIZE_KB = lowerAndUpper(1, 1024 * 1024);
+  private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS = lowerAndUpper(1, 100_000);
+  private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS_PER_HOST = lowerAndUpper(1, 100_000);
 
-  private final long buildId; // todo delete if S3ArtifactTransportFactory is made stateless
+  private final long buildId;
   @NotNull
   private final Map<String, String> buildConfigurationParameters;
   @NotNull
@@ -40,12 +44,11 @@ public final class S3DownloadConfiguration {
   private final Map<String, Integer> memoizedIntegerParameters = new HashMap<>();
 
   public S3DownloadConfiguration(@NotNull AgentRunningBuild runningBuild) {
-    buildId = runningBuild.getBuildId(); // todo delete if S3ArtifactTransportFactory is made stateless
+    buildId = runningBuild.getBuildId();
     buildConfigurationParameters = runningBuild.getSharedConfigParameters();
     artifactStorageSettings = runningBuild.getArtifactStorageSettings();
   }
 
-  // todo delete if S3ArtifactTransportFactory is made stateless
   public long getBuildId() {
     return buildId;
   }
@@ -59,20 +62,31 @@ public final class S3DownloadConfiguration {
   }
 
   public int getMaxThreads() {
-    return getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_THREADS, DEFAULT_MAX_THREADS);
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_THREADS, DEFAULT_MAX_THREADS, BOUNDS_MAX_THREADS);
   }
 
   public long getMinPartSizeBytes() {
-    long minPartSizeMB = getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB, DEFAULT_MIN_PART_SIZE_MB);
-    return Math.max(getMinPartSizeBytesLowerBound(), minPartSizeMB * 1024 * 1024);
+    return (long)getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB, DEFAULT_MIN_PART_SIZE_MB, BOUNDS_MIN_PART_SIZE_MB) * 1024 * 1024;
   }
 
   public long getMaxFileSizeBytes() {
-    return (long)getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_FILE_SIZE_GB, DEFAULT_MAX_FILE_SIZE_GB) * 1024 * 1024 * 1024;
+    return (long)getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_FILE_SIZE_GB, DEFAULT_MAX_FILE_SIZE_GB, BOUNDS_MAX_FILE_SIZE_GB) * 1024 * 1024 * 1024;
   }
 
-  public long getMinPartSizeBytesLowerBound() {
-    return LOWER_BOUND_MIN_PART_SIZE_BYTES;
+  public long getMinPartSizeLowerBoundBytes() {
+    return (long)BOUNDS_MIN_PART_SIZE_MB.lower * 1024 * 1024;
+  }
+
+  public int getBufferSizeBytes() {
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_BUFFER_SIZE_KB, DEFAULT_BUFFER_SIZE_KB, BOUNDS_BUFFER_SIZE_KB) * 1024;
+  }
+
+  public int getMaxConnectionsPerHost() {
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS_PER_HOST, DEFAULT_MAX_CONNECTIONS_PER_HOST, BOUNDS_MAX_CONNECTIONS_PER_HOST);
+  }
+
+  public int getMaxConnectionsTotal() {
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS, BOUNDS_MAX_CONNECTIONS);
   }
 
   public boolean isS3CompatibleStorage() {
@@ -80,24 +94,10 @@ public final class S3DownloadConfiguration {
     return StringUtil.areEqual(storageType, S3_STORAGE_TYPE) || StringUtil.areEqual(storageType, S3_COMPATIBLE_STORAGE_TYPE);
   }
 
-  // todo split into two separate buffers for network and disk IO?
-  public int getBufferSizeBytes() {
-    int bufferSizeKB = getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_BUFFER_SIZE_KB, DEFAULT_BUFFER_SIZE_KB);
-    return Math.min(LOWER_BOUND_BUFFER_SIZE_BYTES, bufferSizeKB * 1024);
-  }
-
   @NotNull
   public String getParallelStrategyName() {
     return Optional.ofNullable(buildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_STRATEGY))
       .orElse(DEFAULT_PARALLEL_STRATEGY);
-  }
-
-  public int getMaxConnectionsPerHost() {
-    return getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS_PER_HOST, DEFAULT_MAX_CONNECTIONS_PER_HOST);
-  }
-
-  public int getMaxConnectionsTotal() {
-    return getPositiveIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS);
   }
 
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
@@ -108,27 +108,35 @@ public final class S3DownloadConfiguration {
     });
   }
 
-  private int getPositiveIntegerParameterOrDefault(@NotNull String paramName, int defaultValue) {
+  private int getBoundIntegerParameterOrDefault(@NotNull String paramName, int defaultValue, @NotNull IntegerParameterBounds bounds) {
     return memoizedIntegerParameters.computeIfAbsent(paramName, name -> {
       return Optional.ofNullable(buildConfigurationParameters.get(paramName))
-        .map(intString -> safeParsePositiveInteger(intString, paramName))
+        .map(stringValue -> safeParseInteger(stringValue, paramName, defaultValue))
+        .map(value -> applyBounds(value, paramName, defaultValue, bounds))
         .orElse(defaultValue);
     });
   }
 
-  @Nullable
-  private Integer safeParsePositiveInteger(@NotNull String intString, @NotNull String paramName) {
+  @NotNull
+  private static Integer safeParseInteger(@NotNull String stringValue, @NotNull String paramName, int defaultValue) {
     try {
-      int parsedInt = Integer.parseInt(intString);
-      if (parsedInt > 0) return parsedInt;
-      LOGGER.warn(String.format("Configuration parameter %s with non-positive value %s will be ignored", paramName, intString));
+      return Integer.parseInt(stringValue);
     } catch (NumberFormatException e) {
-      LOGGER.warn(String.format("Failed to parse integer configuration parameter %s from value %s: %s", paramName, intString, e.getMessage()));
+      LOGGER.warn(
+        String.format("Failed to parse integer configuration parameter %s from value %s: %s; using the default value %s", paramName, stringValue, e.getMessage(), defaultValue));
+      return defaultValue;
     }
-    return null;
   }
 
-  // todo delete if S3ArtifactTransportFactory is made stateless
+  @NotNull
+  private static Integer applyBounds(@NotNull Integer value, @NotNull String paramName, int defaultValue, @NotNull IntegerParameterBounds bounds) {
+    if (value < bounds.lower || value > bounds.upper) {
+      LOGGER.warn(String.format("Value %s of configuration parameter %s is out of bounds %s, using the default value %s", value, paramName, bounds, defaultValue));
+      return defaultValue;
+    }
+    return value;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -137,9 +145,39 @@ public final class S3DownloadConfiguration {
     return buildId == that.buildId;
   }
 
-  // todo delete if S3ArtifactTransportFactory is made stateless
   @Override
   public int hashCode() {
     return Objects.hash(buildId);
+  }
+
+  static final class IntegerParameterBounds {
+    private final int lower;
+    private final int upper;
+
+    private IntegerParameterBounds(int lower, int upper) {
+      this.lower = lower;
+      this.upper = upper;
+    }
+
+    public static IntegerParameterBounds lower(int lower) {
+      return new IntegerParameterBounds(lower, Integer.MAX_VALUE);
+    }
+
+    public static IntegerParameterBounds upper(int upper) {
+      return new IntegerParameterBounds(Integer.MIN_VALUE, upper);
+    }
+
+    public static IntegerParameterBounds lowerAndUpper(int lower, int upper) {
+      return new IntegerParameterBounds(lower, upper);
+    }
+
+    public static IntegerParameterBounds unbound() {
+      return new IntegerParameterBounds(Integer.MIN_VALUE, Integer.MAX_VALUE);
+    }
+
+    @Override
+    public String toString() {
+      return "[" + lower + ", " + upper + "]";
+    }
   }
 }

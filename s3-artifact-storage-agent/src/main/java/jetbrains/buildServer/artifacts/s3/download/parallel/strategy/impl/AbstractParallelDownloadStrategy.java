@@ -11,6 +11,7 @@ import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration;
 import jetbrains.buildServer.artifacts.s3.download.parallel.*;
+import jetbrains.buildServer.artifacts.s3.download.parallel.splitter.FileSplitter;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import org.apache.commons.httpclient.HttpMethod;
 import org.apache.commons.httpclient.HttpStatus;
@@ -37,17 +38,10 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
     S3DownloadConfiguration configuration = downloadContext.getConfiguration();
     FileSplitter fileSplitter = downloadContext.getFileSplitter();
 
-    List<FilePart> fileParts;
-    try {
-      fileParts = fileSplitter.splitIntoParts(fileSize);
-      if (fileParts.size() == 1) {
-        LOGGER.warn(String.format("File %s of size %s is destined for parallel download, but was split into only 1 part %s. S3 artifact transport misconfigured?",
-                                  targetFile, fileSize, fileParts.get(0).getDescription()));
-      } else {
-        LOGGER.debug(String.format("File %s was split into %s parts", targetFile, fileParts.size()));
-      }
-    } catch (RuntimeException e) {
-      throw new IOException("Failed to split file into parts", e);
+    List<FilePart> fileParts = fileSplitter.split(fileSize);
+    if (fileParts.size() == 1) {
+      LOGGER.warn(String.format("File %s of size %s is destined for parallel download, but was split into only 1 part %s. S3 artifact transport misconfigured?",
+                                targetFile, fileSize, fileParts.get(0).getDescription()));
     }
 
     LOGGER.debug(String.format(

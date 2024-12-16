@@ -21,6 +21,9 @@ import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.impl.DependencyHttpHelper;
 import jetbrains.buildServer.artifacts.s3.download.parallel.*;
+import jetbrains.buildServer.artifacts.s3.download.parallel.splitter.FileSplitter;
+import jetbrains.buildServer.artifacts.s3.download.parallel.splitter.SplitabilityReport;
+import jetbrains.buildServer.artifacts.s3.download.parallel.splitter.impl.FileSplitterImpl;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
@@ -30,6 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import static java.nio.file.StandardOpenOption.*;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 import static jetbrains.buildServer.artifacts.s3.download.S3DownloadHttpUtil.*;
 
@@ -60,7 +64,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
     this.configuration = configuration;
     this.runningBuild = runningBuild;
     this.parallelDownloadStrategies = parallelDownloadStrategies;
-    fileSplitter = new FileSplitter(configuration);
+    fileSplitter = new FileSplitterImpl(configuration);
     maxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
   }
 
@@ -163,30 +167,32 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   }
 
   private boolean isParallelisationPossible(@NotNull String directUrl, @NotNull Path targetFile, @Nullable Long contentLength, boolean acceptsRanges) {
-    if (configuration.getMaxThreads() == 1) {
-      LOGGER.debug(String.format("File %s will not be downloaded in parallel: max parallelism is 1", targetFile));
-      return false;
-    }
-
     if (contentLength == null || contentLength <= 0) {
       LOGGER.debug(String.format("File %s will not be downloaded in parallel: content length is %s", targetFile, contentLength));
       return false;
     }
 
-    long parallelizationThreshold = fileSplitter.getSplitThreshold();
-    if (contentLength < parallelizationThreshold) {
-      LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is less than threshold %s", targetFile, contentLength, parallelizationThreshold));
+    if (!acceptsRanges) {
+      LOGGER.debug(String.format("File %s will not be downloaded in parallel: direct URL %s doesn't accept byte ranges", targetFile, directUrl));
+      return false;
+    }
+
+    if (configuration.getMaxThreads() == 1) {
+      LOGGER.debug(String.format("File %s will not be downloaded in parallel: max parallelism is 1 (can be changed by %s configuration parameter)",
+                                 targetFile, S3_PARALLEL_DOWNLOAD_MAX_THREADS));
       return false;
     }
 
     long maxFileSize = configuration.getMaxFileSizeBytes();
     if (contentLength >= maxFileSize) {
-      LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is greater than threshold %s", targetFile, contentLength, maxFileSize));
+      LOGGER.debug(String.format("File %s will not be downloaded in parallel: file size %s is greater than threshold %s (can be changed by %s configuration parameter)",
+                                 targetFile, contentLength, maxFileSize, S3_PARALLEL_DOWNLOAD_MAX_FILE_SIZE_GB));
       return false;
     }
 
-    if (!acceptsRanges) {
-      LOGGER.debug(String.format("File %s will not be downloaded in parallel: direct URL %s doesn't accept byte ranges", targetFile, directUrl));
+    SplitabilityReport splitabilityReport = fileSplitter.testSplitability(contentLength);
+    if (!splitabilityReport.isSplittable()) {
+      LOGGER.debug(String.format("File %s will not be downloaded in parallel: it cannot be split into parts: %s", targetFile, splitabilityReport.getUnsplitablilityReason()));
       return false;
     }
 

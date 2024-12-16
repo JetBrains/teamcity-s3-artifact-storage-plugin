@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration;
 import jetbrains.buildServer.artifacts.s3.download.S3HttpClient;
+import jetbrains.buildServer.artifacts.s3.download.parallel.splitter.FileSplitter;
 import org.jetbrains.annotations.NotNull;
 
 public final class ParallelDownloadContext {
