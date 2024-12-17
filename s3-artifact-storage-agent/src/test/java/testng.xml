@@ -6,6 +6,7 @@
       <class name="jetbrains.buildServer.artifacts.s3.publish.S3ArtifactsPublisherTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.publish.logger.StatisticsLoggerTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtilTest"/>
+      <class name="jetbrains.buildServer.artifacts.s3.download.S3ArtifactTransportTest"/>
       <class name="jetbrains.buildServer.artifacts.s3.download.parallel.FileSplitterImplTest"/>
     </classes>
   </test>

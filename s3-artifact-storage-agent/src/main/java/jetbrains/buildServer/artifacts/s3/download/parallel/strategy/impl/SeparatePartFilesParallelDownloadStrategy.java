@@ -21,7 +21,7 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 /**
  * Parallel strategy that downloads parts into separate files in the build temp directory first, and then merges them into the target file.
  */
-public final class SeparatePartFilesParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
+public class SeparatePartFilesParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
   public static final String NAME = "SEPARATE_PART_FILES_PARALLEL";
   private static final String BUILD_TEMP_SUBDIRECTORY_NAME = "s3_downloads";
 

@@ -20,7 +20,7 @@ import static jetbrains.buildServer.artifacts.s3.download.S3DownloadIOUtil.*;
 /**
  * Parallel strategy that downloads parts into the target file sectors directly using SeekableByteChannel.
  */
-public final class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
+public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStrategy {
   public static final String NAME = "INPLACE_PARALLEL";
 
   @Override

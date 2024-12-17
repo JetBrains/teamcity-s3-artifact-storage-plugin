@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.function.LongConsumer;
 import jetbrains.buildServer.TempFiles;
-import org.jetbrains.annotations.NotNull;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
@@ -525,7 +524,6 @@ public class S3DownloadIOUtilTest {
     }
   }
 
-  @NotNull
   private static byte[] generateData(int dataSizeBytes) {
     byte[] data = new byte[dataSizeBytes];
     for (int i = 0; i < dataSizeBytes; i++) {
