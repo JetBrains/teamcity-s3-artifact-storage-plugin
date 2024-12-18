@@ -3,6 +3,8 @@ package jetbrains.buildServer.artifacts.s3.download;
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.*;
 import jetbrains.buildServer.artifacts.TransportFactoryExtension;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
@@ -37,7 +39,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   @NotNull
   private final EventDispatcher<AgentLifeCycleListener> agentLifecycleDispatcher;
   @NotNull
-  private final List<ParallelDownloadStrategy> parallelDownloadStrategies;
+  private final Map<String, ParallelDownloadStrategy> parallelDownloadStrategiesByName;
 
   // state fields, access should be synchronized by this
   @Nullable
@@ -58,7 +60,8 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
     this.defaultTransportFactory = defaultTransportFactory;
     this.currentBuildTracker = currentBuildTracker;
     this.agentLifecycleDispatcher = agentLifecycleDispatcher;
-    this.parallelDownloadStrategies = parallelDownloadStrategies;
+    parallelDownloadStrategiesByName = parallelDownloadStrategies.stream()
+      .collect(Collectors.toMap(ParallelDownloadStrategy::getName, Function.identity()));
   }
 
   @Override
@@ -193,7 +196,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
     String serverUrl = parameters.get(DependencyHttpHelper.SERVER_URL_PARAM);
     ExecutorService executor = this.executor;
     Objects.requireNonNull(executor, "Executor is null");
-    return new S3ArtifactTransport(serverUrl, client, executor, dependencyHttpHelper, configuration, runningBuild, parallelDownloadStrategies);
+    return new S3ArtifactTransport(serverUrl, client, executor, dependencyHttpHelper, configuration, runningBuild, parallelDownloadStrategiesByName);
   }
 
   @NotNull

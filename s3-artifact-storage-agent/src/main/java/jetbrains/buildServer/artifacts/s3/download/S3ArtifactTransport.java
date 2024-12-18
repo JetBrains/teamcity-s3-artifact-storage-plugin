@@ -7,13 +7,9 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.ProgressTrackingURLContentRetriever;
@@ -45,7 +41,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   @NotNull private final DependencyHttpHelper dependencyHttpHelper;
   @NotNull private final S3DownloadConfiguration configuration;
   @NotNull private final AgentRunningBuild runningBuild;
-  @NotNull private final List<ParallelDownloadStrategy> parallelDownloadStrategies;
+  @NotNull private final Map<String, ParallelDownloadStrategy> parallelDownloadStrategiesByName;
   @NotNull private final FileSplitter fileSplitter;
   @NotNull private final ConcurrentHashMap<UUID, HttpMethod> myPendingRequestsById = new ConcurrentHashMap<>();
   @NotNull private final AtomicBoolean myIsInterrupted = new AtomicBoolean(false);
@@ -57,13 +53,13 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
                              @NotNull DependencyHttpHelper dependencyHttpHelper,
                              @NotNull S3DownloadConfiguration configuration,
                              @NotNull AgentRunningBuild runningBuild,
-                             @NotNull List<ParallelDownloadStrategy> parallelDownloadStrategies) {
+                             @NotNull Map<String, ParallelDownloadStrategy> parallelDownloadStrategiesByName) {
     this.httpClient = new S3HttpClient(httpClient, dependencyHttpHelper, serverUrl);
     this.executorService = executorService;
     this.dependencyHttpHelper = dependencyHttpHelper;
     this.configuration = configuration;
     this.runningBuild = runningBuild;
-    this.parallelDownloadStrategies = parallelDownloadStrategies;
+    this.parallelDownloadStrategiesByName = parallelDownloadStrategiesByName;
     fileSplitter = new FileSplitterImpl(configuration);
     maxRedirects = httpClient.getParams().getIntParameter(HttpClientParams.MAX_REDIRECTS, 10);
   }
@@ -90,7 +86,7 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
       RedirectFollowingResult result = followRedirects(srcUrl, targetFilePath, downloadProgress, 0);
       if (result.isShouldDownloadInParallel()) {
         checkIfInterrupted();
-        ParallelDownloadStrategy parallelStrategy = selectParallelStrategy(parallelDownloadStrategies);
+        ParallelDownloadStrategy parallelStrategy = getParallelStrategy();
         LOGGER.debug(String.format("File %s will be downloaded in parallel using startegy %s", targetFilePath, parallelStrategy.getName()));
         Long contentLength = result.getContentLength();
         Objects.requireNonNull(contentLength, "Content length must not be null");
@@ -262,15 +258,13 @@ public class S3ArtifactTransport implements URLContentRetriever, ProgressTrackin
   }
 
   @NotNull
-  private ParallelDownloadStrategy selectParallelStrategy(@NotNull List<ParallelDownloadStrategy> availableStrategies) {
+  private ParallelDownloadStrategy getParallelStrategy() {
     String configuredStrategyName = configuration.getParallelStrategyName();
-    return availableStrategies.stream()
-      .filter(strategy -> strategy.getName().equals(configuredStrategyName))
-      .findAny()
+    return Optional.ofNullable(parallelDownloadStrategiesByName.get(configuredStrategyName))
       .orElseThrow(() -> new RuntimeException(
         String.format(
           "Parallel download strategy %s not found, available strategies: %s",
-          configuredStrategyName, availableStrategies.stream().map(ParallelDownloadStrategy::getName).collect(Collectors.toList()))
+          configuredStrategyName, parallelDownloadStrategiesByName.keySet())
       ));
   }
 

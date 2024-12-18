@@ -54,7 +54,7 @@ public class S3ArtifactTransportTest {
   private AgentRunningBuild runningBuildMock;
   private ParallelDownloadStrategy inplaceStrategySpy;
   private ParallelDownloadStrategy separatePartFIlesStrategySpy;
-  private List<ParallelDownloadStrategy> parallelDownloadStrategySpies;
+  private Map<String, ParallelDownloadStrategy> parallelDownloadStrategySpies;
   private DependencyHttpHelper dependencyHttpHelperMock;
 
   @BeforeClass
@@ -122,9 +122,14 @@ public class S3ArtifactTransportTest {
     when(runningBuildMock.getSharedConfigParameters()).thenReturn(Collections.emptyMap());
     when(runningBuildMock.getBuildTempDirectory()).thenReturn(perMethodTempFiles.createTempDir().toPath().toFile());
 
-    inplaceStrategySpy = spy(new InplaceParallelDownloadStrategy());
-    separatePartFIlesStrategySpy = spy(new SeparatePartFilesParallelDownloadStrategy());
-    parallelDownloadStrategySpies = Arrays.asList(inplaceStrategySpy, separatePartFIlesStrategySpy);
+    InplaceParallelDownloadStrategy inplaceStrategy = new InplaceParallelDownloadStrategy();
+    SeparatePartFilesParallelDownloadStrategy separatePartFilesStrategy = new SeparatePartFilesParallelDownloadStrategy();
+    inplaceStrategySpy = spy(inplaceStrategy);
+    separatePartFIlesStrategySpy = spy(separatePartFilesStrategy);
+    parallelDownloadStrategySpies = new HashMap<String, ParallelDownloadStrategy>() {{
+      put(inplaceStrategy.getName(), inplaceStrategySpy);
+      put(separatePartFilesStrategy.getName(), separatePartFIlesStrategySpy);
+    }};
 
     dependencyHttpHelperMock = mock(DependencyHttpHelper.class);
   }
@@ -320,7 +325,7 @@ public class S3ArtifactTransportTest {
     instance.downloadUrlTo(presignedUrl.toString(), targetFile.toFile());
   }
 
-  private S3ArtifactTransport createInstance(AgentRunningBuild runningBuild, List<ParallelDownloadStrategy> parallelDownloadStrategies) {
+  private S3ArtifactTransport createInstance(AgentRunningBuild runningBuild, Map<String, ParallelDownloadStrategy> parallelDownloadStrategiesByName) {
     S3DownloadConfiguration configuration = new S3DownloadConfiguration(runningBuild);
     return new S3ArtifactTransport(
       "https://i-am-teamcity-server",
@@ -329,7 +334,7 @@ public class S3ArtifactTransportTest {
       dependencyHttpHelperMock,
       configuration,
       runningBuild,
-      parallelDownloadStrategies
+      parallelDownloadStrategiesByName
     );
   }
 
