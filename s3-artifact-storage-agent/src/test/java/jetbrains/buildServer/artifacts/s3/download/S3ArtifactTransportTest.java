@@ -18,6 +18,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import jetbrains.buildServer.TempFiles;
 import jetbrains.buildServer.agent.AgentRunningBuild;
+import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.ProgressTrackingURLContentRetriever;
 import jetbrains.buildServer.artifacts.URLContentRetriever;
@@ -121,6 +122,7 @@ public class S3ArtifactTransportTest {
     runningBuildMock = mock(AgentRunningBuild.class);
     when(runningBuildMock.getSharedConfigParameters()).thenReturn(Collections.emptyMap());
     when(runningBuildMock.getBuildTempDirectory()).thenReturn(perMethodTempFiles.createTempDir().toPath().toFile());
+    when(runningBuildMock.getBuildLogger()).thenReturn(mock(BuildProgressLogger.class));
 
     InplaceParallelDownloadStrategy inplaceStrategy = new InplaceParallelDownloadStrategy();
     SeparatePartFilesParallelDownloadStrategy separatePartFilesStrategy = new SeparatePartFilesParallelDownloadStrategy();

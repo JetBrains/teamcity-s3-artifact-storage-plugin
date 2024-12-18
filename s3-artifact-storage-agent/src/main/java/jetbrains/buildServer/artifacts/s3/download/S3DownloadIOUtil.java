@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -56,6 +57,39 @@ public final class S3DownloadIOUtil {
     }
   }
 
+  public static void reserveFileBytesNonEmpty(@NotNull Path file, long bytes, @NotNull IORunnable interruptedCheck) throws IOException {
+    if (bytes <= 0) throw new IllegalArgumentException(String.format("Number of bytes is not positive: %s", bytes));
+
+    try (FileOutputStream fos = new FileOutputStream(file.toFile()); FileChannel fileChannel = fos.getChannel()) {
+      int bufferSize = 10 * 1024;
+      ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+
+      for (int i = 0; i < bufferSize; i++) {
+        buffer.put((byte)i);
+      }
+
+      buffer.flip();
+
+      long bytesWritten = 0;
+      while (bytesWritten < bytes) {
+        interruptedCheck.run();
+        long remaining = bytes - bytesWritten;
+
+        // adjust buffer limit if remaining bytes are less than buffer size
+        if (remaining < bufferSize) {
+          buffer.limit((int)remaining);
+        }
+
+        bytesWritten += fileChannel.write(buffer);
+
+        // reset buffer for the next iteration
+        buffer.rewind();
+      }
+
+      fileChannel.truncate(bytes); // needed if the file already exists and is larger than bytes
+    }
+  }
+
   // general channel transfer
 
   public static void transferExpectedBytes(@NotNull ReadableByteChannel sourceChannel,
@@ -77,13 +111,25 @@ public final class S3DownloadIOUtil {
     transferBytes(sourceChannel, targetChannel, false, -1, bufferSize, interruptedCheck, progressTracker);
   }
 
-  private static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
-                            @NotNull WritableByteChannel targetChannel,
-                            boolean expectedCheck,
-                            long expectedBytes,
-                            int bufferSize,
-                            @NotNull IORunnable interruptedCheck,
-                            @NotNull LongConsumer progressTracker
+  public static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
+                                    @NotNull WritableByteChannel targetChannel,
+                                    boolean expectedCheck,
+                                    long expectedBytes,
+                                    int bufferSize,
+                                    @NotNull IORunnable interruptedCheck,
+                                    @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    transferBytes(sourceChannel, targetChannel, expectedCheck, expectedBytes, bufferSize, interruptedCheck, l -> {}, progressTracker);
+  }
+
+  public static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
+                                    @NotNull WritableByteChannel targetChannel,
+                                    boolean expectedCheck,
+                                    long expectedBytes,
+                                    int bufferSize,
+                                    @NotNull IORunnable interruptedCheck,
+                                    @NotNull LongConsumer recievedTracker,
+                                    @NotNull LongConsumer writtentTracker
   ) throws IOException {
     interruptedCheck.run();
     if (expectedCheck && expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
@@ -93,8 +139,10 @@ public final class S3DownloadIOUtil {
     long transferred = 0;
     while (sourceChannel.read(byteBuffer) >= 0) {
       byteBuffer.flip();
+      int remaining = byteBuffer.remaining();
+      recievedTracker.accept(remaining);
       while (byteBuffer.hasRemaining()) {
-        long toBeTransferred = byteBuffer.remaining() + transferred;
+        long toBeTransferred = remaining + transferred;
         if (expectedCheck && toBeTransferred > expectedBytes) {
           throw new RecoverableIOException(String.format("Received more bytes from source channel (at least %s) than expected (%s)", toBeTransferred, expectedBytes));
         }
@@ -102,7 +150,7 @@ public final class S3DownloadIOUtil {
         interruptedCheck.run();
         int written = targetChannel.write(byteBuffer);
         transferred += written;
-        progressTracker.accept(written);
+        writtentTracker.accept(written);
       }
       byteBuffer.clear();
     }

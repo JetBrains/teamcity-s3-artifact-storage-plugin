@@ -31,6 +31,7 @@ public class S3DownloadConfiguration {
   private static final IntegerParameterBounds BOUNDS_BUFFER_SIZE_KB = lowerAndUpper(1, 1024 * 1024);
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS = lowerAndUpper(1, 100_000);
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS_PER_HOST = lowerAndUpper(1, 100_000);
+  private static final IntegerParameterBounds BOUNDS_INTERVAL_MS = lower(10);
 
   private final long myBuildId;
   @NotNull
@@ -148,6 +149,10 @@ public class S3DownloadConfiguration {
   @Override
   public int hashCode() {
     return Objects.hash(myBuildId);
+  }
+
+  public int getIntervalMs() {
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_INTERVAL_MS, 1000, BOUNDS_INTERVAL_MS);
   }
 
   static final class IntegerParameterBounds {
