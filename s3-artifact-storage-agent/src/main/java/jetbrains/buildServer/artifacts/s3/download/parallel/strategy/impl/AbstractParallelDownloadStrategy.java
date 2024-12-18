@@ -7,6 +7,9 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import jetbrains.buildServer.agent.BuildProgressLogger;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import jetbrains.buildServer.artifacts.s3.download.S3DownloadConfiguration;
@@ -58,12 +61,34 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
         throw new IOException("Preparations before downloading parts failed", e);
       }
 
+      AtomicBoolean threadProgressReportingDone = new AtomicBoolean(false);
       try {
         checkDownloadInterrupted(downloadState);
+        int interval = configuration.getIntervalMs();
+        new Thread(() -> {
+          while (!threadProgressReportingDone.get()) {
+            try {
+              BuildProgressLogger buildLogger = downloadContext.getRunningBuild().getBuildLogger();
+              String threadProgressReport = downloadState.getThreadsProgressReport().entrySet().stream()
+                .sorted(Comparator.comparingLong(Map.Entry::getKey))
+                .map(entry -> "\t" + entry.getKey() + ": " + entry.getValue())
+                .collect(Collectors.joining("\n"));
+              buildLogger.message("Thread progress for " + targetFile + ":\n" +
+                                  "\tparts: " + fileParts.stream().map(p -> p.getDescription()).collect(Collectors.toList()) + "\n" +
+                                  (threadProgressReport.isEmpty() ? "\tstarting" : threadProgressReport));
+              Thread.sleep(interval);
+            } catch (InterruptedException e) {
+              throw new RuntimeException("Test progress thread interrupted", e);
+            }
+          }
+        }).start();
+
         downloadParts(srcUrl, fileParts, targetFile, fileSize, downloadState, downloadContext);
         LOGGER.debug("Finished downloading parts of file " + targetFile);
       } catch (Exception e) {
         throw new IOException("Failed to download file parts", e);
+      } finally {
+        threadProgressReportingDone.set(true);
       }
 
       try {
@@ -149,6 +174,7 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
                             @NotNull ParallelDownloadContext downloadContext) throws IOException {
     GetMethod request = null;
     try {
+      downloadState.startedDownloadinPartByThread(filePart);
       request = new GetMethod(srcUrl);
       request.addRequestHeader(createRangeHeader(filePart.getStartByte(), filePart.getEndByte()));
 

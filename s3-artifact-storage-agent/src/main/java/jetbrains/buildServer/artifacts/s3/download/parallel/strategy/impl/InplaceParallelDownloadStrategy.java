@@ -31,7 +31,11 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
                                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
-    reserveFileBytes(unfinishedTargetFile, fileSize);
+    //downloadContext.getRunningBuild().getBuildLogger().message(String.format("Reserving %s bytes for %s", fileSize, unfinishedTargetFile));
+    reserveFileBytesNonEmpty(unfinishedTargetFile, fileSize, () -> checkDownloadInterruptedOrFailed(downloadState));
+    Files.deleteIfExists(unfinishedTargetFile);
+    Files.createFile(unfinishedTargetFile); // just create new empty file
+    //downloadContext.getRunningBuild().getBuildLogger().message(String.format("Reserved %s bytes for %s", fileSize, unfinishedTargetFile));
   }
 
   @Override

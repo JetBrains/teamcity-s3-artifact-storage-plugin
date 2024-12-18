@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -52,6 +53,39 @@ public final class S3DownloadIOUtil {
     try (SeekableByteChannel fileChannel = Files.newByteChannel(file, EnumSet.of(CREATE, WRITE))) {
       fileChannel.position(bytes - 1);
       fileChannel.write(ByteBuffer.wrap(new byte[]{0}));
+      fileChannel.truncate(bytes); // needed if the file already exists and is larger than bytes
+    }
+  }
+
+  public static void reserveFileBytesNonEmpty(@NotNull Path file, long bytes, @NotNull IORunnable interruptedCheck) throws IOException {
+    if (bytes <= 0) throw new IllegalArgumentException(String.format("Number of bytes is not positive: %s", bytes));
+
+    try (FileOutputStream fos = new FileOutputStream(file.toFile()); FileChannel fileChannel = fos.getChannel()) {
+      int bufferSize = 10 * 1024;
+      ByteBuffer buffer = ByteBuffer.allocate(bufferSize);
+
+      for (int i = 0; i < bufferSize; i++) {
+        buffer.put((byte)i);
+      }
+
+      buffer.flip();
+
+      long bytesWritten = 0;
+      while (bytesWritten < bytes) {
+        interruptedCheck.run();
+        long remaining = bytes - bytesWritten;
+
+        // adjust buffer limit if remaining bytes are less than buffer size
+        if (remaining < bufferSize) {
+          buffer.limit((int) remaining);
+        }
+
+        bytesWritten += fileChannel.write(buffer);
+
+        // reset buffer for the next iteration
+        buffer.rewind();
+      }
+
       fileChannel.truncate(bytes); // needed if the file already exists and is larger than bytes
     }
   }
