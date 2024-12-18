@@ -20,6 +20,7 @@ import jetbrains.buildServer.TempFiles;
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.FileProgress;
 import jetbrains.buildServer.artifacts.ProgressTrackingURLContentRetriever;
+import jetbrains.buildServer.artifacts.URLContentRetriever;
 import jetbrains.buildServer.artifacts.impl.DependencyHttpHelper;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.ParallelDownloadStrategy;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
@@ -126,19 +127,6 @@ public class S3ArtifactTransportTest {
     parallelDownloadStrategySpies = Arrays.asList(inplaceStrategySpy, separatePartFIlesStrategySpy);
 
     dependencyHttpHelperMock = mock(DependencyHttpHelper.class);
-  }
-
-  private ProgressTrackingURLContentRetriever createInstance(AgentRunningBuild runningBuild, List<ParallelDownloadStrategy> parallelDownloadStrategies) {
-    S3DownloadConfiguration configuration = new S3DownloadConfiguration(runningBuild);
-    return new S3ArtifactTransport(
-      "https://i-am-teamcity-server",
-      httpClient,
-      executorService,
-      dependencyHttpHelperMock,
-      configuration,
-      runningBuild,
-      parallelDownloadStrategies
-    );
   }
 
   @AfterMethod
@@ -300,7 +288,7 @@ public class S3ArtifactTransportTest {
   }
 
   @Test(expectedExceptions = IOException.class)
-  public void shouldFailWhenFileNotExistsAtSrcUrl() throws IOException {
+  public void shouldThrowExceptionWhenFileNotExistsAtSrcUrl() throws IOException {
     // arrange
     String fileName = "non-existing-file.sh";
     Path targetFile = targetFilesDir.resolve(fileName);
@@ -311,6 +299,38 @@ public class S3ArtifactTransportTest {
 
     // act
     instance.downloadUrlTo(presignedUrl.toString(), targetFile.toFile(), progress);
+  }
+
+  @Test(expectedExceptions = IOException.class)
+  public void shouldThrowExceptionWhenInterrupted() throws IOException {
+    // arrange
+    String fileName = TestFile.FILE_2_234_456_B.getName();
+    Path targetFile = targetFilesDir.resolve(fileName);
+    URL presignedUrl = createPresignedUrl(fileName);
+
+    when(runningBuildMock.getSharedConfigParameters()).thenReturn(new HashMap<String, String>() {{
+      put(S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB, Integer.toString(1));
+      put(S3_PARALLEL_DOWNLOAD_MAX_THREADS, Integer.toString(5));
+    }});
+
+    URLContentRetriever instance = createInstance(runningBuildMock, parallelDownloadStrategySpies);
+    instance.interrupt();
+
+    // act
+    instance.downloadUrlTo(presignedUrl.toString(), targetFile.toFile());
+  }
+
+  private S3ArtifactTransport createInstance(AgentRunningBuild runningBuild, List<ParallelDownloadStrategy> parallelDownloadStrategies) {
+    S3DownloadConfiguration configuration = new S3DownloadConfiguration(runningBuild);
+    return new S3ArtifactTransport(
+      "https://i-am-teamcity-server",
+      httpClient,
+      executorService,
+      dependencyHttpHelperMock,
+      configuration,
+      runningBuild,
+      parallelDownloadStrategies
+    );
   }
 
   private void assertFileDownloadedCorrectly(Path targetFile, Path sourceFile) throws IOException {
