@@ -29,102 +29,100 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   private static final String EXECUTOR_NAME = "S3 artifact transport executor";
 
   @NotNull
-  private final DependencyHttpHelper myDependencyHttpHelper;
+  private final DependencyHttpHelper dependencyHttpHelper;
   @NotNull
-  private final HttpArtifactTransportFactory myDefaultTransportFactory;
+  private final HttpArtifactTransportFactory defaultTransportFactory;
   @NotNull
-  private final CurrentBuildTracker myCurrentBuildTracker;
+  private final CurrentBuildTracker currentBuildTracker;
   @NotNull
-  private final EventDispatcher<AgentLifeCycleListener> myAgentLifecycleDispatcher;
+  private final EventDispatcher<AgentLifeCycleListener> agentLifecycleDispatcher;
   @NotNull
-  private final List<ParallelDownloadStrategy> myParallelDownloadStrategies;
-  @NotNull
-  private final String mySimpleClassName = S3ArtifactTransportFactory.class.getSimpleName();
+  private final List<ParallelDownloadStrategy> parallelDownloadStrategies;
 
   // state fields, access should be synchronized by this
   @Nullable
-  private volatile S3DownloadConfiguration myCurrentBuildConfiguration;
+  private volatile S3DownloadConfiguration currentBuildConfiguration;
   @NotNull
-  private final Map<Map<String, String>, HttpClient> myCurrentBuildClients = new HashMap<>(); // clients pool to reuse diring a build
+  private final Map<Map<String, String>, HttpClient> currentBuildClients = new HashMap<>(); // clients pool to reuse clients diring a build
   @Nullable
-  private volatile ExecutorService myExecutor;
-  private volatile int myExecutorParallelism;
-  private volatile boolean myFactoryShutdown = false;
+  private volatile ExecutorService executor; // executor to reuse between builds
+  private volatile int executorParallelism;
+  private volatile boolean isFactoryShutdown = false;
 
   public S3ArtifactTransportFactory(@NotNull DependencyHttpHelper dependencyHttpHelper,
                                     @NotNull HttpArtifactTransportFactory defaultTransportFactory,
                                     @NotNull CurrentBuildTracker currentBuildTracker,
                                     @NotNull EventDispatcher<AgentLifeCycleListener> agentLifecycleDispatcher,
                                     @NotNull List<ParallelDownloadStrategy> parallelDownloadStrategies) {
-    myDependencyHttpHelper = dependencyHttpHelper;
-    myDefaultTransportFactory = defaultTransportFactory;
-    myCurrentBuildTracker = currentBuildTracker;
-    myAgentLifecycleDispatcher = agentLifecycleDispatcher;
-    myParallelDownloadStrategies = parallelDownloadStrategies;
+    this.dependencyHttpHelper = dependencyHttpHelper;
+    this.defaultTransportFactory = defaultTransportFactory;
+    this.currentBuildTracker = currentBuildTracker;
+    this.agentLifecycleDispatcher = agentLifecycleDispatcher;
+    this.parallelDownloadStrategies = parallelDownloadStrategies;
   }
 
   @Override
   public void afterPropertiesSet() {
-    myAgentLifecycleDispatcher.addListener(this);
+    agentLifecycleDispatcher.addListener(this);
   }
 
   @Override
   public void destroy() {
     shutdown();
-    myAgentLifecycleDispatcher.removeListener(this);
+    agentLifecycleDispatcher.removeListener(this);
   }
 
   private synchronized void shutdown() {
-    if (myFactoryShutdown) return;
+    if (isFactoryShutdown) return;
     disposeExecutor(true);
     disposeClients(true);
-    myFactoryShutdown = true;
+    isFactoryShutdown = true;
   }
 
   @Override
   public synchronized void buildStarted(@NotNull AgentRunningBuild runningBuild) {
-    if (myFactoryShutdown) return;
+    if (isFactoryShutdown) return;
     ensurePreparedToBuild(runningBuild);
   }
 
   private synchronized S3DownloadConfiguration ensurePreparedToBuild(@NotNull AgentRunningBuild runningBuild) {
-    S3DownloadConfiguration currentConfiguration = myCurrentBuildConfiguration;
+    S3DownloadConfiguration currentConfiguration = currentBuildConfiguration;
     if (currentConfiguration != null && currentConfiguration.getBuildId() == runningBuild.getBuildId()) {
       return currentConfiguration; // already prepared to this build
     }
 
     S3DownloadConfiguration newConfiguration = new S3DownloadConfiguration(runningBuild);
-    myCurrentBuildConfiguration = newConfiguration;
+    currentBuildConfiguration = newConfiguration;
     ensureExecutorReady(newConfiguration);
     disposeClients(false);
     return newConfiguration;
   }
 
   private synchronized void ensureExecutorReady(@NotNull S3DownloadConfiguration configuration) {
-    // reinit executor if parallelism changed since the last build
+    // reinit executor if parallelism changed since the previous build
     int parallelism = configuration.getMaxThreads();
-    if (myExecutor != null) {
-      if (myExecutorParallelism == parallelism) {
+    if (executor != null) {
+      if (executorParallelism == parallelism) {
         return; // can reuse executor from the previous build
       }
 
       disposeExecutor(false);
     }
 
-    myExecutor = ExecutorsFactory.newFixedDaemonExecutor(EXECUTOR_NAME, parallelism);
-    myExecutorParallelism = parallelism;
+    executor = ExecutorsFactory.newFixedDaemonExecutor(EXECUTOR_NAME, parallelism);
+    executorParallelism = parallelism;
   }
 
   private synchronized void disposeExecutor(boolean silently) {
     try {
-      ExecutorService executor = myExecutor;
+      ExecutorService executor = this.executor;
       if (executor == null) {
         return;
       }
 
       ThreadUtil.shutdownGracefully(executor, EXECUTOR_NAME);
-      myExecutor = null;
-      myExecutorParallelism = 0;
+      this.executor = null;
+      executorParallelism = 0;
     } catch (RuntimeException e) {
       LOGGER.error(String.format("Error while shutting down %s", EXECUTOR_NAME), e);
       if (!silently) {
@@ -134,19 +132,20 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   }
 
   private synchronized void disposeClients(boolean silently) {
-    Collection<HttpClient> clients = myCurrentBuildClients.values();
+    Collection<HttpClient> clients = currentBuildClients.values();
     clients.forEach(client -> {
       try {
         MultiThreadedHttpConnectionManager connectionManager = (MultiThreadedHttpConnectionManager)client.getHttpConnectionManager();
         connectionManager.shutdown();
       } catch (RuntimeException e) {
-        LOGGER.error(String.format("Error while shutting down connection manager of %s", mySimpleClassName), e);
+        String message = "Error while shutting down HTTP client connection manager";
+        LOGGER.error(String.format(message), e);
         if (!silently) {
-          throw new RuntimeException("Error while shutting down connection manager", e);
+          throw new RuntimeException(message, e);
         }
       }
     });
-    myCurrentBuildClients.clear();
+    currentBuildClients.clear();
   }
 
   @Override
@@ -155,22 +154,22 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
   }
 
   private synchronized void cleanupBeforeBuildFinish() {
-    if (myFactoryShutdown) return;
+    if (isFactoryShutdown) return;
     disposeClients(false); // the next build will not be able to reuse any client because it will have the other user for authentication on server
-    myCurrentBuildConfiguration = null;
+    currentBuildConfiguration = null;
   }
 
   @Override
   @Nullable
   public synchronized URLContentRetriever getTransport(@NotNull Map<String, String> parameters) {
-    if (myFactoryShutdown) {
+    if (isFactoryShutdown) {
       LOGGER.warn("Attempted to create S3 artifact transport on shut down factory");
       return null;
     }
 
     AgentRunningBuild runningBuild;
     try {
-      runningBuild = myCurrentBuildTracker.getCurrentBuild();
+      runningBuild = currentBuildTracker.getCurrentBuild();
     } catch (NoRunningBuildException e) {
       LOGGER.warn("Attempted to create S3 artifact transport outside the scope of a running build");
       return null;
@@ -192,15 +191,15 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
     LOGGER.debug(String.format("Creating S3 artifact transport, build ID = %s", buildId));
     HttpClient client = findOrCreateClient(parameters, configuration);
     String serverUrl = parameters.get(DependencyHttpHelper.SERVER_URL_PARAM);
-    ExecutorService executor = myExecutor;
+    ExecutorService executor = this.executor;
     Objects.requireNonNull(executor, "Executor is null");
-    return new S3ArtifactTransport(serverUrl, client, executor, myDependencyHttpHelper, configuration, runningBuild, myParallelDownloadStrategies);
+    return new S3ArtifactTransport(serverUrl, client, executor, dependencyHttpHelper, configuration, runningBuild, parallelDownloadStrategies);
   }
 
   @NotNull
   private synchronized HttpClient findOrCreateClient(@NotNull Map<String, String> parameters, @NotNull S3DownloadConfiguration configuration) {
     Map<String, String> parametersCopy = new HashMap<>(parameters); // copy to guarantee map keys don't mutate
-    return myCurrentBuildClients.computeIfAbsent(parametersCopy, p -> {
+    return currentBuildClients.computeIfAbsent(parametersCopy, p -> {
       LOGGER.debug("Creating new HTTP client and adding it to the pool");
       return createClient(parametersCopy, configuration);
     });
@@ -208,7 +207,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
 
   @NotNull
   private HttpClient createClient(@NotNull Map<String, String> parameters, @NotNull S3DownloadConfiguration configuration) {
-    HttpClient httpClient = myDependencyHttpHelper.createClient(parameters);
+    HttpClient httpClient = dependencyHttpHelper.createClient(parameters);
     if (httpClient == null) {
       throw new RuntimeException(String.format("%s failed to create HTTP client", DependencyHttpHelper.class.getSimpleName()));
     }
@@ -233,7 +232,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
     return new PositionConstraint() {
       @Override
       public String toString() {
-        return "Before " + myDefaultTransportFactory.getOrderId();
+        return "Before " + defaultTransportFactory.getOrderId();
       }
 
       @Override
@@ -244,7 +243,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
       @Override
       public boolean isLast() {
         /**
-         * Should be last to be sorted correctly because {@link myDefaultTransportFactory} is last, see {@link PositionAwareSortedCollection#getSorted()}
+         * Should be last to be sorted correctly because {@link defaultTransportFactory} is last, see {@link PositionAwareSortedCollection#getSorted()}
          */
         return true;
       }
@@ -252,7 +251,7 @@ public class S3ArtifactTransportFactory extends AgentLifeCycleAdapter implements
       @NotNull
       @Override
       public Collection<String> getBefore() {
-        return Collections.singleton(myDefaultTransportFactory.getOrderId());
+        return Collections.singleton(defaultTransportFactory.getOrderId());
       }
     };
   }
