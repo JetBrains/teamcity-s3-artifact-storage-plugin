@@ -40,7 +40,7 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
 
     List<FilePart> fileParts = fileSplitter.split(fileSize);
     if (fileParts.size() == 1) {
-      LOGGER.warn(String.format("File %s of size %s is destined for parallel download, but was split into only 1 part %s. S3 artifact transport misconfigured?",
+      LOGGER.warn(String.format("File %s of size %s should be downloaded in parallel, but was split into only 1 part %s. S3 artifact transport misconfigured?",
                                 targetFile, fileSize, fileParts.get(0).getDescription()));
     }
 
