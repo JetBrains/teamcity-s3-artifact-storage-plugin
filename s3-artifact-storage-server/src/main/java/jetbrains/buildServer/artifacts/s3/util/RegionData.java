@@ -13,6 +13,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+
+/**
+ * @deprecated use #{@link jetbrains.buildServer.clouds.amazon.connector.utils.parameters.regions.AWSRegions}
+ */
+@Deprecated
 public final class RegionData {
 
   private static final String SERVICE_NAME = "s3";

@@ -7,12 +7,11 @@
 
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="params" class="jetbrains.buildServer.artifacts.s3.web.S3ParametersProvider"/>
-<jsp:useBean id="regionData" class="jetbrains.buildServer.artifacts.s3.util.RegionData" />
 
 <%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
 <%@ page import="jetbrains.buildServer.util.StringUtil" %>
 <%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
-<%@ page import="jetbrains.buildServer.util.amazon.AWSRegions" %>
+<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.regions.AWSRegions" %>
 
 <c:set var="region_name_param" value="<%=AWSCommonParams.REGION_NAME_PARAM%>"/>
 <c:set var="region_name_default" value="<%=AWSRegions.DEFAULT_REGION%>"/>
@@ -130,8 +129,8 @@
     testConnectionUrl: "<bs:forJs>${test_connection_url}</bs:forJs>",
     postConnectionUrl: "<bs:forJs>${post_connection_url}</bs:forJs>",
 
-    regionCodes: "<bs:forJs>${regionData.serializedRegionCodes}</bs:forJs>",
-    regionDescriptions: "<bs:forJs>${regionData.serializedRegionDescriptions}</bs:forJs>"
+    regionCodes: "<bs:forJs>${AWSRegions.getSerializedRegionCodes()}</bs:forJs>",
+    regionDescriptions: "<bs:forJs>${AWSRegions.getSerializedRegionDescriptions()}</bs:forJs>"
   };
 
   var loadJS = function (url, implementationCode, location) {
