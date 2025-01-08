@@ -3,34 +3,34 @@ package jetbrains.buildServer.artifacts.s3.download.parallel;
 import org.jetbrains.annotations.NotNull;
 
 public final class FilePart {
-  private final int partNumber;
-  private final long startByte;
-  private final long endByte;
+  private final int myPartNumber;
+  private final long myStartByte;
+  private final long myEndByte;
 
   public FilePart(int partNumber, long startByte, long endByte) {
-    this.partNumber = partNumber;
-    this.startByte = startByte;
-    this.endByte = endByte;
+    myPartNumber = partNumber;
+    myStartByte = startByte;
+    myEndByte = endByte;
   }
 
   public int getPartNumber() {
-    return partNumber;
+    return myPartNumber;
   }
 
   public long getStartByte() {
-    return startByte;
+    return myStartByte;
   }
 
   public long getEndByte() {
-    return endByte;
+    return myEndByte;
   }
 
   public long getSizeBytes() {
-    return endByte - startByte + 1;
+    return myEndByte - myStartByte + 1;
   }
 
   @NotNull
   public String getDescription() {
-    return String.format("%s (bytes %s-%s)", partNumber, startByte, endByte);
+    return String.format("%s (bytes %s-%s)", myPartNumber, myStartByte, myEndByte);
   }
 }

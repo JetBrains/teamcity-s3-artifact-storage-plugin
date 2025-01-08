@@ -4,22 +4,22 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public final class SplitabilityReport {
-  private final boolean isSplittable;
+  private final boolean myIsSplittable;
   @Nullable
-  private final String unsplitablilityReason;
+  private final String myUnsplitablilityReason;
 
   private SplitabilityReport(boolean isSplittable, @Nullable String unsplitablilityReason) {
-    this.isSplittable = isSplittable;
-    this.unsplitablilityReason = unsplitablilityReason;
+    myIsSplittable = isSplittable;
+    myUnsplitablilityReason = unsplitablilityReason;
   }
 
   public boolean isSplittable() {
-    return isSplittable;
+    return myIsSplittable;
   }
 
   @Nullable
   public String getUnsplitablilityReason() {
-    return unsplitablilityReason;
+    return myUnsplitablilityReason;
   }
 
   public static SplitabilityReport splittable() {

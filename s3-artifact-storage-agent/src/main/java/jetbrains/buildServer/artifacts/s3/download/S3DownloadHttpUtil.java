@@ -14,7 +14,7 @@ public final class S3DownloadHttpUtil {
   public static final Logger LOGGER = Logger.getInstance(S3DownloadHttpUtil.class);
 
   @Nullable
-  public static Long getResponseContentLength(@NotNull GetMethod request) {
+  public static Long getContentLength(@NotNull GetMethod request) {
     try {
       return Optional.ofNullable(request.getResponseHeader(HttpHeaders.CONTENT_LENGTH))
                      .map(Header::getValue)
@@ -26,7 +26,7 @@ public final class S3DownloadHttpUtil {
     }
   }
 
-  public static boolean isAcceptsByteRanges(@NotNull HttpMethod request) {
+  public static boolean canAcceptByteRanges(@NotNull HttpMethod request) {
     return Optional.ofNullable(request.getResponseHeader(HttpHeaders.ACCEPT_RANGES))
                    .map(Header::getValue)
                    .map(value -> "bytes".equalsIgnoreCase(value))

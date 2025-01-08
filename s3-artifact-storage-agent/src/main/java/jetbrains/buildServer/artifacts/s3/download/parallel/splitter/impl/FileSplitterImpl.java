@@ -14,24 +14,24 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PARALLEL_DOWNLOA
 
 public final class FileSplitterImpl implements FileSplitter {
   @NotNull
-  private final S3DownloadConfiguration configuration;
+  private final S3DownloadConfiguration myConfiguration;
 
   public FileSplitterImpl(@NotNull S3DownloadConfiguration configuration) {
-    this.configuration = configuration;
+    myConfiguration = configuration;
   }
 
   @NotNull
   public List<FilePart> split(long fileSize) {
     if (fileSize <= 0) throw new IllegalArgumentException("File size is not positive: " + fileSize);
 
-    final int maxThreads = configuration.getMaxThreads();
+    final int maxThreads = myConfiguration.getMaxThreads();
     if (fileSize < getSplitThreshold() || maxThreads == 1) {
       // unsplittable, return one part
       return Collections.singletonList(new FilePart(0, 0, fileSize - 1));
     }
 
     List<FilePart> parts = new ArrayList<>();
-    final long minPartSize = configuration.getMinPartSizeBytes();
+    final long minPartSize = myConfiguration.getMinPartSizeBytes();
     final long partSize;
     if (fileSize < maxThreads * minPartSize) {
       // from 2 to maxThreads parts of size = minPartSize except, possibly, the last
@@ -39,7 +39,7 @@ public final class FileSplitterImpl implements FileSplitter {
 
       long residualSize = fileSize % partSize;
       int fullParts = (int)(fileSize / partSize); // fileSize / partSize < maxThreads, safe to case to int
-      boolean extendLastFullPart = residualSize < configuration.getMinPartSizeLowerBoundBytes(); // don't create new part for too few bytes, extend the last full part
+      boolean extendLastFullPart = residualSize < myConfiguration.getMinPartSizeLowerBoundBytes(); // don't create new part for too few bytes, extend the last full part
 
       for (int partNumber = 0; partNumber < fullParts - 1; partNumber++) {
         long startByte = partSize * partNumber;
@@ -78,11 +78,11 @@ public final class FileSplitterImpl implements FileSplitter {
     long splitThreshold = getSplitThreshold();
     if (fileSize < splitThreshold) {
       return SplitabilityReport.unsplittable(String.format("File size %s is less than split threshold %s = minimum part size %s (can be configured by %s) + leftower limit %s",
-                                                           fileSize, splitThreshold, configuration.getMinPartSizeBytes(), S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB,
-                                                           configuration.getMinPartSizeLowerBoundBytes()));
+                                                           fileSize, splitThreshold, myConfiguration.getMinPartSizeBytes(), S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB,
+                                                           myConfiguration.getMinPartSizeLowerBoundBytes()));
     }
 
-    if (configuration.getMaxThreads() == 1) {
+    if (myConfiguration.getMaxThreads() == 1) {
       return SplitabilityReport.unsplittable(String.format("Maximum number of threads is 1 (can be configured by %s)", S3_PARALLEL_DOWNLOAD_MAX_THREADS));
     }
 
@@ -91,6 +91,6 @@ public final class FileSplitterImpl implements FileSplitter {
 
   private long getSplitThreshold() {
     // there should be at least the lower bound for minimum part size left for the second thread to make it worth using it
-    return configuration.getMinPartSizeBytes() + configuration.getMinPartSizeLowerBoundBytes();
+    return myConfiguration.getMinPartSizeBytes() + myConfiguration.getMinPartSizeLowerBoundBytes();
   }
 }

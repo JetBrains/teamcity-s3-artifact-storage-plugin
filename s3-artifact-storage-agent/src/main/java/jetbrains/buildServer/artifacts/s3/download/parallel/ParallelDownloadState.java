@@ -10,40 +10,40 @@ import org.jetbrains.annotations.Nullable;
 
 public final class ParallelDownloadState {
   @NotNull
-  private final FileProgress downloadProgress;
+  private final FileProgress myDownloadProgress;
   @NotNull
-  private final AtomicBoolean interruptedFlag;
+  private final AtomicBoolean myInterruptedFlag;
   @NotNull
-  private final AtomicReference<PartFailure> firstPartFailure;
+  private final AtomicReference<PartFailure> myFirstPartFailure;
 
   public ParallelDownloadState(@NotNull FileProgress downloadProgress, @NotNull AtomicBoolean interruptedFlag) {
-    this.downloadProgress = downloadProgress;
-    this.interruptedFlag = interruptedFlag;
-    firstPartFailure = new AtomicReference<>(null);
+    myDownloadProgress = downloadProgress;
+    myInterruptedFlag = interruptedFlag;
+    myFirstPartFailure = new AtomicReference<>(null);
   }
 
   public void partFailed(@NotNull FilePart filePart, @NotNull IOException exception) {
-    firstPartFailure.compareAndSet(null, new PartFailure(filePart, exception));
+    myFirstPartFailure.compareAndSet(null, new PartFailure(filePart, exception));
   }
 
   public boolean hasFailedParts() {
-    return firstPartFailure.get() != null;
+    return myFirstPartFailure.get() != null;
   }
 
   @Nullable
   public PartFailure getFirstPartFailure() {
-    return firstPartFailure.get();
+    return myFirstPartFailure.get();
   }
 
   public void expectDownloadedBytes(long bytes) {
-    downloadProgress.setExpectedLength(bytes);
+    myDownloadProgress.setExpectedLength(bytes);
   }
 
   public void addDownloadedBytes(long bytes) {
-    downloadProgress.transferred(bytes);
+    myDownloadProgress.transferred(bytes);
   }
 
   public boolean isInterrupted() {
-    return interruptedFlag.get();
+    return myInterruptedFlag.get();
   }
 }

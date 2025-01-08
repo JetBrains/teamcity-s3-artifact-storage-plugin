@@ -32,25 +32,25 @@ public class S3DownloadConfiguration {
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS = lowerAndUpper(1, 100_000);
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS_PER_HOST = lowerAndUpper(1, 100_000);
 
-  private final long buildId;
+  private final long myBuildId;
   @NotNull
-  private final Map<String, String> buildConfigurationParameters;
+  private final Map<String, String> myBuildConfigurationParameters;
   @NotNull
-  private final Map<String, String> artifactStorageSettings;
+  private final Map<String, String> myArtifactStorageSettings;
 
   @NotNull
-  private final Map<String, Boolean> memoizedBooleanParameters = new HashMap<>();
+  private final Map<String, Boolean> myMemoizedBooleanParameters = new HashMap<>();
   @NotNull
-  private final Map<String, Integer> memoizedIntegerParameters = new HashMap<>();
+  private final Map<String, Integer> myMemoizedIntegerParameters = new HashMap<>();
 
   public S3DownloadConfiguration(@NotNull AgentRunningBuild runningBuild) {
-    buildId = runningBuild.getBuildId();
-    buildConfigurationParameters = runningBuild.getSharedConfigParameters();
-    artifactStorageSettings = runningBuild.getArtifactStorageSettings();
+    myBuildId = runningBuild.getBuildId();
+    myBuildConfigurationParameters = runningBuild.getSharedConfigParameters();
+    myArtifactStorageSettings = runningBuild.getArtifactStorageSettings();
   }
 
   public long getBuildId() {
-    return buildId;
+    return myBuildId;
   }
 
   public boolean isParallelDownloadEnabled() {
@@ -90,27 +90,27 @@ public class S3DownloadConfiguration {
   }
 
   public boolean isS3CompatibleStorage() {
-    String storageType = artifactStorageSettings.get(TEAMCITY_STORAGE_TYPE_KEY);
+    String storageType = myArtifactStorageSettings.get(TEAMCITY_STORAGE_TYPE_KEY);
     return StringUtil.areEqual(storageType, S3_STORAGE_TYPE) || StringUtil.areEqual(storageType, S3_COMPATIBLE_STORAGE_TYPE);
   }
 
   @NotNull
   public String getParallelStrategyName() {
-    return Optional.ofNullable(buildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_STRATEGY))
+    return Optional.ofNullable(myBuildConfigurationParameters.get(S3_PARALLEL_DOWNLOAD_STRATEGY))
       .orElse(DEFAULT_PARALLEL_STRATEGY);
   }
 
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
-    return memoizedBooleanParameters.computeIfAbsent(paramName, name -> {
-      return Optional.ofNullable(buildConfigurationParameters.get(paramName))
+    return myMemoizedBooleanParameters.computeIfAbsent(paramName, name -> {
+      return Optional.ofNullable(myBuildConfigurationParameters.get(paramName))
         .map(Boolean::parseBoolean)
         .orElse(defaultValue);
     });
   }
 
   private int getBoundIntegerParameterOrDefault(@NotNull String paramName, int defaultValue, @NotNull IntegerParameterBounds bounds) {
-    return memoizedIntegerParameters.computeIfAbsent(paramName, name -> {
-      return Optional.ofNullable(buildConfigurationParameters.get(paramName))
+    return myMemoizedIntegerParameters.computeIfAbsent(paramName, name -> {
+      return Optional.ofNullable(myBuildConfigurationParameters.get(paramName))
         .map(stringValue -> safeParseInteger(stringValue, paramName, defaultValue))
         .map(value -> applyBounds(value, paramName, defaultValue, bounds))
         .orElse(defaultValue);
@@ -142,12 +142,12 @@ public class S3DownloadConfiguration {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     S3DownloadConfiguration that = (S3DownloadConfiguration)o;
-    return buildId == that.buildId;
+    return myBuildId == that.myBuildId;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(buildId);
+    return Objects.hash(myBuildId);
   }
 
   static final class IntegerParameterBounds {

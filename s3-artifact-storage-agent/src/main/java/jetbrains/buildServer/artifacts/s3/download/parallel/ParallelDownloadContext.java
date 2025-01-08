@@ -10,17 +10,17 @@ import org.jetbrains.annotations.NotNull;
 
 public final class ParallelDownloadContext {
   @NotNull
-  private final S3DownloadConfiguration configuration;
+  private final S3DownloadConfiguration myConfiguration;
   @NotNull
-  private final AgentRunningBuild runningBuild;
+  private final AgentRunningBuild myRunningBuild;
   @NotNull
-  private final FileSplitter fileSplitter;
+  private final FileSplitter myFileSplitter;
   @NotNull
-  private final S3HttpClient httpClient;
+  private final S3HttpClient myHttpClient;
   @NotNull
-  private final Executor executor;
+  private final Executor myExecutor;
   @NotNull
-  private final AtomicBoolean interruptedFlag;
+  private final AtomicBoolean myInterruptedFlag;
 
   public ParallelDownloadContext(@NotNull S3DownloadConfiguration configuration,
                                  @NotNull AgentRunningBuild runningBuild,
@@ -28,41 +28,41 @@ public final class ParallelDownloadContext {
                                  @NotNull S3HttpClient httpClient,
                                  @NotNull Executor executor,
                                  @NotNull AtomicBoolean interruptedFlag) {
-    this.configuration = configuration;
-    this.runningBuild = runningBuild;
-    this.fileSplitter = fileSplitter;
-    this.httpClient = httpClient;
-    this.executor = executor;
-    this.interruptedFlag = interruptedFlag;
+    myConfiguration = configuration;
+    myRunningBuild = runningBuild;
+    myFileSplitter = fileSplitter;
+    myHttpClient = httpClient;
+    myExecutor = executor;
+    myInterruptedFlag = interruptedFlag;
   }
 
   @NotNull
   public S3DownloadConfiguration getConfiguration() {
-    return configuration;
+    return myConfiguration;
   }
 
   @NotNull
   public AgentRunningBuild getRunningBuild() {
-    return runningBuild;
+    return myRunningBuild;
   }
 
   @NotNull
   public FileSplitter getFileSplitter() {
-    return fileSplitter;
+    return myFileSplitter;
   }
 
   @NotNull
   public S3HttpClient getHttpClient() {
-    return httpClient;
+    return myHttpClient;
   }
 
   @NotNull
   public Executor getExecutor() {
-    return executor;
+    return myExecutor;
   }
 
   @NotNull
   public AtomicBoolean getInterruptedFlag() {
-    return interruptedFlag;
+    return myInterruptedFlag;
   }
 }

@@ -6,22 +6,22 @@ import org.jetbrains.annotations.NotNull;
 
 public class PartFailure {
   @NotNull
-  private final FilePart part;
+  private final FilePart myPart;
   @NotNull
-  private final IOException exception;
+  private final IOException myException;
 
   public PartFailure(@NotNull FilePart part, @NotNull IOException exception) {
-    this.part = part;
-    this.exception = exception;
+    myPart = part;
+    myException = exception;
   }
 
   @NotNull
   public FilePart getPart() {
-    return part;
+    return myPart;
   }
 
   @NotNull
   public IOException getException() {
-    return exception;
+    return myException;
   }
 }
