@@ -24,6 +24,7 @@ dependencies {
     testImplementation "org.testng:testng:6.8.21"
     testImplementation "org.mockito:mockito-core:3.9.0"
     testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
+    testImplementation 'org.testcontainers:testcontainers:1.20.4'
 }
 
 agentPlugin.version = null

@@ -46,7 +46,7 @@ public class S3Constants {
   public static final String S3_PARALLEL_DOWNLOAD_MIN_PART_SIZE_MB = "teamcity.internal.storage.s3.download.parallel.minPartSizeMB";
   public static final String S3_PARALLEL_DOWNLOAD_MAX_FILE_SIZE_GB = "teamcity.internal.storage.s3.download.parallel.maxFileSizeGB"; // workaround until TW-90851 is fixed
   public static final String S3_PARALLEL_DOWNLOAD_BUFFER_SIZE_KB = "teamcity.internal.storage.s3.download.parallel.bufferSizeKB";
-  public static final String S3_PARALLEL_DOWNLOAD_FORCED_STRATEGY = "teamcity.internal.storage.s3.download.parallel.forcedStrategy";
+  public static final String S3_PARALLEL_DOWNLOAD_STRATEGY = "teamcity.internal.storage.s3.download.parallel.strategy";
   public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS = "teamcity.internal.storage.s3.download.parallel.maxConnections";
   public static final String S3_PARALLEL_DOWNLOAD_MAX_CONNECTIONS_PER_HOST = "teamcity.internal.storage.s3.download.parallel.maxConnectionsPerHost";
   public static final String S3_ACL = "storage.s3.acl";

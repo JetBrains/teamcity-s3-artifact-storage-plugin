@@ -1,30 +1,32 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
+import com.intellij.openapi.diagnostic.Logger;
 import java.io.IOException;
 import java.util.Optional;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
-import org.apache.commons.httpclient.Header;
-import org.apache.commons.httpclient.HttpMethod;
-import org.apache.commons.httpclient.HttpStatus;
+import org.apache.commons.httpclient.*;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.http.HttpHeaders;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public final class S3DownloadHttpUtil {
+  public static final Logger LOGGER = Logger.getInstance(S3DownloadHttpUtil.class);
+
   @Nullable
-  public static Long getResponseContentLength(@NotNull GetMethod request) {
+  public static Long getContentLength(@NotNull GetMethod request) {
     try {
       return Optional.ofNullable(request.getResponseHeader(HttpHeaders.CONTENT_LENGTH))
                      .map(Header::getValue)
                      .map(Long::parseLong)
                      .orElse(null);
-    } catch (Exception ignored) {
+    } catch (RuntimeException e) {
+      LOGGER.debug(String.format("Failed to parse the %s response header", HttpHeaders.CONTENT_LENGTH), e);
       return null;
     }
   }
 
-  public static boolean getAcceptsByteRanges(@NotNull HttpMethod request) {
+  public static boolean canAcceptByteRanges(@NotNull HttpMethod request) {
     return Optional.ofNullable(request.getResponseHeader(HttpHeaders.ACCEPT_RANGES))
                    .map(Header::getValue)
                    .map(value -> "bytes".equalsIgnoreCase(value))
