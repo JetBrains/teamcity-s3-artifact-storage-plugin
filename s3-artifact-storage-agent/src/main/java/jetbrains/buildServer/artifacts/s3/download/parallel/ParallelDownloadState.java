@@ -18,7 +18,9 @@ public final class ParallelDownloadState {
   @NotNull
   private final ConcurrentHashMap<Long, FilePart> myPartsByThread = new ConcurrentHashMap<>();
   @NotNull
-  private final ConcurrentHashMap<Long, AtomicLong> myDownloadProgressByThread = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<Long, AtomicLong> myRecievedBytesByThread = new ConcurrentHashMap<>();
+  @NotNull
+  private final ConcurrentHashMap<Long, AtomicLong> myWrittenBytesByThread = new ConcurrentHashMap<>();
   @NotNull
   private final AtomicBoolean myInterruptedFlag;
   @NotNull
@@ -49,22 +51,31 @@ public final class ParallelDownloadState {
 
   public void startedDownloadinPartByThread(FilePart filePart) {
     myPartsByThread.putIfAbsent(Thread.currentThread().getId(), filePart);
-    myDownloadProgressByThread.putIfAbsent(Thread.currentThread().getId(), new AtomicLong());
   }
 
   public void addDownloadedBytes(long bytes) {
     myDownloadProgress.transferred(bytes);
-    myDownloadProgressByThread.get(Thread.currentThread().getId()).addAndGet(bytes);
   }
 
-  public Map<Long, String> getThreadsProgressReport() {
-    return myDownloadProgressByThread.entrySet()
+  public void addRecievedBytes(long bytes) {
+    myRecievedBytesByThread.computeIfAbsent(Thread.currentThread().getId(),k -> new AtomicLong()).addAndGet(bytes);
+  }
+
+  public void addWrittenBytes(long bytes) {
+    myWrittenBytesByThread.computeIfAbsent(Thread.currentThread().getId(), k -> new AtomicLong()).addAndGet(bytes);
+  }
+
+  public Map<Long, String> getThreadIdToProgressReport() {
+    return myPartsByThread.entrySet()
                                    .stream()
                                    .collect(Collectors.toMap(e -> e.getKey(), e -> {
-                                     long currentProgress = e.getValue().get();
-                                     FilePart threadPart = myPartsByThread.get(e.getKey());
-                                     double progressPercent = Math.round((double)currentProgress * 100 / threadPart.getSizeBytes());
-                                     return currentProgress + " of " + threadPart.getSizeBytes() + " (" + progressPercent + "%), part " + threadPart.getDescription();
+                                     Long threadId = e.getKey();
+                                     long recieved = myRecievedBytesByThread.get(threadId).get();
+                                     long written = myWrittenBytesByThread.get(threadId).get();
+                                     FilePart threadPart = myPartsByThread.get(threadId);
+                                     double writtenPercent = Math.round((double)written * 100 / threadPart.getSizeBytes());
+                                     return String.format("recieved %s, written %s (%s%%) of %s (part %s)",
+                                                          recieved, written, writtenPercent, threadPart.getSizeBytes(), threadPart.getDescription());
                                    }));
   }
 

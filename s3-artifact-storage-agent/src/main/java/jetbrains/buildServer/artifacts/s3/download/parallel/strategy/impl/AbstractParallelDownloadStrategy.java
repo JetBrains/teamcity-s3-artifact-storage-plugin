@@ -68,21 +68,20 @@ public abstract class AbstractParallelDownloadStrategy implements ParallelDownlo
         new Thread(() -> {
           while (!threadProgressReportingDone.get()) {
             try {
-              BuildProgressLogger buildLogger = downloadContext.getRunningBuild().getBuildLogger();
-              String threadProgressReport = downloadState.getThreadsProgressReport().entrySet().stream()
-                .sorted(Comparator.comparingLong(Map.Entry::getKey))
-                .map(entry -> "\t" + entry.getKey() + ": " + entry.getValue())
-                .collect(Collectors.joining("\n"));
-              buildLogger.message("Thread progress for " + targetFile + ":\n" +
-                                  "\tparts: " + fileParts.stream().map(p -> p.getDescription()).collect(Collectors.toList()) + "\n" +
-                                  (threadProgressReport.isEmpty() ? "\tstarting" : threadProgressReport));
+              String threadProgressReport = downloadState.getThreadIdToProgressReport().entrySet().stream()
+                                                         .sorted(Comparator.comparingLong(Map.Entry::getKey))
+                                                         .map(entry -> "\t" + entry.getKey() + ": " + entry.getValue())
+                                                         .collect(Collectors.joining("\n"));
+
+              downloadContext.getRunningBuild().getBuildLogger().message(targetFile + ": progress\n" + (threadProgressReport.isEmpty() ? "\tno progress data yet" : threadProgressReport));
               Thread.sleep(interval);
             } catch (InterruptedException e) {
               throw new RuntimeException("Test progress thread interrupted", e);
             }
           }
-        }).start();
+        }, "Experimental download progress reporter for " + targetFile).start();
 
+        downloadContext.getRunningBuild().getBuildLogger().message(targetFile + ": start downloading parts " + fileParts.stream().map(p -> p.getDescription()).collect(Collectors.toList()));
         downloadParts(srcUrl, fileParts, targetFile, fileSize, downloadState, downloadContext);
         LOGGER.debug("Finished downloading parts of file " + targetFile);
       } catch (Exception e) {

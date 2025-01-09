@@ -31,11 +31,12 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
                                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
-    //downloadContext.getRunningBuild().getBuildLogger().message(String.format("Reserving %s bytes for %s", fileSize, unfinishedTargetFile));
-    reserveFileBytesNonEmpty(unfinishedTargetFile, fileSize, () -> checkDownloadInterruptedOrFailed(downloadState));
-    Files.deleteIfExists(unfinishedTargetFile);
-    Files.createFile(unfinishedTargetFile); // just create new empty file
-    //downloadContext.getRunningBuild().getBuildLogger().message(String.format("Reserved %s bytes for %s", fileSize, unfinishedTargetFile));
+    downloadContext.getRunningBuild().getBuildLogger().message(String.format("%s: reserving %s bytes", unfinishedTargetFile, fileSize));
+    reserveFileBytes(unfinishedTargetFile, fileSize);
+    //reserveFileBytesNonEmpty(unfinishedTargetFile, fileSize, () -> checkDownloadInterruptedOrFailed(downloadState));
+    //Files.deleteIfExists(unfinishedTargetFile);
+    //Files.createFile(unfinishedTargetFile); // just create new empty file
+    downloadContext.getRunningBuild().getBuildLogger().message(String.format(String.format("%s: reserved %s bytes", unfinishedTargetFile, fileSize)));
   }
 
   @Override
@@ -49,13 +50,18 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          SeekableByteChannel targetFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
       targetFileChannel.position(filePart.getStartByte());
-      transferExpectedBytes(
+      transferBytes(
         responseBodyChannel,
         targetFileChannel,
+        true,
         filePart.getSizeBytes(),
         downloadContext.getConfiguration().getBufferSizeBytes(),
         () -> checkDownloadInterruptedOrFailed(downloadState),
-        (transferred) -> downloadState.addDownloadedBytes(transferred)
+        recieved -> downloadState.addRecievedBytes(recieved),
+        written -> {
+          downloadState.addWrittenBytes(written);
+          downloadState.addDownloadedBytes(written);
+        }
       );
     } catch (IOException | RuntimeException e) {
       // aborting the request allows not to wait until full body arrives, this needs to be done before closing the response body stream

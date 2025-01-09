@@ -77,7 +77,7 @@ public final class S3DownloadIOUtil {
 
         // adjust buffer limit if remaining bytes are less than buffer size
         if (remaining < bufferSize) {
-          buffer.limit((int) remaining);
+          buffer.limit((int)remaining);
         }
 
         bytesWritten += fileChannel.write(buffer);
@@ -111,13 +111,25 @@ public final class S3DownloadIOUtil {
     transferBytes(sourceChannel, targetChannel, false, -1, bufferSize, interruptedCheck, progressTracker);
   }
 
-  private static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
-                            @NotNull WritableByteChannel targetChannel,
-                            boolean expectedCheck,
-                            long expectedBytes,
-                            int bufferSize,
-                            @NotNull IORunnable interruptedCheck,
-                            @NotNull LongConsumer progressTracker
+  public static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
+                                    @NotNull WritableByteChannel targetChannel,
+                                    boolean expectedCheck,
+                                    long expectedBytes,
+                                    int bufferSize,
+                                    @NotNull IORunnable interruptedCheck,
+                                    @NotNull LongConsumer progressTracker
+  ) throws IOException {
+    transferBytes(sourceChannel, targetChannel, expectedCheck, expectedBytes, bufferSize, interruptedCheck, l -> {}, progressTracker);
+  }
+
+  public static void transferBytes(@NotNull ReadableByteChannel sourceChannel,
+                                    @NotNull WritableByteChannel targetChannel,
+                                    boolean expectedCheck,
+                                    long expectedBytes,
+                                    int bufferSize,
+                                    @NotNull IORunnable interruptedCheck,
+                                    @NotNull LongConsumer recievedTracker,
+                                    @NotNull LongConsumer writtentTracker
   ) throws IOException {
     interruptedCheck.run();
     if (expectedCheck && expectedBytes < 0) throw new IllegalArgumentException(String.format("Expecting negative number of bytes (%s)", expectedBytes));
@@ -127,8 +139,10 @@ public final class S3DownloadIOUtil {
     long transferred = 0;
     while (sourceChannel.read(byteBuffer) >= 0) {
       byteBuffer.flip();
+      int remaining = byteBuffer.remaining();
+      recievedTracker.accept(remaining);
       while (byteBuffer.hasRemaining()) {
-        long toBeTransferred = byteBuffer.remaining() + transferred;
+        long toBeTransferred = remaining + transferred;
         if (expectedCheck && toBeTransferred > expectedBytes) {
           throw new RecoverableIOException(String.format("Received more bytes from source channel (at least %s) than expected (%s)", toBeTransferred, expectedBytes));
         }
@@ -136,7 +150,7 @@ public final class S3DownloadIOUtil {
         interruptedCheck.run();
         int written = targetChannel.write(byteBuffer);
         transferred += written;
-        progressTracker.accept(written);
+        writtentTracker.accept(written);
       }
       byteBuffer.clear();
     }
