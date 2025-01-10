@@ -16,138 +16,79 @@ import static org.testng.Assert.*;
 public class FileSplitterImplTest {
 
   @DataProvider
-  public static Object[][] splitIntoPartsTestsData() {
-    return new Object[][]{
-      {
-        1_000,
-        100,
-        10,
-        1
-      },
-      {
-        100,
-        100_000,
-        1_000,
-        100
-      },
-      {
-        10_000,
-        100_000,
-        1_000,
-        100
-      },
-      {
-        1_000_000,
-        1000,
-        100,
-        2
-      },
-      {
-        100_000_000,
-        100_000,
-        1_000,
-        100
-      },
-      {
-        10_000_000_000L,
-        100_000,
-        1_000,
-        100
-      },
-      {
-        1_000_000_000_000L,
-        100_000,
-        1_000,
-        100
-      },
-      {
-        100_000_000_000_000L,
-        100_000,
-        1_000,
-        1_000_000
-      },
-      {
-        100_000_000_000_000_000L,
-        100_000,
-        1_000,
-        1_000_000
-      },
-      {
-        100_000_000_000_000_000L,
-        1_000_000_000,
-        1_000,
-        1_000_000
-      },
-    };
-  }
-
-  @Test(dataProvider = "splitIntoPartsTestsData")
-  public void shouldSplitFileIntoPartsWitoutGapsAndKeepPartNumberEqualToPartIndexInList(long fileSize,
-                                                                                        long minPartSize,
-                                                                                        long minPartSizeLowerBound,
-                                                                                        int maxThreads) {
-    // arrange
-    FileSplitterImpl splitter = createSplitter(minPartSize, minPartSizeLowerBound, maxThreads);
-
-    // act
-    List<FilePart> parts = splitter.split(fileSize);
-
-    // assert
-    int numberOfParts = parts.size();
-    assertTrue(numberOfParts > 0);
-
-    long expectedStartByte = 0L;
-    for (int partIndex = 0; partIndex < numberOfParts; partIndex++) {
-      FilePart part = parts.get(partIndex);
-      long partNumber = part.getPartNumber();
-      long startByte = part.getStartByte();
-      long endByte = part.getEndByte();
-
-      assertEquals(partNumber, partIndex);
-      assertEquals(startByte, expectedStartByte);
-      assertTrue(startByte < endByte);
-      if (partIndex < numberOfParts - 1) {
-        assertTrue(endByte < fileSize - 1);
-      } else {
-        assertEquals(endByte, fileSize - 1);
-      }
-
-      expectedStartByte = endByte + 1;
-    }
-  }
-
-  @DataProvider
   public static Object[][] multiplePartsTestData() {
     return new Object[][]{
+      // 2 parts: partsSize >= minPartSize + minPartSizeLowerBound and maxThreads is 2
       {
-        1_000_000,
-        1000,
-        100,
+        1_234_567,
+        1_987,
+        111,
+        2,
         2
       },
+      // 2 parts, left bound: partsSize = minPartSize + minPartSizeLowerBound
       {
-        100_000_000,
-        100_000,
+        123_123,
+        122_123,
         1_000,
-        100
+        123,
+        2
       },
+      // 2 parts, right bound for non-extended 2nd part: partsSize = 2 * minPartSize
       {
-        10_000_000_000L,
-        100_000,
+        222_222_222,
+        111_111_111,
         1_000,
-        100
+        123,
+        2
       },
+      //  2 parts, left bound for extended 2nd part: partSize = 2 * minPartSize + 1
       {
-        1_000_000_000_000L,
-        100_000,
+        222_222_223,
+        111_111_111,
         1_000,
-        100
+        123,
+        2
       },
+      // 2 parts, right bound: fileSize = 2 * minPartSize + minPartSizeLowerBound - 1
       {
-        100_000_000_000_000L,
-        100_000,
+        222_223_221,
+        111_111_111,
         1_000,
-        100
+        123,
+        2
+      },
+      // 3 parts, left bound: fileSize = 2 * minPartSize + minPartSizeLowerBound
+      {
+        222_223_222,
+        111_111_111,
+        1_000,
+        123,
+        3
+      },
+      // right bound for unstretched parts: fileSize = maxThreads * minPartSize
+      {
+        555_555_555,
+        111_111_111,
+        1_000,
+        5,
+        5
+      },
+      // left bound for stretched parts: fileSize = maxThreads * minPartSize + 1
+      {
+        555_555_556,
+        111_111_111,
+        1_000,
+        5,
+        5
+      },
+      // significantly stretched parts: fileSize >> maxThreads * minPartSize
+      {
+        123_463_857_456_234L,
+        111_111_111,
+        1_000,
+        15,
+        15
       },
     };
   }
@@ -156,7 +97,8 @@ public class FileSplitterImplTest {
   public void shouldSplitIntoMultipleParts_whenFileIsLargeEnoughAndMaxThreadsIsMoreThanOne(long fileSize,
                                                                                            long minPartSize,
                                                                                            long minPartSizeLowerBound,
-                                                                                           int maxThreads) {
+                                                                                           int maxThreads,
+                                                                                           int expectedPartCount) {
     // arrange
     FileSplitterImpl splitter = createSplitter(minPartSize, minPartSizeLowerBound, maxThreads);
 
@@ -167,23 +109,33 @@ public class FileSplitterImplTest {
     // assert
     assertTrue(splitabilityReport.isSplittable());
     assertNull(splitabilityReport.getUnsplitablilityReason());
-    assertTrue(parts.size() > 1);
+    assertEquals(parts.size(), expectedPartCount);
+    assertPartsCoverFileWithoutGapsAndPartNumberEqualsPartIndexInList(fileSize, parts);
   }
 
   @DataProvider
   public static Object[][] onePartTestData() {
     return new Object[][]{
+      // 1 part, left bound (min posistive file size)
       {
-        10_000, // file is too small
-        100_000,
+        1,
+        123_783,
         1_000,
-        100
+        321
       },
+      // 1 part, right bound: fileSize = minPartSize + minPartSizeLowerBound - 1
       {
+        124_782,
+        123_783,
         1_000,
-        100,
-        10,
-        1 // only one thread
+        543
+      },
+      // 1 part: file is large enough fileSize > minPartSize + minPartSizeLowerBound but only one thread
+      {
+        123_224_782,
+        12_132,
+        15,
+        1
       },
     };
   }
@@ -204,13 +156,14 @@ public class FileSplitterImplTest {
     assertFalse(splitabilityReport.isSplittable());
     assertNotNull(splitabilityReport.getUnsplitablilityReason());
     assertEquals(parts.size(), 1);
+    assertPartsCoverFileWithoutGapsAndPartNumberEqualsPartIndexInList(fileSize, parts);
   }
 
   @DataProvider
   public static Object[][] notPositiveFileSizeTestData() {
     return new Object[][]{
       {0},
-      {-1_000_000}
+      {-123_123_321}
     };
   }
 
@@ -221,6 +174,30 @@ public class FileSplitterImplTest {
 
     // act
     splitter.split(fileSize);
+  }
+
+  private static void assertPartsCoverFileWithoutGapsAndPartNumberEqualsPartIndexInList(long fileSize, @NotNull List<FilePart> actualParts) {
+    int partCount = actualParts.size();
+    assertTrue(partCount > 0);
+
+    long expectedStartByte = 0L;
+    for (int partIndex = 0; partIndex < partCount; partIndex++) {
+      FilePart part = actualParts.get(partIndex);
+      long partNumber = part.getPartNumber();
+      long startByte = part.getStartByte();
+      long endByte = part.getEndByte();
+
+      assertEquals(partNumber, partIndex);
+      assertEquals(startByte, expectedStartByte);
+      assertTrue(startByte <= endByte);
+      if (partIndex < partCount - 1) {
+        assertTrue(endByte < fileSize - 1);
+      } else {
+        assertEquals(endByte, fileSize - 1);
+      }
+
+      expectedStartByte = endByte + 1;
+    }
   }
 
   @NotNull
