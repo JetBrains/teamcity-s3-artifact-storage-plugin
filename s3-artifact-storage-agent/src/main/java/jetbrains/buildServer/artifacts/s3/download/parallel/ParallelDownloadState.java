@@ -70,9 +70,9 @@ public final class ParallelDownloadState {
                                    .stream()
                                    .collect(Collectors.toMap(e -> e.getKey(), e -> {
                                      Long threadId = e.getKey();
-                                     long recieved = myRecievedBytesByThread.get(threadId).get();
-                                     long written = myWrittenBytesByThread.get(threadId).get();
-                                     FilePart threadPart = myPartsByThread.get(threadId);
+                                     FilePart threadPart = e.getValue();
+                                     long recieved = myRecievedBytesByThread.computeIfAbsent(threadId,k -> new AtomicLong()).get();
+                                     long written = myWrittenBytesByThread.computeIfAbsent(threadId,k -> new AtomicLong()).get();
                                      double writtenPercent = Math.round((double)written * 100 / threadPart.getSizeBytes());
                                      return String.format("recieved %s, written %s (%s%%) of %s (part %s)",
                                                           recieved, written, writtenPercent, threadPart.getSizeBytes(), threadPart.getDescription());
