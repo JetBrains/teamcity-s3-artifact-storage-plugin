@@ -45,7 +45,7 @@ public class SeparatePartFilesParallelDownloadStrategy extends AbstractParallelD
     Path partTargetFile = getPartTargetFile(filePart, targetFile, downloadContext);
     long partSizeBytes = filePart.getSizeBytes();
     checkDownloadInterruptedOrFailed(downloadState);
-    reserveFileBytes(partTargetFile, partSizeBytes);
+    reserveFileBytes(partTargetFile, partSizeBytes, downloadContext.getConfiguration().getReservedByte());
     try (ReadableByteChannel responseBodyChannel = Channels.newChannel(ongoingRequest.getResponseBodyAsStream());
          WritableByteChannel partFileChannel = Files.newByteChannel(partTargetFile, WRITE)) {
       transferExpectedBytes(
@@ -78,7 +78,7 @@ public class SeparatePartFilesParallelDownloadStrategy extends AbstractParallelD
 
       checkDownloadInterrupted(downloadState);
       ensureDirectoryExists(unfinishedTargetFile.getParent());
-      reserveFileBytes(unfinishedTargetFile, fileSize);
+      reserveFileBytes(unfinishedTargetFile, fileSize, downloadContext.getConfiguration().getReservedByte());
 
       checkDownloadInterrupted(downloadState);
       try (FileChannel targetFileChannel = FileChannel.open(unfinishedTargetFile, WRITE)) {

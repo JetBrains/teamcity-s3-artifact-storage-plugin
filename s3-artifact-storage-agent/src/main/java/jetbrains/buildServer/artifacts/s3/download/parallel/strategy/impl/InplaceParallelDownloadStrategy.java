@@ -32,11 +32,8 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
     downloadContext.getRunningBuild().getBuildLogger().message(String.format("%s: reserving %s bytes", unfinishedTargetFile, fileSize));
-    reserveFileBytes(unfinishedTargetFile, fileSize);
-    //reserveFileBytesNonEmpty(unfinishedTargetFile, fileSize, () -> checkDownloadInterruptedOrFailed(downloadState));
-    //Files.deleteIfExists(unfinishedTargetFile);
-    //Files.createFile(unfinishedTargetFile); // just create new empty file
-    downloadContext.getRunningBuild().getBuildLogger().message(String.format(String.format("%s: reserved %s bytes", unfinishedTargetFile, fileSize)));
+    reserveFileBytes(unfinishedTargetFile, fileSize, downloadContext.getConfiguration().getReservedByte());
+    downloadContext.getRunningBuild().getBuildLogger().message(String.format("%s: reserved %s bytes", unfinishedTargetFile, fileSize));
   }
 
   @Override

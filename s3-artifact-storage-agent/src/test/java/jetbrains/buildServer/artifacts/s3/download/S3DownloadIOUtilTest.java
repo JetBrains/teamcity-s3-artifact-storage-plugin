@@ -167,7 +167,7 @@ public class S3DownloadIOUtilTest {
     int expectedBytes = 5_334_234;
 
     // act
-    S3DownloadIOUtil.reserveFileBytes(targetFile, expectedBytes);
+    S3DownloadIOUtil.reserveFileBytes(targetFile, expectedBytes, (byte)0);
 
     // assert
     assertTrue(Files.isRegularFile(targetFile));
@@ -193,7 +193,7 @@ public class S3DownloadIOUtilTest {
     assertEquals(Files.size(targetFile), existingFileSize);
 
     // act
-    S3DownloadIOUtil.reserveFileBytes(targetFile, expectedBytes);
+    S3DownloadIOUtil.reserveFileBytes(targetFile, expectedBytes, (byte)0);
 
     // assert
     assertTrue(Files.isRegularFile(targetFile));
@@ -209,7 +209,7 @@ public class S3DownloadIOUtilTest {
     assertTrue(Files.isDirectory(target));
 
     // act
-    S3DownloadIOUtil.reserveFileBytes(target, 5_334_234);
+    S3DownloadIOUtil.reserveFileBytes(target, 5_334_234, (byte)0);
   }
 
   @Test(expectedExceptions = IOException.class)
@@ -221,7 +221,7 @@ public class S3DownloadIOUtilTest {
     assertFalse(Files.exists(targetFile));
 
     // act
-    S3DownloadIOUtil.reserveFileBytes(targetFile, 5_334_234);
+    S3DownloadIOUtil.reserveFileBytes(targetFile, 5_334_234, (byte)0);
   }
 
   @DataProvider
@@ -239,7 +239,7 @@ public class S3DownloadIOUtilTest {
     assertFalse(Files.exists(targetFile));
 
     // act
-    S3DownloadIOUtil.reserveFileBytes(targetFile, bytes);
+    S3DownloadIOUtil.reserveFileBytes(targetFile, bytes, (byte)0);
   }
 
   @DataProvider

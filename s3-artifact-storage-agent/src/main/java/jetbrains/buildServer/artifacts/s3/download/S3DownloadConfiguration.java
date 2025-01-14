@@ -32,6 +32,7 @@ public class S3DownloadConfiguration {
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS = lowerAndUpper(1, 100_000);
   private static final IntegerParameterBounds BOUNDS_MAX_CONNECTIONS_PER_HOST = lowerAndUpper(1, 100_000);
   private static final IntegerParameterBounds BOUNDS_INTERVAL_MS = lower(10);
+  private static final IntegerParameterBounds BOUNDS_RESERVED_BYTE = lowerAndUpper(-128, 127);
 
   private final long myBuildId;
   @NotNull
@@ -101,6 +102,14 @@ public class S3DownloadConfiguration {
       .orElse(DEFAULT_PARALLEL_STRATEGY);
   }
 
+  public int getIntervalMs() {
+    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_INTERVAL_MS, 1000, BOUNDS_INTERVAL_MS);
+  }
+
+  public byte getReservedByte() {
+    return (byte)getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_BOUNDS_RESERVED_BYTE, 0, BOUNDS_RESERVED_BYTE);
+  }
+
   private boolean getBooleanParameterOrDefault(@NotNull String paramName, boolean defaultValue) {
     return myMemoizedBooleanParameters.computeIfAbsent(paramName, name -> {
       return Optional.ofNullable(myBuildConfigurationParameters.get(paramName))
@@ -149,10 +158,6 @@ public class S3DownloadConfiguration {
   @Override
   public int hashCode() {
     return Objects.hash(myBuildId);
-  }
-
-  public int getIntervalMs() {
-    return getBoundIntegerParameterOrDefault(S3_PARALLEL_DOWNLOAD_INTERVAL_MS, 1000, BOUNDS_INTERVAL_MS);
   }
 
   static final class IntegerParameterBounds {
