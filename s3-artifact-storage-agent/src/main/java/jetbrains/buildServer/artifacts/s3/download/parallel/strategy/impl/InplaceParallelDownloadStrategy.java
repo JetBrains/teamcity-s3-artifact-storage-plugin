@@ -1,5 +1,6 @@
 package jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl;
 
+import com.intellij.openapi.util.TCSystemInfo;
 import java.io.IOException;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
@@ -31,7 +32,10 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
                                         @NotNull ParallelDownloadContext downloadContext) throws IOException {
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
-    reserveFileBytes(unfinishedTargetFile, fileSize);
+
+    // we need the file to be sparse on Windows, because writes to far positions of an empty regular file
+    // block for a long period of time which leads to connection reset by the server on large files
+    createFile(unfinishedTargetFile, TCSystemInfo.isWindows);
   }
 
   @Override

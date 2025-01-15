@@ -243,6 +243,69 @@ public class S3DownloadIOUtilTest {
   }
 
   @DataProvider
+  public Object[][] createFileTestData() {
+    return new Object[][]{
+      {false},
+      {true},
+    };
+  }
+
+  @Test(dataProvider = "createFileTestData")
+  public void shouldCreateEmptyFileWhenFileNotExists(boolean isSparse) throws IOException {
+    // arrange
+    Path targetFile = tempDir.resolve("targetFile");
+    assertFalse(Files.exists(targetFile));
+
+    // act
+    S3DownloadIOUtil.createFile(targetFile, isSparse);
+
+    // assert
+    assertTrue(Files.exists(targetFile));
+    assertEquals(Files.size(targetFile), 0);
+  }
+
+  @Test(dataProvider = "createFileTestData")
+  public void shouldCreateEmptyFileWhenFileExists(boolean isSparse) throws IOException {
+    // arrange
+    Path targetFile = tempDir.resolve("targetFile");
+    Files.createFile(targetFile);
+    Files.write(targetFile, new byte[]{1, 2, 3, 4, 5});
+    assertTrue(Files.exists(targetFile));
+    assertEquals(Files.size(targetFile), 5);
+
+    // act
+    S3DownloadIOUtil.createFile(targetFile, isSparse);
+
+    // assert
+    assertTrue(Files.exists(targetFile));
+    assertEquals(Files.size(targetFile), 0);
+  }
+
+  @Test(dataProvider = "createFileTestData", expectedExceptions = IOException.class)
+  public void shouldThrowExceptionWhenCreatingFileAndParentDirectoryDoesNotExist(boolean isSparse) throws IOException {
+    // arrange
+    Path parent = tempDir.resolve("parent");
+    Path targetFile = parent.resolve("targetFile");
+    assertFalse(Files.exists(parent));
+    assertFalse(Files.exists(targetFile));
+
+    // act
+    S3DownloadIOUtil.createFile(targetFile, isSparse);
+  }
+
+  @Test(dataProvider = "createFileTestData", expectedExceptions = IOException.class)
+  public void shouldThrowExceptionWhenCreatingFileWhenTheSameDirectoryExists(boolean isSparse) throws IOException {
+    // arrange
+    Path target = tempDir.resolve("target");
+    assertFalse(Files.exists(target));
+    Files.createDirectory(target);
+    assertTrue(Files.isDirectory(target));
+
+    // act
+    S3DownloadIOUtil.createFile(target, isSparse);
+  }
+
+  @DataProvider
   public Object[][] transferExpectedAndAllBytesTestData() {
     return new Object[][]{
       {1_873}, // fewer data than bufer size
@@ -420,7 +483,7 @@ public class S3DownloadIOUtilTest {
     }
     Files.write(sourceFile, data, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     assertTrue(Files.exists(sourceFile));
-    assertEquals(Files.size(sourceFile),  sourcePosition + data.length);
+    assertEquals(Files.size(sourceFile), sourcePosition + data.length);
 
     Path targetFile = tempDir.resolve("targetFile.txt");
     assertFalse(Files.exists(targetFile));
@@ -512,7 +575,7 @@ public class S3DownloadIOUtilTest {
     assertFalse(Files.exists(sourceFile));
     Files.write(sourceFile, data, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     assertTrue(Files.exists(sourceFile));
-    assertEquals(Files.size(sourceFile),  data.length);
+    assertEquals(Files.size(sourceFile), data.length);
 
     Path targetFile = tempDir.resolve("targetFile.txt");
     assertFalse(Files.exists(targetFile));
