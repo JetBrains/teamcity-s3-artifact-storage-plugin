@@ -14,8 +14,8 @@ import java.util.function.LongConsumer;
 import jetbrains.buildServer.artifacts.RecoverableIOException;
 import org.jetbrains.annotations.NotNull;
 
-import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.WRITE;
+import static java.nio.file.StandardOpenOption.*;
+import static java.nio.file.StandardOpenOption.SPARSE;
 
 public final class S3DownloadIOUtil {
   @NotNull
@@ -53,6 +53,19 @@ public final class S3DownloadIOUtil {
       fileChannel.position(bytes - 1);
       fileChannel.write(ByteBuffer.wrap(new byte[]{0}));
       fileChannel.truncate(bytes); // needed if the file already exists and is larger than bytes
+    }
+  }
+
+  public static void createFile(@NotNull Path file, boolean isSparse) throws IOException {
+    if (Files.isDirectory(file)) throw new IOException(String.format("%s is a directory", file));
+
+    Files.deleteIfExists(file);
+    if (isSparse) {
+      // to create a sparse file, we have to use a channel
+      // we just need to open the channel with specific options and can close it right away
+      Files.newByteChannel(file, CREATE_NEW, WRITE, SPARSE).close();
+    } else {
+      Files.createFile(file);
     }
   }
 
