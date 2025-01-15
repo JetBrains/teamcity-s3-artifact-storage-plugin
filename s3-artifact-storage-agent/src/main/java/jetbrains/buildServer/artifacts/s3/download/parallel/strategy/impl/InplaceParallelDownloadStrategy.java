@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl;
 
 import java.io.IOException;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -32,7 +33,8 @@ public class InplaceParallelDownloadStrategy extends AbstractParallelDownloadStr
     Path unfinishedTargetFile = getUnfinishedFilePath(targetFile);
     ensureDirectoryExists(unfinishedTargetFile.getParent());
     downloadContext.getRunningBuild().getBuildLogger().message(String.format("%s: reserving %s bytes", unfinishedTargetFile, fileSize));
-    reserveFileBytes(unfinishedTargetFile, fileSize, downloadContext.getConfiguration().getReservedByte());
+    Files.deleteIfExists(unfinishedTargetFile);
+    try (FileChannel ignored = FileChannel.open(unfinishedTargetFile, CREATE_NEW, WRITE, SPARSE)) {}
     downloadContext.getRunningBuild().getBuildLogger().message(String.format("%s: reserved %s bytes", unfinishedTargetFile, fileSize));
   }
 
