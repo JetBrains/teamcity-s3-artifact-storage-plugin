@@ -14,7 +14,7 @@ public class S3DownloadConfiguration {
   private static final Logger LOGGER = Logger.getInstance(S3DownloadConfiguration.class);
 
   // parameter defaults
-  private static final boolean DEFAULT_PARALLEL_DOWNLOAD_ENABLED = false; // todo invert before the release
+  private static final boolean DEFAULT_PARALLEL_DOWNLOAD_ENABLED = true;
   private static final boolean DEFAULT_PARALLEL_DOWNLOAD_FORCED = false;
   private static final int DEFAULT_MAX_THREADS = 5;
   private static final int DEFAULT_MIN_PART_SIZE_MB = 100;
