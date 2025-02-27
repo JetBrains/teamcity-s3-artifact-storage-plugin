@@ -180,34 +180,28 @@ public class S3OrphanedArtifactsScanner {
       final String bucketName = S3Util.getBucketName(parameters);
       if (bucketName != null) {
         try {
-          final boolean bucketExists = IOGuard.allowNetworkCall(() -> myAmazonS3Provider.withS3Client(parameters, project.getProjectId(), s3client -> s3client.doesBucketExistV2(bucketName)));
+          String basePrefix = S3Util.getPathPrefix(parameters);
+          if (basePrefix == null) {
+            basePrefix = "";
+          }
+          orphans.addAll(scanProjects(project, projects, parameters, bucketName, basePrefix));
 
-          if (bucketExists) {
-            String basePrefix = S3Util.getPathPrefix(parameters);
-            if (basePrefix == null) {
-              basePrefix = "";
+          final Set<String> existingBuildTypes = project.getBuildTypes().stream().map(SBuildType::getExternalId).collect(Collectors.toSet());
+          final String projectPrefix = basePrefix + project.getExternalId() + DELIMITER;
+
+          orphans.addAll(scanBuildTypes(project, projectPrefix, parameters, bucketName, existingBuildTypes));
+
+          if (scanBuilds) {
+            orphans.addAll(scanBuilds(project, existingBuildTypes, projectPrefix, parameters, bucketName));
+          }
+
+          LOG.debug(String.format("Found %d orphaned paths in storage '%s'", orphans.size(), storageName));
+          for (String orphan : orphans) {
+            String size = null;
+            if (calculateSizes) {
+              size = StringUtil.formatFileSize(calculateSize(parameters, bucketName, project.getProjectId(), orphan));
             }
-            orphans.addAll(scanProjects(project, projects, parameters, bucketName, basePrefix));
-
-            final Set<String> existingBuildTypes = project.getBuildTypes().stream().map(SBuildType::getExternalId).collect(Collectors.toSet());
-            final String projectPrefix = basePrefix + project.getExternalId() + DELIMITER;
-
-            orphans.addAll(scanBuildTypes(project, projectPrefix, parameters, bucketName, existingBuildTypes));
-
-            if (scanBuilds) {
-              orphans.addAll(scanBuilds(project, existingBuildTypes, projectPrefix, parameters, bucketName));
-            }
-
-            LOG.debug(String.format("Found %d orphaned paths in storage '%s'", orphans.size(), storageName));
-            for (String orphan : orphans) {
-              String size = null;
-              if (calculateSizes) {
-                size = StringUtil.formatFileSize(calculateSize(parameters, bucketName, project.getProjectId(), orphan));
-              }
-              orphanedPaths.add(new OrphanedArtifact(bucketName, orphan, size));
-            }
-          } else {
-            errors.add("Bucket not found for storage '" + storageName + "' in project " + project.getExternalId());
+            orphanedPaths.add(new OrphanedArtifact(bucketName, orphan, size));
           }
         } catch (Exception exception) {
           errors.add("Caught error while processing storage: " + storageName + " in project " + project.getExternalId() + ": " + exception.getMessage());
