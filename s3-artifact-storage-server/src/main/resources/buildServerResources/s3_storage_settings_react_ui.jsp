@@ -76,84 +76,86 @@
 <c:set var="awsRegionName" value="${empty regionName ? region_name_default : regionName}"/>
 
 <script type="text/javascript">
-  const config = {
-    readOnly: "<bs:forJs>${projectIsReadOnly || !canEditProject}</bs:forJs>" === "true",
+  {
+    const config = {
+      readOnly: "<bs:forJs>${projectIsReadOnly || !canEditProject}</bs:forJs>" === "true",
 
-    storageTypes: "<bs:forJs>${storageTypes}</bs:forJs>",
-    storageNames: "<bs:forJs>${storageNames}</bs:forJs>",
-    containersPath: "<bs:forJs>${params.containersPath}</bs:forJs>",
-    distributionPath: "<bs:forJs>${distributionPath}</bs:forJs>",
-    publicKey: "<bs:forJs>${publicKey}</bs:forJs>",
-    projectId: "<bs:forJs>${project.externalId}</bs:forJs>",
-    isNewStorage: "<bs:forJs>${Boolean.parseBoolean(newStorage)}</bs:forJs>" === "true",
-    cloudfrontFeatureOn: "<bs:forJs>${cloudfrontFeatureOn}</bs:forJs>" === "true",
+      storageTypes: "<bs:forJs>${storageTypes}</bs:forJs>",
+      storageNames: "<bs:forJs>${storageNames}</bs:forJs>",
+      containersPath: "<bs:forJs>${params.containersPath}</bs:forJs>",
+      distributionPath: "<bs:forJs>${distributionPath}</bs:forJs>",
+      publicKey: "<bs:forJs>${publicKey}</bs:forJs>",
+      projectId: "<bs:forJs>${project.externalId}</bs:forJs>",
+      isNewStorage: "<bs:forJs>${Boolean.parseBoolean(newStorage)}</bs:forJs>" === "true",
+      cloudfrontFeatureOn: "<bs:forJs>${cloudfrontFeatureOn}</bs:forJs>" === "true",
 
-    selectedStorageType: "<bs:forJs>${selectedStorageType.type}</bs:forJs>",
-    selectedStorageName: "<bs:forJs>${selectedStorageName}</bs:forJs>",
-    storageSettingsId: "<bs:forJs>${storageSettingsId}</bs:forJs>",
+      selectedStorageType: "<bs:forJs>${selectedStorageType.type}</bs:forJs>",
+      selectedStorageName: "<bs:forJs>${selectedStorageName}</bs:forJs>",
+      storageSettingsId: "<bs:forJs>${storageSettingsId}</bs:forJs>",
 
-    environmentNameValue: "<bs:forJs>${environment_name_value}</bs:forJs>",
-    serviceEndpointValue: "<bs:forJs>${service_endpoint_value}</bs:forJs>",
-    awsRegionName: "<bs:forJs>${awsRegionName}</bs:forJs>",
+      environmentNameValue: "<bs:forJs>${environment_name_value}</bs:forJs>",
+      serviceEndpointValue: "<bs:forJs>${service_endpoint_value}</bs:forJs>",
+      awsRegionName: "<bs:forJs>${awsRegionName}</bs:forJs>",
 
-    showDefaultCredentialsChain: "<bs:forJs>${showDefaultCredentialsChain}</bs:forJs>" === "true",
-    isDefaultCredentialsChain: "<bs:forJs>${isDefaultCredentialsChain}</bs:forJs>" === "true",
+      showDefaultCredentialsChain: "<bs:forJs>${showDefaultCredentialsChain}</bs:forJs>" === "true",
+      isDefaultCredentialsChain: "<bs:forJs>${isDefaultCredentialsChain}</bs:forJs>" === "true",
 
-    credentialsTypeValue: "<bs:forJs>${credentials_type_value}</bs:forJs>",
-    accessKeyIdValue: "<bs:forJs>${access_key_id_value}</bs:forJs>",
-    secretAcessKeyValue: "<bs:forJs>${secret_acess_key_value}</bs:forJs>",
-    iamRoleArnValue: "<bs:forJs>${iam_role_arn_value}</bs:forJs>",
-    externalIdValue: "<bs:forJs>${external_id_value}</bs:forJs>",
+      credentialsTypeValue: "<bs:forJs>${credentials_type_value}</bs:forJs>",
+      accessKeyIdValue: "<bs:forJs>${access_key_id_value}</bs:forJs>",
+      secretAcessKeyValue: "<bs:forJs>${secret_acess_key_value}</bs:forJs>",
+      iamRoleArnValue: "<bs:forJs>${iam_role_arn_value}</bs:forJs>",
+      externalIdValue: "<bs:forJs>${external_id_value}</bs:forJs>",
 
-    bucketNameWasProvidedAsString: "<bs:forJs>${propertiesBean.properties[params.bucketNameWasProvidedAsString]}</bs:forJs>",
-    bucket: "<bs:forJs>${bucket}</bs:forJs>",
-    bucketPathPrefix: "<bs:forJs>${propertiesBean.properties[params.pathPrefix]}</bs:forJs>",
+      bucketNameWasProvidedAsString: "<bs:forJs>${propertiesBean.properties[params.bucketNameWasProvidedAsString]}</bs:forJs>",
+      bucket: "<bs:forJs>${bucket}</bs:forJs>",
+      bucketPathPrefix: "<bs:forJs>${propertiesBean.properties[params.pathPrefix]}</bs:forJs>",
 
-    useCloudFront: "<bs:forJs>${propertiesBean.properties[params.cloudFrontEnabled]}</bs:forJs>" === "true",
-    cloudFrontUploadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontUploadDistribution]}</bs:forJs>",
-    cloudFrontDownloadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontDownloadDistribution]}</bs:forJs>",
-    cloudFrontPublicKeyId: "<bs:forJs>${propertiesBean.properties[params.cloudFrontPublicKeyId]}</bs:forJs>",
-    cloudFrontPrivateKey: "<bs:forJs>${propertiesBean.properties[params.cloudFrontPrivateKey]}</bs:forJs>",
+      useCloudFront: "<bs:forJs>${propertiesBean.properties[params.cloudFrontEnabled]}</bs:forJs>" === "true",
+      cloudFrontUploadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontUploadDistribution]}</bs:forJs>",
+      cloudFrontDownloadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontDownloadDistribution]}</bs:forJs>",
+      cloudFrontPublicKeyId: "<bs:forJs>${propertiesBean.properties[params.cloudFrontPublicKeyId]}</bs:forJs>",
+      cloudFrontPrivateKey: "<bs:forJs>${propertiesBean.properties[params.cloudFrontPrivateKey]}</bs:forJs>",
 
-    usePresignUrlsForUpload: "<bs:forJs>${propertiesBean.properties[params.usePresignUrlsForUpload]}</bs:forJs>" === "true",
-    forceVirtualHostAddressing: "<bs:forJs>${propertiesBean.properties[params.forceVirtualHostAddressing]}</bs:forJs>" === "true",
-    verifyIntegrityAfterUpload: "<bs:forJs>${propertiesBean.properties[params.verifyIntegrityAfterUpload]}</bs:forJs>" !== "false",
-    transferAccelerationOn: "<bs:forJs>${Boolean.parseBoolean(transferAccelerationOn)}</bs:forJs>" === "true",
-    enableAccelerateMode: "<bs:forJs>${propertiesBean.properties[params.enableAccelerateMode]}</bs:forJs>" === "true",
-    multipartUploadThreshold: "<bs:forJs>${propertiesBean.properties[params.multipartUploadThreshold]}</bs:forJs>",
-    multipartUploadPartSize: "<bs:forJs>${propertiesBean.properties[params.multipartUploadPartSize]}</bs:forJs>",
+      usePresignUrlsForUpload: "<bs:forJs>${propertiesBean.properties[params.usePresignUrlsForUpload]}</bs:forJs>" === "true",
+      forceVirtualHostAddressing: "<bs:forJs>${propertiesBean.properties[params.forceVirtualHostAddressing]}</bs:forJs>" === "true",
+      verifyIntegrityAfterUpload: "<bs:forJs>${propertiesBean.properties[params.verifyIntegrityAfterUpload]}</bs:forJs>" !== "false",
+      transferAccelerationOn: "<bs:forJs>${Boolean.parseBoolean(transferAccelerationOn)}</bs:forJs>" === "true",
+      enableAccelerateMode: "<bs:forJs>${propertiesBean.properties[params.enableAccelerateMode]}</bs:forJs>" === "true",
+      multipartUploadThreshold: "<bs:forJs>${propertiesBean.properties[params.multipartUploadThreshold]}</bs:forJs>",
+      multipartUploadPartSize: "<bs:forJs>${propertiesBean.properties[params.multipartUploadPartSize]}</bs:forJs>",
 
-    availableAwsConnectionsControllerUrl: "<bs:forJs>${avail_connections_controller_url}</bs:forJs>",
-    availableAwsConnectionsControllerResource: "<bs:forJs>${avail_connections_rest_resource_name}</bs:forJs>",
-    chosenAwsConnectionId: "<bs:forJs>${propertiesBean.properties[params.chosenAwsConnectionId]}</bs:forJs>",
-    testConnectionUrl: "<bs:forJs>${test_connection_url}</bs:forJs>",
-    postConnectionUrl: "<bs:forJs>${post_connection_url}</bs:forJs>",
+      availableAwsConnectionsControllerUrl: "<bs:forJs>${avail_connections_controller_url}</bs:forJs>",
+      availableAwsConnectionsControllerResource: "<bs:forJs>${avail_connections_rest_resource_name}</bs:forJs>",
+      chosenAwsConnectionId: "<bs:forJs>${propertiesBean.properties[params.chosenAwsConnectionId]}</bs:forJs>",
+      testConnectionUrl: "<bs:forJs>${test_connection_url}</bs:forJs>",
+      postConnectionUrl: "<bs:forJs>${post_connection_url}</bs:forJs>",
 
-    regionCodes: "<bs:forJs>${AWSRegions.getSerializedRegionCodes()}</bs:forJs>",
-    regionDescriptions: "<bs:forJs>${AWSRegions.getSerializedRegionDescriptions()}</bs:forJs>"
-  };
+      regionCodes: "<bs:forJs>${AWSRegions.getSerializedRegionCodes()}</bs:forJs>",
+      regionDescriptions: "<bs:forJs>${AWSRegions.getSerializedRegionDescriptions()}</bs:forJs>"
+    };
 
-  var loadJS = function (url, implementationCode, location) {
-    var scriptTag = document.createElement('script');
-    scriptTag.src = url;
-    scriptTag.onload = implementationCode;
-    location.appendChild(scriptTag);
-  };
+    var loadJS = function (url, implementationCode, location) {
+      var scriptTag = document.createElement('script');
+      scriptTag.src = url;
+      scriptTag.onload = implementationCode;
+      location.appendChild(scriptTag);
+    };
 
-  var callback = function () {
-    renderEditS3Storage(config);
-  };
+    var callback = function () {
+      renderEditS3Storage(config);
+    };
 
-  loadJS("<bs:forJs>${frontendCode}</bs:forJs>", callback, document.body);
+    loadJS("<bs:forJs>${frontendCode}</bs:forJs>", callback, document.body);
 
-  // collapse old UI in advance
-  function collapseOldUi(selector) {
-    const allWithClass = Array.from(document.querySelectorAll(selector));
+    // collapse old UI in advance
+    function collapseOldUi(selector) {
+      const allWithClass = Array.from(document.querySelectorAll(selector));
 
-    allWithClass.forEach(element => {
-      element.setAttribute('style', 'visibility: collapse; display: none;');
-    });
+      allWithClass.forEach(element => {
+        element.setAttribute('style', 'visibility: collapse; display: none;');
+      });
+    }
+
+    collapseOldUi('#storageParamsInner table.runnerFormTable, #saveButtons');
   }
-
-  collapseOldUi('#storageParamsInner table.runnerFormTable, #saveButtons');
 </script>
