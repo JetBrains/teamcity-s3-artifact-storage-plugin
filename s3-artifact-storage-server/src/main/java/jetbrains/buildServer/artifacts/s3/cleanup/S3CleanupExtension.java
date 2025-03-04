@@ -252,13 +252,17 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
 
   @Nullable
   private SProject findProjectToGetConnection(@NotNull SFinishedBuild build) {
+    SProject project = myProjectManager.findProjectById(build.getProjectId());
+    if (project != null) {
+      return project;
+    }
     final List<String> projectPathIds = ((BuildPromotionEx)build.getBuildPromotion()).getProjectPathIds();
     if (projectPathIds.isEmpty()) {
       return null;
     }
     ListIterator<String> iterator = projectPathIds.listIterator(projectPathIds.size());
     while (iterator.hasPrevious()) {
-      final SProject project = myProjectManager.findProjectById(iterator.previous());
+      project = myProjectManager.findProjectById(iterator.previous());
       if (project != null) {
         return project;
       }
