@@ -11,6 +11,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
@@ -188,6 +189,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
 
           AtomicInteger succeededNum = new AtomicInteger();
           AtomicInteger errorNum = new AtomicInteger();
+          List<String> pathsFailedToDelete = new ArrayList<>();
 
           int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
           List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
@@ -210,7 +212,7 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
                 String key = error.getKey();
                 if (key.startsWith(pathPrefix)) {
                   CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
-                  pathsToDelete.remove(key.substring(pathPrefix.length()));
+                  pathsFailedToDelete.add(key.substring(pathPrefix.length()));
                   myCleanupListeners.forEach(listener -> listener.onError(e, false));
                 }
               });
@@ -239,6 +241,9 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
           }
 
           CLEANUP.info(() -> "Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
+
+          if (!pathsFailedToDelete.isEmpty())
+            pathsToDelete.removeAll(pathsFailedToDelete);
 
           myHelper.removeFromArtifactList(build, pathsToDelete);
 
