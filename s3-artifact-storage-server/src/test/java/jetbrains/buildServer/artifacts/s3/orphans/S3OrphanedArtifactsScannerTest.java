@@ -28,7 +28,13 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,6 +47,8 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 import static jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner.DELIMITER;
 import static jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner.FILE_PREFIX;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.when;
 
@@ -137,8 +145,7 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     assertEmpty(artifacts.getErrors());
     final Collection<OrphanedArtifact> orphanedPaths = artifacts.getOrphanedPaths();
     assertNotNull(orphanedPaths);
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, projectPrefix + "buildType1" + DELIMITER, null));
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, projectPrefix + "buildType2" + DELIMITER, null));
+    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, projectPrefix, null));
   }
 
   public void returnsBuildsThatDoNotExistInExistingBuildType() throws IOException {
@@ -183,15 +190,17 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     assertEmpty(artifacts.getErrors());
     final Collection<OrphanedArtifact> orphanedPaths = artifacts.getOrphanedPaths();
     assertNotNull(orphanedPaths);
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, buildTypePrefix + "1234", null));
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, buildTypePrefix + "234523", null));
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, buildTypePrefix + "3456", null));
+    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, projectPrefix, null));
   }
 
   public void doesNotReturnExistingCompletedBuilds() throws IOException {
     final SBuildServer server = Mockito.mock(SBuildServer.class);
     final BuildHistory buildHistory = Mockito.mock(BuildHistory.class);
+    long existingBuild = 1234L;
     when(server.getHistory()).thenReturn(buildHistory);
+    SFinishedBuild build = Mockito.mock(SFinishedBuild.class);
+    when(buildHistory.findEntries(anyCollection())).thenReturn(Collections.singletonList(build));
+    when(build.getBuildId()).thenReturn(existingBuild);
 
     final ProjectManager projectManager = Mockito.mock(ProjectManager.class);
     final SProject testProject = Mockito.mock(SProject.class);
@@ -260,8 +269,13 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(storage.getParameters()).thenReturn(parameters);
 
-    when(server.findRunningBuildById(1234L)).thenReturn(Mockito.mock(SRunningBuild.class));
-    when(server.findRunningBuildById(234523L)).thenReturn(Mockito.mock(SRunningBuild.class));
+    SRunningBuild sRunningBuild1 = Mockito.mock(SRunningBuild.class);
+    when(sRunningBuild1.getBuildId()).thenReturn(1234L);
+    SRunningBuild sRunningBuild2 = Mockito.mock(SRunningBuild.class);
+    when(sRunningBuild2.getBuildId()).thenReturn(234523L);
+    List<SRunningBuild> builds = Arrays.asList(sRunningBuild1, sRunningBuild2);
+
+    when(server.getRunningBuilds(any(), any(BuildDataFilter.class))).thenReturn(builds);
 
     final MockS3 s3 = new MockS3();
     final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
@@ -287,7 +301,11 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
   public void calculatesSizesForObjects() throws IOException {
     final SBuildServer server = Mockito.mock(SBuildServer.class);
     final BuildHistory buildHistory = Mockito.mock(BuildHistory.class);
+    long existingBuild = 1234L;
     when(server.getHistory()).thenReturn(buildHistory);
+    SFinishedBuild build = Mockito.mock(SFinishedBuild.class);
+    when(buildHistory.findEntries(anyCollection())).thenReturn(Collections.singletonList(build));
+    when(build.getBuildId()).thenReturn(existingBuild);
 
     final ProjectManager projectManager = Mockito.mock(ProjectManager.class);
     final SProject testProject = Mockito.mock(SProject.class);
@@ -316,7 +334,7 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     s3.putPrefix("", projectPrefix);
     final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
     s3.putPrefix(projectPrefix, buildTypePrefix);
-    final String build1 = buildTypePrefix + "1234";
+    final String build1 = buildTypePrefix + existingBuild;
     final String build2 = buildTypePrefix + "3456";
     s3.putPrefixes(buildTypePrefix, build1, build2);
     final long size1 = 1024 * 5L;
@@ -332,8 +350,7 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     assertEmpty(artifacts.getErrors());
     final Collection<OrphanedArtifact> orphanedPaths = artifacts.getOrphanedPaths();
     assertNotNull(orphanedPaths);
-    assertEquals(2, orphanedPaths.size());
-    assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, build1, StringUtil.formatFileSize(size1 + size2)));
+    assertEquals(1, orphanedPaths.size());
     assertContains(orphanedPaths, new OrphanedArtifact(BUCKET_ID, build2, StringUtil.formatFileSize(size3 + size4)));
   }
 
