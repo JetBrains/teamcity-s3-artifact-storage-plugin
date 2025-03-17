@@ -30,10 +30,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
@@ -50,6 +60,8 @@ public class S3OrphanedArtifactsScanner {
 
   public static final String DELIMITER = "/";
 
+  private static final Pattern NUMERIC_BUILD_ID = Pattern.compile("^[0-9]+$");
+
   @NotNull
   private final ProjectManager myProjectManager;
   @NotNull
@@ -59,7 +71,7 @@ public class S3OrphanedArtifactsScanner {
   private final ExecutorService myExecutorService;
   private final File myLogsPath;
 
-  private volatile int pathsScanned = 0;
+  private final LongAdder scannedPaths = new LongAdder();
   private final AtomicBoolean isScanning = new AtomicBoolean(false);
   private volatile Instant lastScanTimestamp = Instant.MIN;
   private volatile String lastScanError = null;
@@ -82,7 +94,7 @@ public class S3OrphanedArtifactsScanner {
   }
 
   public int getScannedPathsCount() {
-    return pathsScanned;
+    return scannedPaths.intValue();
   }
 
   @NotNull
@@ -97,7 +109,7 @@ public class S3OrphanedArtifactsScanner {
   public boolean tryScanArtifacts(@Nullable String projectExternalId, @NotNull SUser user, boolean scanBuilds, boolean calculateSizes, boolean skipErrors) {
     if (isScanning.compareAndSet(false, true)) {
       LOG.debug("Starting scan for orphaned artifacts");
-      pathsScanned = 0;
+      scannedPaths.reset();
       lastScanError = null;
       try {
         myExecutorService.submit(() -> {
@@ -151,15 +163,15 @@ public class S3OrphanedArtifactsScanner {
     if (startingProject != null) {
       final ArrayList<String> errors = new ArrayList<>();
 
-      final Map<String, SProject> projects = gatherProjects(user, startingProject);
+      final List<SProject> projects = gatherProjects(user, startingProject);
 
       final Set<OrphanedArtifact> orphanedPaths = new TreeSet<>();
-      for (SProject project : projects.values()) {
+      for (SProject project : projects) {
         LOG.debug("Scanning project '" + project.getExternalId() + "'");
         final Collection<SProjectFeatureDescriptor> storages = project.getOwnFeaturesOfType(DefaultParams.ARTIFACT_STORAGE_TYPE);
 
         for (SProjectFeatureDescriptor storage : storages) {
-          orphanedPaths.addAll(processStorage(scanBuilds, calculateSizes, project, storage, projects, errors));
+          orphanedPaths.addAll(processStorage(scanBuilds, calculateSizes, project, storage, errors));
         }
       }
       return new OrphanedArtifacts(orphanedPaths, errors);
@@ -169,7 +181,7 @@ public class S3OrphanedArtifactsScanner {
     }
   }
 
-  private Collection<OrphanedArtifact> processStorage(boolean scanBuilds, boolean calculateSizes, SProject project, SProjectFeatureDescriptor storage, Map<String, SProject> projects, ArrayList<String> errors) {
+  private Collection<OrphanedArtifact> processStorage(boolean scanBuilds, boolean calculateSizes, SProject project, SProjectFeatureDescriptor storage, ArrayList<String> errors) {
     Set<OrphanedArtifact> orphanedPaths = new HashSet<>();
     final Map<String, String> parameters = storage.getParameters();
     final String storageType = parameters.get(S3Constants.TEAMCITY_STORAGE_TYPE_KEY);
@@ -178,106 +190,140 @@ public class S3OrphanedArtifactsScanner {
       String storageName = parameters.get(ArtifactStorageSettings.TEAMCITY_STORAGE_NAME_KEY);
       storageName = storageName != null ? storageName : storage.getId();
       final String bucketName = S3Util.getBucketName(parameters);
-      if (bucketName != null) {
-        try {
-          String basePrefix = S3Util.getPathPrefix(parameters);
-          if (basePrefix == null) {
-            basePrefix = "";
-          }
-          orphans.addAll(scanProjects(project, projects, parameters, bucketName, basePrefix));
 
-          final Set<String> existingBuildTypes = project.getBuildTypes().stream().map(SBuildType::getExternalId).collect(Collectors.toSet());
-          final String projectPrefix = basePrefix + project.getExternalId() + DELIMITER;
+      if (bucketName == null) {
+        return orphanedPaths;
+      }
 
-          orphans.addAll(scanBuildTypes(project, projectPrefix, parameters, bucketName, existingBuildTypes));
-
-          if (scanBuilds) {
-            orphans.addAll(scanBuilds(project, existingBuildTypes, projectPrefix, parameters, bucketName));
-          }
-
-          LOG.debug(String.format("Found %d orphaned paths in storage '%s'", orphans.size(), storageName));
-          for (String orphan : orphans) {
-            String size = null;
-            if (calculateSizes) {
-              size = StringUtil.formatFileSize(calculateSize(parameters, bucketName, project.getProjectId(), orphan));
-            }
-            orphanedPaths.add(new OrphanedArtifact(bucketName, orphan, size));
-          }
-        } catch (Exception exception) {
-          errors.add("Caught error while processing storage: " + storageName + " in project " + project.getExternalId() + ": " + exception.getMessage());
+      try {
+        String basePrefix = S3Util.getPathPrefix(parameters);
+        if (basePrefix == null) {
+          basePrefix = "";
         }
+
+        Set<ProjectEntry> outdatedEntries = scanBasePath(project.getProjectId(), basePrefix, bucketName, parameters);
+
+        for (ProjectEntry projectEntry : outdatedEntries) {
+          if (projectEntry.isOutdated()) {
+            String path = projectEntry.getPath();
+            LOG.debug("Found an outdated project at " + path);
+            orphans.add(path);
+            continue;
+          }
+
+          for (BuildTypeEntry buildTypeEntry : projectEntry.getBuildTypeEntries()) {
+            if (buildTypeEntry.isOutdated()) {
+              String path = buildTypeEntry.getPath();
+              LOG.debug("Found an outdated build type at " + path);
+              orphans.add(path);
+            }
+
+            if (!scanBuilds) {
+              continue;
+            }
+
+            for (BuildEntry buildEntry : buildTypeEntry.getBuildEntries()) {
+              orphans.add(buildEntry.getPath());
+            }
+          }
+        }
+
+        LOG.debug(String.format("Found %d orphaned paths in storage '%s'", orphans.size(), storageName));
+        for (String orphan : orphans) {
+          String size = null;
+          if (calculateSizes) {
+            size = StringUtil.formatFileSize(calculateSize(parameters, bucketName, project.getProjectId(), orphan));
+          }
+          orphanedPaths.add(new OrphanedArtifact(bucketName, orphan, size));
+        }
+      } catch (Exception exception) {
+        errors.add("Caught error while processing storage: " + storageName + " in project " + project.getExternalId() + ": " + exception.getMessage());
       }
     }
 
     return orphanedPaths;
   }
 
-  private Set<String> scanBuilds(SProject project, Collection<String> existingBuildTypes, String projectPrefix, Map<String, String> parameters, String bucketName) throws ConnectionCredentialsException {
-    Set<String> orphans = new HashSet<>();
+  private Set<ProjectEntry> scanBasePath(String projectId, String basePrefix, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
+    ListObjectsV2Result projectsList = getObjects(parameters, bucketName, projectId, basePrefix);
+    List<String> paths = projectsList.getCommonPrefixes();
 
-    for (String buildType : existingBuildTypes) {
-      String buildTypePrefix = projectPrefix + buildType + DELIMITER;
-      final ListObjectsV2Result builds = getObjects(parameters, bucketName, project.getProjectId(), buildTypePrefix);
-      final List<Long> buildIds = builds.getCommonPrefixes().stream().map(p -> Long.parseLong(stripPath(p, buildTypePrefix))).collect(Collectors.toList());
-      final Set<Long> finishedBuilds = myBuildHistory.findEntries(buildIds).stream().map(SFinishedBuild::getBuildId).collect(Collectors.toSet());
-      for (String prefix : builds.getCommonPrefixes()) {
-        //Only a single thread is doing the writing
-        //noinspection NonAtomicOperationOnVolatileField
-        pathsScanned++;
-        final long buildId = Long.parseLong(stripPath(prefix, buildTypePrefix));
-        if (!finishedBuilds.contains(buildId)) {
-          final SRunningBuild runningBuild = myServer.findRunningBuildById(buildId);
-          if (runningBuild == null) {
-            orphans.add(prefix);
-          }
-        }
-      }
+    Set<ProjectEntry> projectEntries = new HashSet<>(paths.size());
+    for (String path : paths) {
+      projectEntries.add(scanProjectPath(projectId, path, bucketName, parameters));
     }
 
-    return orphans;
+    scannedPaths.add(paths.size());
+
+    return projectEntries;
+  }
+
+  private ProjectEntry scanProjectPath(String projectId, String projectPath, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
+    ListObjectsV2Result projectPaths = getObjects(parameters, bucketName, projectId, projectPath);
+    List<String> paths = projectPaths.getCommonPrefixes();
+
+    if (paths.isEmpty()) {
+      return new ProjectEntry(projectPath, Collections.emptySet());
+    }
+
+    Set<BuildTypeEntry> buildTypeEntries = new HashSet<>(paths.size());
+    for (String path : paths) {
+      buildTypeEntries.add(scanBuildTypePath(projectId, path, bucketName, parameters));
+    }
+
+    scannedPaths.add(paths.size());
+
+    return new ProjectEntry(projectPath, buildTypeEntries);
+  }
+
+  private BuildTypeEntry scanBuildTypePath(String projectId, String buildTypePath, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
+    ListObjectsV2Result builds = getObjects(parameters, bucketName, projectId, buildTypePath);
+    List<String> paths = builds.getCommonPrefixes();
+
+    if (paths.isEmpty()) {
+      LOG.debug("Found path that doesn't correlate to the expected storage structure: " + buildTypePath);
+      return new BuildTypeEntry(buildTypePath, Collections.emptySet(), true);
+    }
+
+    Map<Long, BuildEntry> buildEntryMap = paths.stream()
+      .map(path -> toBuildEntry(buildTypePath, path))
+      .collect(Collectors.toMap(BuildEntry::getId, Function.identity()));
+
+    myServer.getRunningBuilds(null, build -> buildEntryMap.containsKey(build.getBuildId()))
+      .stream()
+      .map(Build::getBuildId)
+      .forEach(buildEntryMap::remove);
+
+    myBuildHistory.findEntries(buildEntryMap.keySet())
+      .forEach(build -> buildEntryMap.remove(build.getBuildId()));
+
+    scannedPaths.add(paths.size());
+
+    return new BuildTypeEntry(
+      buildTypePath,
+      new HashSet<>(buildEntryMap.values()),
+      buildEntryMap.size() == paths.size()
+    );
   }
 
   @NotNull
-  private Set<String> scanBuildTypes(SProject project, String projectPrefix, Map<String, String> parameters, String bucketName, Collection<String> existingBuildTypes) throws ConnectionCredentialsException {
-    Set<String> orphans = new HashSet<>();
-
-    final ListObjectsV2Result buildTypes = getObjects(parameters, bucketName, project.getProjectId(), projectPrefix);
-    for (String prefix : buildTypes.getCommonPrefixes()) {
-      //Only a single thread is doing the writing
-      //noinspection NonAtomicOperationOnVolatileField
-      pathsScanned++;
-      final String buildTypeEntry = stripPath(prefix, projectPrefix);
-      if (!existingBuildTypes.contains(buildTypeEntry)) {
-        orphans.add(prefix);
-      }
+  private BuildEntry toBuildEntry(@NotNull String buildTypePath, @NotNull String path) {
+    String buildId = stripPath(path, buildTypePath);
+    if (NUMERIC_BUILD_ID.matcher(buildId).matches()) {
+      long id = Long.parseLong(buildId);
+      return new BuildEntry(path, id);
+    } else {
+      return new BuildEntry(path, -1L);
     }
-    return orphans;
-  }
-
-  private Set<String> scanProjects(SProject project, Map<String, SProject> projects, Map<String, String> parameters, String bucketName, String basePrefix) throws ConnectionCredentialsException {
-    Set<String> orphans = new HashSet<>();
-
-    final ListObjectsV2Result projectsList = getObjects(parameters, bucketName, project.getProjectId(), basePrefix);
-    for (String prefix : projectsList.getCommonPrefixes()) {
-      //Only a single thread is doing the writing
-      //noinspection NonAtomicOperationOnVolatileField
-      pathsScanned++;
-      final String projectEntry = stripPath(prefix, null);
-      if (!projects.containsKey(projectEntry)) {
-        orphans.add(basePrefix + prefix);
-      }
-    }
-
-    return orphans;
   }
 
   @NotNull
-  private static Map<String, SProject> gatherProjects(@NotNull SUser user, SProject startingProject) {
-    final Map<String, SProject> projects = new HashMap<>();
-    projects.put(startingProject.getExternalId(), startingProject);
+  private List<SProject> gatherProjects(@NotNull SUser user, SProject startingProject) {
+    final List<SProject> projects = new ArrayList<>();
+    projects.add(startingProject);
     for (SProject subProject : startingProject.getProjects()) {
       if (AuthUtil.hasPermissionToManageProject(user, subProject.getProjectId())) {
-        projects.put(subProject.getExternalId(), subProject);
+        projects.add(subProject);
       }
     }
     return projects;
@@ -299,7 +345,7 @@ public class S3OrphanedArtifactsScanner {
   }
 
   @NotNull
-  private static String stripPath(String path, @Nullable String prefix) {
+  private String stripPath(String path, @Nullable String prefix) {
     if (path.endsWith(DELIMITER)) {
       path = path.substring(0, path.lastIndexOf(DELIMITER));
     }
