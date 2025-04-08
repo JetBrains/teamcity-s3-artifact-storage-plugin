@@ -1,4 +1,10 @@
 import java.nio.file.Paths
+import com.github.jk1.license.render.JsonReportRenderer
+import com.github.jk1.license.filter.LicenseBundleNormalizer
+
+plugins {
+    id "com.github.jk1.dependency-license-report" version "1.17"
+}
 
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
@@ -75,6 +81,12 @@ subprojects {
       options.bootstrapClasspath = layout.files("$JDK_18/jre/lib/rt.jar")
     }
   }
+}
+
+licenseReport {
+    renderers = [new JsonReportRenderer('third-party-libraries.json')]
+    excludes = ["org.jetbrains.*", "com.jetbrains.*", ".*jackson-bom*"]
+    filters = [new LicenseBundleNormalizer(bundlePath: "${project.rootDir}/license-third-party-normalizer.json", createDefaultTransformationRules: false)]
 }
 
 def anyParamPath(String... names) {
