@@ -2,6 +2,8 @@ package jetbrains.buildServer.artifacts.s3.download;
 
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
 import jetbrains.buildServer.agent.AgentRunningBuild;
 import jetbrains.buildServer.artifacts.s3.download.parallel.strategy.impl.InplaceParallelDownloadStrategy;
 import jetbrains.buildServer.util.StringUtil;
@@ -41,7 +43,7 @@ public class S3DownloadConfiguration {
   @NotNull
   private final Map<String, Boolean> myMemoizedBooleanParameters = new HashMap<>();
   @NotNull
-  private final Map<String, Integer> myMemoizedIntegerParameters = new HashMap<>();
+  private final Map<String, Integer> myMemoizedIntegerParameters = new ConcurrentHashMap<>();
 
   public S3DownloadConfiguration(@NotNull AgentRunningBuild runningBuild) {
     myBuildId = runningBuild.getBuildId();
