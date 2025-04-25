@@ -3,13 +3,24 @@ package jetbrains.buildServer.artifacts.s3.publish;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.ExtensionHolder;
-import jetbrains.buildServer.agent.*;
+import jetbrains.buildServer.agent.AgentLifeCycleListener;
+import jetbrains.buildServer.agent.AgentRunningBuild;
+import jetbrains.buildServer.agent.ArtifactsPublisher;
+import jetbrains.buildServer.agent.BuildAgentConfiguration;
+import jetbrains.buildServer.agent.BuildProgressLogger;
+import jetbrains.buildServer.agent.CurrentBuildTracker;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.s3.FileUploadInfo;
@@ -27,7 +38,10 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 @Test
 public class S3ArtifactsPublisherTest extends BaseTestCase {
@@ -83,7 +97,7 @@ public class S3ArtifactsPublisherTest extends BaseTestCase {
                                                  @NotNull Supplier<String> interrupter,
                                                  Consumer<FileUploadInfo> uploadInfoConsumer) throws InvalidSettingsException {
         uploadInfos1.forEach(i -> uploadInfoConsumer.accept(i));
-        return null;
+        return Collections.emptyList();
       }
     };
 
