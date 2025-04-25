@@ -8,11 +8,24 @@ import java.io.IOException;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.ExtensionHolder;
-import jetbrains.buildServer.agent.*;
+import jetbrains.buildServer.agent.AgentLifeCycleAdapter;
+import jetbrains.buildServer.agent.AgentLifeCycleListener;
+import jetbrains.buildServer.agent.AgentRunningBuild;
+import jetbrains.buildServer.agent.ArtifactPublishingFailedException;
+import jetbrains.buildServer.agent.BuildAgentConfiguration;
+import jetbrains.buildServer.agent.BuildInterruptReason;
+import jetbrains.buildServer.agent.CurrentBuildTracker;
+import jetbrains.buildServer.agent.DigestProducingArtifactsPublisher;
+import jetbrains.buildServer.agent.FlowLogger;
+import jetbrains.buildServer.agent.ServerProvidedProperties;
 import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactDigestInfo;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
@@ -37,7 +50,9 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_ATTR;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 
 public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
@@ -126,7 +141,7 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
       publishArtifactsList(build);
 
-      if (statistics != null) {
+      if (statistics != null && !statistics.isEmpty()) {
         final StatisticsLogger.SummaryStatistics stats = getSummaryStatistics(statistics);
         myLensIntegrationService.generateUploadEvents(build, statistics, stats.getTotalDuration(), teamcityConnectionConfiguration(build));
 
