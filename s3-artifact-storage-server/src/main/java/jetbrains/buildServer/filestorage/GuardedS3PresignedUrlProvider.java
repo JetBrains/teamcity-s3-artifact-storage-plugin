@@ -66,8 +66,8 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public String startMultipartUpload(@NotNull String objectKey, @NotNull S3Settings settings) throws Exception {
-    return IOGuard.allowNetworkCall(() -> myDelegate.startMultipartUpload(objectKey, settings));
+  public String startMultipartUpload(@NotNull String objectKey, @Nullable String contentType, @NotNull S3Settings settings) throws Exception {
+    return IOGuard.allowNetworkCall(() -> myDelegate.startMultipartUpload(objectKey, contentType, settings));
   }
 
   @NotNull

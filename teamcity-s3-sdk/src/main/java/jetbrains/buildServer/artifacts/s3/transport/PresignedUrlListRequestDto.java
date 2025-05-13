@@ -19,38 +19,45 @@ public class PresignedUrlListRequestDto {
   private boolean isVersion2;
   @Nullable
   private Long myCustomTtl;
+  @Nullable
+  private String myMultipartContentType;
 
   @Used("xmlSerialization")
   public PresignedUrlListRequestDto() {
   }
 
   public PresignedUrlListRequestDto(@NotNull final Collection<PresignedUrlRequestDto> requests, final boolean isVersion2) {
-    this(requests, isVersion2, null);
+    this(requests, isVersion2, null, null);
   }
 
-  public PresignedUrlListRequestDto(@NotNull final Collection<PresignedUrlRequestDto> requests, final boolean isVersion2, @Nullable Long customTtl) {
+  public PresignedUrlListRequestDto(@NotNull final Collection<PresignedUrlRequestDto> requests,
+                                    final boolean isVersion2,
+                                    @Nullable Long customTtl,
+                                    @Nullable String contentType) {
     presignedUrlRequests = requests;
     this.isVersion2 = isVersion2;
     myCustomTtl = customTtl;
+    myMultipartContentType = contentType;
   }
 
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeyWithDigest(@NotNull final String objectKey, @Nullable String digest, @Nullable Long ttl) {
-    return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, digest)), true, ttl);
+    return new PresignedUrlListRequestDto(Collections.singletonList(PresignedUrlRequestDto.from(objectKey, digest)), true, ttl, null);
   }
 
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeyMultipart(@NotNull final String objectKey,
                                                                  @Nullable String uploadId,
                                                                  @NotNull final List<String> digests,
-                                                                 @Nullable Long ttl) {
+                                                                 @Nullable Long ttl,
+                                                                 @NotNull String contentType) {
     final PresignedUrlRequestDto request = PresignedUrlRequestDto.from(objectKey, uploadId, digests);
-    return new PresignedUrlListRequestDto(Collections.singleton(request), true, ttl);
+    return new PresignedUrlListRequestDto(Collections.singleton(request), true, ttl, contentType);
   }
 
   @NotNull
   public static PresignedUrlListRequestDto forObjectKeys(@NotNull final Collection<String> objectKeys) {
-    return new PresignedUrlListRequestDto(objectKeys.stream().map(objectKey -> PresignedUrlRequestDto.from(objectKey)).collect(Collectors.toSet()), false);
+    return new PresignedUrlListRequestDto(objectKeys.stream().map(PresignedUrlRequestDto::from).collect(Collectors.toSet()), false);
   }
 
 
@@ -59,7 +66,7 @@ public class PresignedUrlListRequestDto {
     return new PresignedUrlListRequestDto(keysWithDigests.stream()
                                                          .map(pair -> PresignedUrlRequestDto.from(pair.getFirst(), pair.getSecond()))
                                                          .collect(Collectors.toSet()),
-                                          false, null);
+                                          false, null, null);
   }
 
   public Collection<PresignedUrlRequestDto> getPresignedUrlRequests() {
@@ -83,5 +90,10 @@ public class PresignedUrlListRequestDto {
   @Nullable
   public Long getCustomTtl() {
     return myCustomTtl;
+  }
+
+  @Nullable
+  public String getMultipartContentType() {
+    return myMultipartContentType;
   }
 }

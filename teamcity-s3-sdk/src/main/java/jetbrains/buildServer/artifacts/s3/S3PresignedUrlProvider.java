@@ -5,6 +5,7 @@ package jetbrains.buildServer.artifacts.s3;
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +26,7 @@ public interface S3PresignedUrlProvider {
   void finishMultipartUpload(@NotNull String uploadId, @NotNull String objectKey, @NotNull S3Settings settings, @Nullable String[] etags, boolean isSuccessful) throws IOException;
 
   @NotNull
-  String startMultipartUpload(@NotNull String objectKey, @NotNull S3Settings settings) throws Exception;
+  String startMultipartUpload(@NotNull String objectKey, @Nullable String contentType, @NotNull S3Settings settings) throws Exception;
 
   @NotNull
   S3Settings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings);

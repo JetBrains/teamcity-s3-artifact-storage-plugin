@@ -82,8 +82,8 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public String startMultipartUpload(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws Exception {
-    return myS3Provider.startMultipartUpload(objectKey, settings);
+  public String startMultipartUpload(@NotNull String objectKey, @Nullable String contentType, @NotNull CloudFrontSettings settings) throws Exception {
+    return myS3Provider.startMultipartUpload(objectKey, contentType, settings);
   }
 
   @Override

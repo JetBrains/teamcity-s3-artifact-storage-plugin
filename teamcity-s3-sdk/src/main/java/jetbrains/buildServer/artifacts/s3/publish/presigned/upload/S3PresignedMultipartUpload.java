@@ -24,6 +24,8 @@ import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import static jetbrains.buildServer.artifacts.s3.S3Util.getContentType;
+
 public class S3PresignedMultipartUpload extends S3PresignedUpload {
   @NotNull
   private static final Logger LOGGER = Logger.getInstance(S3PresignedMultipartUpload.class);
@@ -62,9 +64,17 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
     try {
       splitFileToPartsWithChecksum(nParts);
       assert myFileParts != null;
-      List<String> digests = myFileParts.stream().map(FilePart::getDigest).collect(Collectors.toList());
-
-      final Pair<PresignedUrlDto, Long> resultPair = myS3SignedUploadManager.getMultipartUploadUrls(myObjectKey, digests, uploadId, myTtl.get());
+      List<String> digests = myFileParts.stream()
+        .map(FilePart::getDigest)
+        .collect(Collectors.toList());
+      String contentType = getContentType(myFile);
+      final Pair<PresignedUrlDto, Long> resultPair = myS3SignedUploadManager.getMultipartUploadUrls(
+        myObjectKey,
+        contentType,
+        digests,
+        uploadId,
+        myTtl.get()
+      );
       final PresignedUrlDto multipartUploadUrls = resultPair.first;
       myProgressListener.urlsGenerated(Duration.ofNanos(resultPair.second));
 

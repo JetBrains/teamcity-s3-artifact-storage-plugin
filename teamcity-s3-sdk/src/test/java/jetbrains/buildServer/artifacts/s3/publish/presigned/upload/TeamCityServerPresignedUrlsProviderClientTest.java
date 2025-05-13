@@ -180,6 +180,7 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
 
   public void testGetMultipartPresignedUrl() {
     final NodeIdHolder nodeIdHolder = Mockito.mock(NodeIdHolder.class, Mockito.RETURNS_DEEP_STUBS);
+    String contentType = "application/custom.v1+custom.format";
 
     final TeamCityConnectionConfiguration config = new TeamCityConnectionConfiguration(
       getTeamCityUrl(),
@@ -191,7 +192,7 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
       1, 0);
     try {
       final TeamCityServerPresignedUrlsProviderClient client = new TeamCityServerPresignedUrlsProviderClient(config, Collections.emptyList());
-      client.getMultipartPresignedUrl(OBJECT_KEY, Collections.singletonList(FAKE_DIGEST), UPLOAD_ID, 1000L);
+      client.getMultipartPresignedUrl(OBJECT_KEY, contentType, Collections.singletonList(FAKE_DIGEST), UPLOAD_ID, 1000L);
     } catch (RuntimeException e) {
       final String request = mySimpleHttpServer.myRequests.get(0);
       final String requestBody = mySimpleHttpServer.myRequestBodies.get(0);
@@ -200,6 +201,7 @@ public class TeamCityServerPresignedUrlsProviderClientTest extends BaseTestCase 
 
       final PresignedUrlListRequestDto dto = PresignedUrlRequestSerializer.deserializeRequest(requestBody);
       assertEquals(Long.valueOf(1000), dto.getCustomTtl());
+      assertEquals(contentType, dto.getMultipartContentType());
       assertEquals(1, dto.getPresignedUrlRequests().size());
       PresignedUrlRequestDto presignedUrlRequestDto = new ArrayList<>(dto.getPresignedUrlRequests()).get(0);
       assertEquals(OBJECT_KEY, presignedUrlRequestDto.getObjectKey());

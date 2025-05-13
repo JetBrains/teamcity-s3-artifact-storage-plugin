@@ -24,6 +24,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
+import static jetbrains.buildServer.artifacts.s3.S3Util.DEFAULT_CONTENT_TYPE;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.times;
 
@@ -128,10 +129,10 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", DEFAULT_CONTENT_TYPE, Arrays.asList(null, null, null), null, (long)defaultTimeout))
            .thenReturn(Pair.create(multipartDto, 1L));
 
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", DEFAULT_CONTENT_TYPE, Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
@@ -157,10 +158,10 @@ public class S3PresignedUploadTest extends BaseTestCase {
       // FileUploadFailedException will be thrown only when we encounter a non-recoverable error
     } catch (FileUploadFailedException e) {
       try {
-        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout);
+        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", DEFAULT_CONTENT_TYPE, Arrays.asList(null, null, null), null, (long)defaultTimeout);
         assertFalse(e.isRecoverable());
         upload.call();
-        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
+        Mockito.verify(uploadManager, times(1)).getMultipartUploadUrls("key", DEFAULT_CONTENT_TYPE, Arrays.asList(null, null, null), "uploadId", S3Util.DEFAULT_URL_LIFETIME_SEC * 2L);
         return;
       } catch (FileUploadFailedException ex) {
         fail("Should only fail once");
@@ -179,7 +180,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls("key", Arrays.asList(null, null, null), null, (long)defaultTimeout))
+    Mockito.when(uploadManager.getMultipartUploadUrls("key", DEFAULT_CONTENT_TYPE, Arrays.asList(null, null, null), null, (long)defaultTimeout))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     final LowLevelS3Client s3client = Mockito.mock(LowLevelS3Client.class, Answers.RETURNS_DEEP_STUBS);
@@ -239,7 +240,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), any(), any(), any()))
+    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), anyString(), any(), any(), any()))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     final CompletableFuture<String> errorCompletableFuture = new CompletableFuture<>();
@@ -282,7 +283,7 @@ public class S3PresignedUploadTest extends BaseTestCase {
                     new PresignedUrlPartDto("url", 2),
                     new PresignedUrlPartDto("url", 3)
       ));
-    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), any(), any(), any()))
+    Mockito.when(uploadManager.getMultipartUploadUrls(anyString(), anyString(), any(), any(), any()))
            .thenReturn(Pair.create(multipartDto, 1L));
 
     final CompletableFuture<String> errorCompletableFuture = new CompletableFuture<>();

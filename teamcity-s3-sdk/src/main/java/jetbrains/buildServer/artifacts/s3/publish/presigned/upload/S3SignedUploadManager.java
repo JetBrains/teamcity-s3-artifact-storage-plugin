@@ -127,9 +127,13 @@ public class S3SignedUploadManager {
   }
 
   @NotNull
-  public Pair<PresignedUrlDto, Long> getMultipartUploadUrls(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
+  public Pair<PresignedUrlDto, Long> getMultipartUploadUrls(@NotNull final String objectKey,
+                                                            @NotNull String contentType,
+                                                            @NotNull final List<String> digests,
+                                                            @Nullable String uploadId, @Nullable Long ttl) {
     final long urlRequestStart = System.nanoTime();
-    final PresignedUrlDto presignedUrl = myRetrier.execute(() -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, digests, uploadId, ttl));
+    final PresignedUrlDto presignedUrl = myRetrier.execute(
+      () -> myPresignedUrlsProviderClient.getMultipartPresignedUrl(objectKey, contentType, digests, uploadId, ttl));
     final long urlRequestEnd = System.nanoTime();
     Long fetchTiming = urlRequestEnd - urlRequestStart;
     myMultipartUploadIds.put(presignedUrl.getObjectKey(), presignedUrl.getUploadId());

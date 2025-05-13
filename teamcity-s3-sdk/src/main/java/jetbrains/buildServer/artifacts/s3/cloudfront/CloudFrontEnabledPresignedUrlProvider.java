@@ -3,6 +3,7 @@ package jetbrains.buildServer.artifacts.s3.cloudfront;
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,7 +30,7 @@ public interface CloudFrontEnabledPresignedUrlProvider {
                              boolean isSuccessful) throws IOException;
 
   @NotNull
-  String startMultipartUpload(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws Exception;
+  String startMultipartUpload(@NotNull String objectKey, @Nullable String contentType, @NotNull CloudFrontSettings settings) throws Exception;
 
   @NotNull
   CloudFrontSettings settings(@NotNull Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings, @NotNull RequestMetadata metadata);

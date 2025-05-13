@@ -9,7 +9,13 @@ import com.amazonaws.util.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
@@ -140,9 +146,19 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public String startMultipartUpload(@NotNull final String objectKey, @NotNull final S3Settings settings) throws Exception {
+  public String startMultipartUpload(@NotNull final String objectKey, @Nullable String contentType, @NotNull final S3Settings settings) throws Exception {
     return callS3(client -> {
-      final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(settings.getBucketName(), objectKey);
+      final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(
+        settings.getBucketName(),
+        objectKey
+      );
+
+      if (contentType != null) {
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentType(contentType);
+        initiateMultipartUploadRequest.withObjectMetadata(metadata);
+      }
+
       initiateMultipartUploadRequest.setCannedACL(settings.getAcl());
       final InitiateMultipartUploadResult initiateMultipartUploadResult = client.initiateMultipartUpload(initiateMultipartUploadRequest);
       return initiateMultipartUploadResult.getUploadId();

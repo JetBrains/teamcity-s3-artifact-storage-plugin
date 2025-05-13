@@ -143,10 +143,14 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
   @Override
   @NotNull
-  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
+  public PresignedUrlDto getMultipartPresignedUrl(@NotNull final String objectKey,
+                                                  @NotNull String contentType,
+                                                  @NotNull final List<String> digests,
+                                                  @Nullable String uploadId,
+                                                  @Nullable Long ttl) {
     validateClient();
     try {
-      return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, digests, uploadId, ttl));
+      return fetchPresignedUrlDto(objectKey, multipartRequestEntity(objectKey, digests, uploadId, ttl, contentType));
     } catch (Exception e) {
       throw new FetchFailedException(e);
     }
@@ -264,9 +268,15 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
 
 
   @NotNull
-  private EntityProducer multipartRequestEntity(@NotNull final String s3ObjectKey, @NotNull final List<String> digests, @Nullable String uploadId, @Nullable Long ttl) {
+  private EntityProducer multipartRequestEntity(@NotNull final String s3ObjectKey,
+                                                @NotNull final List<String> digests,
+                                                @Nullable String uploadId,
+                                                @Nullable Long ttl,
+                                                @NotNull String contentType) {
     try {
-      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(PresignedUrlListRequestDto.forObjectKeyMultipart(s3ObjectKey, uploadId, digests, ttl)));
+      return requestEntity(PresignedUrlRequestSerializer.serializeRequestV2(
+        PresignedUrlListRequestDto.forObjectKeyMultipart(s3ObjectKey, uploadId, digests, ttl, contentType))
+      );
     } catch (UnsupportedEncodingException e) {
       LOGGER.warnAndDebugDetails("Unsupported encoding", e);
       throw new MisconfigurationException(e);
@@ -312,7 +322,6 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
       throw new MisconfigurationException(e);
     }
   }
-
 
   @NotNull
   private HTTPRequestBuilder postTemplate() throws URISyntaxException {

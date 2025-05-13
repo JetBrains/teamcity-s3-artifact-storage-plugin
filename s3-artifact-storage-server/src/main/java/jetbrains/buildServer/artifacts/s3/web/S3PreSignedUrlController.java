@@ -124,6 +124,7 @@ public class S3PreSignedUrlController extends BaseController {
         if (customTtl != null) {
           settings.setTtl(customTtl);
         }
+
         Disposable threadName = NamedDaemonThreadFactory.patchThreadName("Generating " + urlsRequest.getPresignedUrlRequests().size() + " pre-signed URLs"
                                                                          + " for a running build with id: " + runningBuild.getBuildId());
         final String response;
@@ -223,12 +224,13 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
                                  @NotNull final CloudFrontSettings settings) {
+    String multipartContentType = requestList.getMultipartContentType();
     final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
         if (request.getDigests() != null && request.getDigests().size() > 1) {
           String uploadId;
           if (request.getUploadId() == null) {
-            uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+            uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
           } else {
             uploadId = request.getUploadId();
           }
@@ -246,7 +248,7 @@ public class S3PreSignedUrlController extends BaseController {
           }
           return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
         } else if (request.getNumberOfParts() > 1) {
-          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), settings);
+          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
           final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
             try {
               return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);

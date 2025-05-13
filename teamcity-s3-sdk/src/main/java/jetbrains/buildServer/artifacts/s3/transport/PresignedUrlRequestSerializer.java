@@ -44,17 +44,16 @@ public class PresignedUrlRequestSerializer {
   private static final String PRESIGN_URL_MAPPING = "s3-presign-url-mapping";
   @NotNull
   private static final String NUMBER_OF_PARTS = "s3-number-of-parts";
-
   @NotNull
   private static final String DIGEST = "s3-file-digest";
-
   @NotNull
   private static final String UPLOAD_ID = "s3-file-upload-id";
-
   @NotNull
   private static final String CUSTOM_TTL = "s3-custom-ttl";
   @NotNull
   private static final String HTTP_METHOD = "s3-http-method";
+  @NotNull
+  public static final String S3_UPLOAD_CONTENT_TYPE = "s3-upload-content-type";
 
   @SuppressWarnings("unchecked")
   @NotNull
@@ -155,6 +154,9 @@ public class PresignedUrlRequestSerializer {
     if (request.getCustomTtl() != null) {
       document.setAttribute(CUSTOM_TTL, String.valueOf(request.getCustomTtl()));
     }
+    if (request.getMultipartContentType() != null) {
+      document.setAttribute(S3_UPLOAD_CONTENT_TYPE, request.getMultipartContentType());
+    }
     request.getPresignedUrlRequests().stream().filter(Objects::nonNull).forEach(s3ObjectKey -> {
       final Element element = XmlUtil.addTextChild(document, OBJECT_KEY, s3ObjectKey.getObjectKey());
       element.setAttribute(NUMBER_OF_PARTS, String.valueOf(s3ObjectKey.getDigests() != null ? s3ObjectKey.getDigests().size() : s3ObjectKey.getNumberOfParts()));
@@ -182,6 +184,8 @@ public class PresignedUrlRequestSerializer {
 
       final Attribute customTtlAttribute = document.getAttribute(CUSTOM_TTL);
       final Long customTtl = customTtlAttribute != null ? customTtlAttribute.getLongValue() : null;
+      Attribute contentTypeAttribute = document.getAttribute(S3_UPLOAD_CONTENT_TYPE);
+      String contentType = contentTypeAttribute != null ? contentTypeAttribute.getValue() : null;
 
       for (Object child : document.getChildren(OBJECT_KEY)) {
         final Element objectKeyEl = (Element)child;
@@ -212,7 +216,7 @@ public class PresignedUrlRequestSerializer {
           result.add(PresignedUrlRequestDto.from(text, numberOfParts, httpMethod));
         }
       }
-      return new PresignedUrlListRequestDto(result, isVersion2, customTtl);
+      return new PresignedUrlListRequestDto(result, isVersion2, customTtl, contentType);
     } catch (Exception e) {
       LOGGER.warnAndDebugDetails("Got exception while parsing XML", e);
       throw new IllegalArgumentException("Request is not a valid XML");

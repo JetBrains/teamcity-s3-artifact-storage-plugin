@@ -19,7 +19,11 @@ public interface PresignedUrlsProviderClient {
   Collection<PresignedUrlDto> getRegularPresignedUrls(@NotNull List<String> objectKey, Map<String, String> precalculatedDigests);
 
   @NotNull
-  PresignedUrlDto getMultipartPresignedUrl(@NotNull String objectKey, @NotNull List<String> digests, @Nullable String uploadId, @Nullable Long ttl);
+  PresignedUrlDto getMultipartPresignedUrl(@NotNull String objectKey,
+                                           @NotNull String contentType,
+                                           @NotNull List<String> digests,
+                                           @Nullable String uploadId,
+                                           @Nullable Long ttl);
 
   void completeMultipartUpload(@NotNull MultipartUploadCompleteRequestDto multipartUploadComplete);
 
