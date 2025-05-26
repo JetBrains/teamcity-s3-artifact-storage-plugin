@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.ExtensionsProvider;
 import jetbrains.buildServer.artifacts.ArtifactData;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProvider;
@@ -86,8 +87,8 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
     String userAgent = WebUtil.getUserAgent(httpServletRequest);
     CloudFrontSettings settings = myPreSignedUrlProvider.settings(storageSettings, projectParameters, RequestMetadata.from(requestRegion, userAgent));
 
-    String preSignedUrl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
-
+    PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
+    String preSignedUrl = presignedUrlWithTtl.getUrl();
     fixContentSecurityPolicy(preSignedUrl);
 
     if (isRedirectCachingDisabled()) {
@@ -95,7 +96,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
       httpServletResponse.setHeader(HttpHeaders.PRAGMA, "no-cache");
       httpServletResponse.setHeader(HttpHeaders.EXPIRES, "0");
     } else {
-      httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + settings.getUrlTtlSeconds());
+      httpServletResponse.setHeader(HttpHeaders.CACHE_CONTROL, "max-age=" + presignedUrlWithTtl.getUrlTtlSeconds());
     }
     httpServletResponse.sendRedirect(preSignedUrl);
     return true;

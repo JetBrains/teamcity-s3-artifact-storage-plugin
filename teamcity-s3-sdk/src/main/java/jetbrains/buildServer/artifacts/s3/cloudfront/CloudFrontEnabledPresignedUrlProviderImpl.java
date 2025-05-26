@@ -4,6 +4,7 @@ import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -22,10 +23,10 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public String generateDownloadUrl(@NotNull HttpMethod httpMethod,
-                                    @NotNull String objectKey,
-                                    @NotNull CloudFrontSettings settings) throws IOException {
-    String preSignedUrl = null;
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod,
+                                                 @NotNull String objectKey,
+                                                 @NotNull CloudFrontSettings settings) throws IOException {
+    PresignedUrlWithTtl preSignedUrl = null;
 
     if (shouldUseCloudFront(settings)) {
       preSignedUrl = myCloudFrontProvider.generateDownloadUrl(objectKey, settings);

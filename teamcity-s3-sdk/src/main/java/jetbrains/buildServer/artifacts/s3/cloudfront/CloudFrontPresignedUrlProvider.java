@@ -1,13 +1,14 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
 import java.io.IOException;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public interface CloudFrontPresignedUrlProvider {
 
   @Nullable
-  String generateDownloadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
+  PresignedUrlWithTtl generateDownloadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
 
   String generateUploadUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings) throws IOException;
 

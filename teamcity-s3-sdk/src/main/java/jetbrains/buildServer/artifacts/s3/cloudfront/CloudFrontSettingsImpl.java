@@ -92,6 +92,11 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
     return S3Util.getUrlTtlSeconds(mySettings);
   }
 
+  @Override
+  public int getUrlExtendedTtlSeconds() {
+    return S3Util.getUrlExtendedTtlSeconds(mySettings);
+  }
+
   @NotNull
   @Override
   public CannedAccessControlList getAcl() {

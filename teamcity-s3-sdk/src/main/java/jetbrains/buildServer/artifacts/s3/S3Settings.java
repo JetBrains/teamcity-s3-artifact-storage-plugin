@@ -13,6 +13,8 @@ public interface S3Settings {
 
   int getUrlTtlSeconds();
 
+  int getUrlExtendedTtlSeconds();
+
   @NotNull
   CannedAccessControlList getAcl();
 

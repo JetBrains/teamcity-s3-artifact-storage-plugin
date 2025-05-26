@@ -1,6 +1,7 @@
 package jetbrains.buildServer.filestorage.cloudfront;
 
 import java.io.IOException;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontPresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.serverSide.IOGuard;
@@ -16,8 +17,8 @@ public class GuardedCloudFrontPresignedUrlProvider implements CloudFrontPresigne
 
   @Nullable
   @Override
-  public String generateDownloadUrl(@NotNull String objectKey,
-                                    @NotNull CloudFrontSettings settings) throws IOException {
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull String objectKey,
+                                                 @NotNull CloudFrontSettings settings) throws IOException {
     return IOGuard.allowNetworkCall(() -> myDelegate.generateDownloadUrl(objectKey, settings));
   }
 

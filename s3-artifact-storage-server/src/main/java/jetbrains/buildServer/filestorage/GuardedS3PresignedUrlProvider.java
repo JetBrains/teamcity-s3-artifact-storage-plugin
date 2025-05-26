@@ -3,6 +3,7 @@ package jetbrains.buildServer.filestorage;
 import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
@@ -33,9 +34,9 @@ public class GuardedS3PresignedUrlProvider implements S3PresignedUrlProvider {
 
   @NotNull
   @Override
-  public String generateDownloadUrl(@NotNull HttpMethod httpMethod,
-                                    @NotNull String objectKey,
-                                    @NotNull S3Settings settings) throws IOException {
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod,
+                                                 @NotNull String objectKey,
+                                                 @NotNull S3Settings settings) throws IOException {
     return IOGuard.allowNetworkCall(() -> myDelegate.generateDownloadUrl(httpMethod, objectKey, settings));
   }
 

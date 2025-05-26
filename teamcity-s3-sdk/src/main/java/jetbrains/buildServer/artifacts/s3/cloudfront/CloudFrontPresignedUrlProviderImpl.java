@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
@@ -33,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
 
 import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_DOMAIN_NAME_CACHE_EXPIRATION_HOURS;
 
-public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUrlProvider {
+public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider implements CloudFrontPresignedUrlProvider {
   @NotNull
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
 
@@ -45,24 +47,23 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
                                                                     .expireAfterWrite(TeamCityProperties.getInteger(S3_CLOUDFRONT_DOMAIN_NAME_CACHE_EXPIRATION_HOURS, 1),
                                                                                       TimeUnit.HOURS)
                                                                     .build();
-  @NotNull
-  private final AmazonS3Provider myAmazonS3Provider;
 
   public CloudFrontPresignedUrlProviderImpl(@NotNull final TimeService timeService,
                                             @NotNull final AmazonS3Provider amazonS3Provider) {
-    myAmazonS3Provider = amazonS3Provider;
+    super(amazonS3Provider);
     myTimeService = timeService;
   }
 
   @Nullable
   @Override
-  public String generateDownloadUrl(@NotNull String objectKey,
-                                    @NotNull CloudFrontSettings settings) throws IOException {
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull String objectKey,
+                                                 @NotNull CloudFrontSettings settings) throws IOException {
     String distribution = settings.getCloudFrontDownloadDistribution();
     if (distribution == null) {
       distribution = settings.getCloudFrontDistribution();
     }
-    return generateUrl(objectKey, settings, Collections.emptyMap(), distribution);
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, true);
+    return new PresignedUrlWithTtl(generateUrl(objectKey, settings, Collections.emptyMap(), distribution, urlTtlSeconds), urlTtlSeconds);
   }
 
   @Nullable
@@ -73,11 +74,12 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     if (distribution == null) {
       distribution = settings.getCloudFrontDistribution();
     }
-    return generateUrl(objectKey, settings, Collections.emptyMap(), distribution);
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, false);
+    return generateUrl(objectKey, settings, Collections.emptyMap(), distribution, urlTtlSeconds);
   }
 
   @Nullable
-  private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters, @NotNull String distribution)
+  private String generateUrl(@NotNull String objectKey, @NotNull CloudFrontSettings settings, @NotNull Map<String, String> additionalParameters, @NotNull String distribution, int urlTtlSeconds)
     throws IOException {
     try {
       String domain = getDomainName(settings, distribution);
@@ -101,7 +103,7 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
         PrivateKey decodedPrivateKey = PEM.readPrivateKey(new ByteArrayInputStream(privateKeyBytes));
 
         return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(resourcePath, publicKeyId, decodedPrivateKey,
-                                                                new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
+                                                                new Date(myTimeService.now() + urlTtlSeconds * 1000L));
       }
       return null;
     } catch (AmazonCloudFrontException | InvalidKeySpecException | IOException | URISyntaxException e) {
@@ -127,7 +129,8 @@ public class CloudFrontPresignedUrlProviderImpl implements CloudFrontPresignedUr
     if (distribution == null) {
       distribution = settings.getCloudFrontDistribution();
     }
-    return generateUrl(objectKey, settings, additionalParameters, distribution);
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, false);
+    return generateUrl(objectKey, settings, additionalParameters, distribution, urlTtlSeconds);
   }
 
   @Nullable

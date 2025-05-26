@@ -4,14 +4,15 @@ import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
 
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 public interface CloudFrontEnabledPresignedUrlProvider {
   @NotNull
-  String generateDownloadUrl(@NotNull HttpMethod httpMethod,
-                             @NotNull String objectKey,
-                             @NotNull CloudFrontSettings settings) throws IOException;
+  PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod,
+                                          @NotNull String objectKey,
+                                          @NotNull CloudFrontSettings settings) throws IOException;
 
   @NotNull
   String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull CloudFrontSettings settings) throws IOException;

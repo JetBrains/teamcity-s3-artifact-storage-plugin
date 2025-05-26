@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 public interface S3PresignedUrlProvider {
 
   @NotNull
-  String generateDownloadUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
+  PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod, @NotNull String objectKey, @NotNull S3Settings settings) throws IOException;
 
   @NotNull
   String generateUploadUrl(@NotNull String objectKey, @Nullable String digest, @NotNull S3Settings settings) throws IOException;

@@ -21,6 +21,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProvider;
@@ -261,8 +262,8 @@ public class S3PreSignedUrlController extends BaseController {
         } else if (request.getDigests() != null && request.getDigests().size() == 1) {
           return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
         } else if (request.getHttpMethod() != null) {
-          return PresignedUrlDto.singlePart(request.getObjectKey(),
-                                            myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings));
+          PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings);
+          return PresignedUrlDto.singlePart(request.getObjectKey(), presignedUrlWithTtl.getUrl());
         } else {
           return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
         }

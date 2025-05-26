@@ -3,7 +3,6 @@
 package jetbrains.buildServer.artifacts.s3;
 
 import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.*;
 import com.amazonaws.util.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
@@ -19,7 +18,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
-import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
@@ -30,30 +28,30 @@ import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_URL_LIFETIME_SEC
 /**
  * Created by Evgeniy Koshkin (evgeniy.koshkin@jetbrains.com) on 19.07.17.
  */
-public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
+public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements S3PresignedUrlProvider {
   @NotNull
   private static final Logger LOG = Logger.getInstance(S3PresignedUrlProviderImpl.class.getName());
   @NotNull
   private static final String TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION = "teamcity.s3.override.content.disposition.enabled";
   @NotNull
   private final TimeService myTimeService;
-  private final AmazonS3Provider myAmazonS3Provider;
 
   public S3PresignedUrlProviderImpl(@NotNull final TimeService timeService, @NotNull final AmazonS3Provider amazonS3Provider) {
+    super(amazonS3Provider);
     myTimeService = timeService;
-    myAmazonS3Provider = amazonS3Provider;
   }
 
   @NotNull
   @Override
-  public String generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(httpMethod, objectKey, null, null, null, settings);
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, true);
+    return new PresignedUrlWithTtl(generateUrl(httpMethod, objectKey, null, null, null, settings, urlTtlSeconds), urlTtlSeconds);
   }
 
   @NotNull
   @Override
   public String generateUploadUrl(@NotNull final String objectKey, @Nullable final String digest, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, digest, null, null, settings);
+    return generateUrl(HttpMethod.PUT, objectKey, digest, null, null, settings, getUrlTtlSeconds(objectKey, settings, false));
   }
 
   @NotNull
@@ -63,7 +61,7 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
                                          final int nPart,
                                          @NotNull final String uploadId,
                                          @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, digest, nPart, uploadId, settings);
+    return generateUrl(HttpMethod.PUT, objectKey, digest, nPart, uploadId, settings, getUrlTtlSeconds(objectKey, settings, false));
   }
 
   @NotNull
@@ -72,10 +70,11 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
                              @Nullable String digest,
                              @Nullable final Integer nPart,
                              @Nullable final String uploadId,
-                             @NotNull final S3Settings settings) throws IOException {
+                             @NotNull final S3Settings settings,
+                             int urlTtlSeconds) throws IOException {
     try {
       final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(settings.getBucketName(), objectKey, httpMethod)
-        .withExpiration(new Date(myTimeService.now() + settings.getUrlTtlSeconds() * 1000L));
+        .withExpiration(new Date(myTimeService.now() + urlTtlSeconds * 1000L));
       if (nPart != null) {
         request.addRequestParameter("partNumber", String.valueOf(nPart));
       }
@@ -132,19 +131,6 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
   }
 
   @NotNull
-  private Optional<ObjectMetadata> getObjectMetadata(@NotNull String objectKey, @NotNull S3Settings settings) {
-    ObjectMetadata metadata = null;
-
-    try {
-      metadata = callS3(client -> client.getObjectMetadata(settings.getBucketName(), objectKey), settings);
-    } catch (Exception e) {
-      LOG.debug("Metadata not found for object " + objectKey + " in a bucket " + settings.getBucketName(), e);
-    }
-
-    return Optional.ofNullable(metadata);
-  }
-
-  @NotNull
   @Override
   public String startMultipartUpload(@NotNull final String objectKey, @Nullable String contentType, @NotNull final S3Settings settings) throws Exception {
     return callS3(client -> {
@@ -188,27 +174,6 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     }, settings);
   }
 
-  private <T> T callS3(@NotNull final Function<AmazonS3, T> callable, @NotNull final S3Settings settings) throws IOException {
-    try {
-      String projectId = settings.getProjectId();
-      if (projectId == null) {
-        throw new ConnectionCredentialsException("Cannot generate PresignedUrl, project ID is not provided");
-      }
-      return myAmazonS3Provider.withS3ClientShuttingDownImmediately(
-        settings.toRawSettings(),
-        projectId,
-        client -> {
-        try {
-          return callable.apply(client);
-        } catch (final Throwable t) {
-          throw new IOException(t);
-        }
-      });
-    } catch (ConnectionCredentialsException e) {
-      throw new IOException(e);
-    }
-  }
-
   @NotNull
   public S3Settings settings(@NotNull final Map<String, String> rawSettings, @NotNull Map<String, String> projectSettings) {
     if (S3Util.getBucketName(rawSettings) == null) {
@@ -237,6 +202,11 @@ public class S3PresignedUrlProviderImpl implements S3PresignedUrlProvider {
     @Override
     public int getUrlTtlSeconds() {
       return S3Util.getUrlTtlSeconds(mySettings);
+    }
+
+    @Override
+    public int getUrlExtendedTtlSeconds() {
+      return S3Util.getUrlExtendedTtlSeconds(mySettings);
     }
 
     @NotNull

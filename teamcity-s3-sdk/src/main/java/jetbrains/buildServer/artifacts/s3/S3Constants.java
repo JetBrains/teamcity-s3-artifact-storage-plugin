@@ -21,6 +21,7 @@ public class S3Constants {
   public static final String S3_PATH_PREFIX_ATTR = "s3_path_prefix";
 
   public static final String S3_URL_LIFETIME_SEC = "storage.s3.url.expiration.time.seconds";
+  public static final String S3_URL_LIFETIME_EXTENDED_SEC = "storage.s3.url.expiration.time.extended.seconds";
   public static final String S3_USE_PRE_SIGNED_URL_FOR_UPLOAD = "storage.s3.upload.presignedUrl.enabled";
   public static final String S3_NUMBER_OF_RETRIES_ON_ERROR = "teamcity.internal.storage.s3.upload.numberOfRetries";
   public static final String S3_RETRY_DELAY_ON_ERROR_MS = "teamcity.internal.storage.s3.upload.retryDelayMs";
@@ -81,6 +82,7 @@ public class S3Constants {
   public static final String PROJECT_ID_PARAM = "projectId";
 
   public static final String TEAMCITY_STORAGE_TYPE_KEY = "storage.type";
+  public static final long S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB = 1; // if file in S3 is bigger than this, extended ttl for presigned url should be used
 
   public enum ErrorSource {
     S3,
