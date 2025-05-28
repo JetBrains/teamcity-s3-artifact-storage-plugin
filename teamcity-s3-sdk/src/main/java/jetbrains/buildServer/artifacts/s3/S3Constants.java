@@ -82,7 +82,7 @@ public class S3Constants {
   public static final String PROJECT_ID_PARAM = "projectId";
 
   public static final String TEAMCITY_STORAGE_TYPE_KEY = "storage.type";
-  public static final long S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB = 1; // if file in S3 is bigger than this, extended ttl for presigned url should be used
+  public static final String S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB = "storage.s3.download.threshold.presigned.url.extended"; // if file in S3 is bigger than this, extended ttl for presigned url should be used
 
   public enum ErrorSource {
     S3,

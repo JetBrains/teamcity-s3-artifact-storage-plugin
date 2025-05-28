@@ -74,7 +74,7 @@ public abstract class PresignedUrlProvider {
     }
     Optional<ObjectMetadata> objectMetadata = getObjectMetadata(objectKey, settings);
     long contentLength = objectMetadata.map(ObjectMetadata::getContentLength).orElse(0L);
-    return contentLength > S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB * Math.pow(2, 30);
+    return contentLength > TeamCityProperties.getInteger(S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB, 1) * Math.pow(2, 30);
   }
 
   private static boolean isBrowser(final String userAgentString) {

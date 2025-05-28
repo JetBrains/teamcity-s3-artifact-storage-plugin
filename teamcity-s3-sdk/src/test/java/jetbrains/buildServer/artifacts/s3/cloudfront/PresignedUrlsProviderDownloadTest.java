@@ -18,6 +18,7 @@ import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProviderImpl;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.util.TimeService;
 import org.junit.Assert;
@@ -52,6 +53,7 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
                                                    "rsl2msyeEhx5qjTGeQJAe2+M6MWPXmROgyVxP4KsMIgtUq/5lpfPyMU4OOpDcwk5\n" +
                                                    "WKaUYRAGw6K0eaaMRrBQyJspN8JVZ6GXYK9nlbWu/A==\n" +
                                                    "-----END RSA PRIVATE KEY-----";
+  private static final int FILE_SIZE_TRESHOLD_IN_GB = 1;
 
   private AmazonS3Provider myAmazonS3Provider;
   private AmazonS3 myS3Client;
@@ -63,6 +65,7 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
     super.setUp();
     setInternalProperty(S3_URL_LIFETIME_SEC, "600");
     setInternalProperty(S3_URL_LIFETIME_EXTENDED_SEC, "10800");
+    setInternalProperty(S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB, FILE_SIZE_TRESHOLD_IN_GB);
     myAmazonS3Provider = Mockito.mock(AmazonS3Provider.class);
     myS3Client = Mockito.mock(AmazonS3.class);
     myS3Settings = Mockito.spy(new CloudFrontSettingsImpl(
@@ -79,22 +82,22 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
 
   @Test
   public void testGetPresignedUrlForLargeFile() throws IOException, ConnectionCredentialsException {
-    testGetPresignedUrlForFile((long)Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB + 1);
+    testGetPresignedUrlForFile((long)Math.pow(2, 30) * FILE_SIZE_TRESHOLD_IN_GB + 1);
   }
 
   @Test
   public void testGetPresignedUrlForNormalFile() throws IOException, ConnectionCredentialsException {
-    testGetPresignedUrlForFile((long)Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB);
+    testGetPresignedUrlForFile((long)Math.pow(2, 30) * FILE_SIZE_TRESHOLD_IN_GB);
   }
 
   @Test
   public void testGetPresignedUrlForLargeFileCloudFront() throws IOException, ConnectionCredentialsException {
-    testGetPresignedUrlForFileCloudFront((long)Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB + 1);
+    testGetPresignedUrlForFileCloudFront((long)Math.pow(2, 30) * FILE_SIZE_TRESHOLD_IN_GB + 1);
   }
 
   @Test
   public void testGetPresignedUrlForNormalFileCloudFront() throws IOException, ConnectionCredentialsException {
-    testGetPresignedUrlForFileCloudFront((long)Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB);
+    testGetPresignedUrlForFileCloudFront((long)Math.pow(2, 30) * FILE_SIZE_TRESHOLD_IN_GB);
   }
 
   private void testGetPresignedUrlForFile(long fileSize) throws IOException, ConnectionCredentialsException {
@@ -116,7 +119,7 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
     Mockito.verify(myS3Client).generatePresignedUrl(requestCaptor.capture());
 
     Date presignedUrlTtl = requestCaptor.getValue().getExpiration();
-    int expectedTtlSeconds = ( fileSize > Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB ) ? myS3Settings.getUrlExtendedTtlSeconds() : myS3Settings.getUrlTtlSeconds();
+    int expectedTtlSeconds = ( fileSize > Math.pow(2, 30) * TeamCityProperties.getInteger(S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB) ) ? myS3Settings.getUrlExtendedTtlSeconds() : myS3Settings.getUrlTtlSeconds();
     Assert.assertEquals(presignedUrlTtl, new Date(timeService.now() + expectedTtlSeconds * 1000L));
   }
 
@@ -133,7 +136,7 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
 
     // Could not mock and capture arguments of 3rd party static method CloudFrontUrlSigner.getSignedURLWithCannedPolicy without additional tools like PowerMock and
     // extending PowerMockTestCase-like service classes. Decided to verify the second to the last step before request to S3: myS3Settings.getUrlTtlSeconds or myS3Settings.getUrlExtendedTtlSeconds
-    if (fileSize > Math.pow(2, 30) * S3Constants.S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB) {
+    if (fileSize > Math.pow(2, 30) * TeamCityProperties.getInteger(S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB)) {
       Mockito.verify(myS3Settings).getUrlExtendedTtlSeconds();
       Mockito.verify(myS3Settings, Mockito.never()).getUrlTtlSeconds();
     } else {
