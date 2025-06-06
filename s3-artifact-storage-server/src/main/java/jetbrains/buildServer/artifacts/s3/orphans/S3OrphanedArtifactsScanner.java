@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,11 +43,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_SETTING;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
 
 /**
@@ -196,9 +196,10 @@ public class S3OrphanedArtifactsScanner {
       }
 
       try {
-        String basePrefix = S3Util.getPathPrefix(parameters);
-        if (basePrefix == null) {
-          basePrefix = "";
+        String basePrefix = parameters.get(S3_PATH_PREFIX_SETTING);
+
+        if (basePrefix != null && !basePrefix.endsWith("/")) {
+          basePrefix += "/";
         }
 
         Set<ProjectEntry> outdatedEntries = scanBasePath(project.getProjectId(), basePrefix, bucketName, parameters);
@@ -216,6 +217,7 @@ public class S3OrphanedArtifactsScanner {
               String path = buildTypeEntry.getPath();
               LOG.debug("Found an outdated build type at " + path);
               orphans.add(path);
+              continue;
             }
 
             if (!scanBuilds) {
@@ -285,36 +287,53 @@ public class S3OrphanedArtifactsScanner {
       return new BuildTypeEntry(buildTypePath, Collections.emptySet(), true);
     }
 
-    Map<Long, BuildEntry> buildEntryMap = paths.stream()
-      .map(path -> toBuildEntry(buildTypePath, path))
-      .collect(Collectors.toMap(BuildEntry::getId, Function.identity()));
+    Set<BuildEntry> outdatedEntries = new HashSet<>();
+    Map<Long, BuildEntry> buildEntries = new HashMap<>();
 
-    myServer.getRunningBuilds(null, build -> buildEntryMap.containsKey(build.getBuildId()))
+    for (String fullPath : paths) {
+      String path = fullPath;
+
+      if (path.endsWith("/")) {
+        path = path.substring(0, path.length() - 1);
+      }
+
+      String entryName = path.substring(path.lastIndexOf('/') + 1);
+
+      if (entryName.isEmpty()) {
+        continue;
+      }
+
+      BuildEntry buildEntry = new BuildEntry(path, entryName);
+
+      if (NUMERIC_BUILD_ID.matcher(entryName).matches()) {
+        long id = Long.parseLong(entryName);
+        buildEntries.put(id, buildEntry);
+      } else {
+        outdatedEntries.add(buildEntry);
+      }
+    }
+
+    LOG.debug("Found " + outdatedEntries + " of non-conforming build entries");
+
+    myServer.getRunningBuilds(null, build -> buildEntries.containsKey(build.getBuildId()))
       .stream()
       .map(Build::getBuildId)
-      .forEach(buildEntryMap::remove);
+      .forEach(buildEntries::remove);
 
-    myBuildHistory.findEntries(buildEntryMap.keySet())
-      .forEach(build -> buildEntryMap.remove(build.getBuildId()));
+    myBuildHistory.findEntries(buildEntries.keySet())
+      .forEach(build -> buildEntries.remove(build.getBuildId()));
 
     scannedPaths.add(paths.size());
 
+    outdatedEntries.addAll(buildEntries.values());
+
+    LOG.debug("Found " + outdatedEntries + " of all entries in " + buildTypePath);
+
     return new BuildTypeEntry(
       buildTypePath,
-      new HashSet<>(buildEntryMap.values()),
-      buildEntryMap.size() == paths.size()
+      outdatedEntries,
+      outdatedEntries.size() == paths.size()
     );
-  }
-
-  @NotNull
-  private BuildEntry toBuildEntry(@NotNull String buildTypePath, @NotNull String path) {
-    String buildId = stripPath(path, buildTypePath);
-    if (NUMERIC_BUILD_ID.matcher(buildId).matches()) {
-      long id = Long.parseLong(buildId);
-      return new BuildEntry(path, id);
-    } else {
-      return new BuildEntry(path, -1L);
-    }
   }
 
   @NotNull
@@ -342,17 +361,6 @@ public class S3OrphanedArtifactsScanner {
       }
       return totalSize;
     }));
-  }
-
-  @NotNull
-  private String stripPath(String path, @Nullable String prefix) {
-    if (path.endsWith(DELIMITER)) {
-      path = path.substring(0, path.lastIndexOf(DELIMITER));
-    }
-    if (prefix != null && path.length() > prefix.length()) {
-      path = path.substring(prefix.length());
-    }
-    return path;
   }
 
   private ListObjectsV2Result getObjects(Map<String, String> parameters, String bucketName, String projectId, String prefix) throws ConnectionCredentialsException {

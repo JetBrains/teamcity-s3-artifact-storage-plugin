@@ -569,7 +569,7 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     @Override
     public ListObjectsV2Result listObjectsV2(ListObjectsV2Request request) throws SdkClientException {
-      final String prefix = request.getPrefix();
+      final String prefix = request.getPrefix() == null ? "" : request.getPrefix();
 
       final ListObjectsV2Result result = new ListObjectsV2Result();
       final List<String> commonPrefixes = prefixes.getOrDefault(prefix, Collections.emptyList());

@@ -6,14 +6,15 @@ import java.util.Objects;
 
 class BuildEntry {
   private final String myPath;
-  private final long myId;
+  private final String myId;
 
-  BuildEntry(@NotNull String path, long id) {
+  BuildEntry(@NotNull String path, @NotNull String id) {
     myPath = path;
     myId = id;
   }
 
-  long getId() {
+  @NotNull
+  String getId() {
     return myId;
   }
 
@@ -27,7 +28,7 @@ class BuildEntry {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     BuildEntry that = (BuildEntry) o;
-    return myId == that.myId && Objects.equals(myPath, that.myPath);
+    return Objects.equals(myId, that.myId) && Objects.equals(myPath, that.myPath);
   }
 
   @Override
