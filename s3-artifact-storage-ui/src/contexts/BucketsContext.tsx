@@ -61,10 +61,12 @@ function BucketsContextProvider({ children }: { children: React.ReactNode }) {
     errors: s3TransferAccelerationErrors,
     reload: reloadS3TransferAcceleration,
     isLoading: isS3TransferAccelerationLoading,
+    triggered: isS3TransferAccelerationTriggered,
   } = useTransferAccelerationAvailable();
 
+
   React.useEffect(() => {
-    if (!isS3TransferAccelerationLoading) {
+    if (isS3TransferAccelerationTriggered && !isS3TransferAccelerationLoading) {
       setValue(
         FormFields.S3_TRANSFER_ACCELERATION_AVAILABLE,
         isS3TransferAccelerationAvailable

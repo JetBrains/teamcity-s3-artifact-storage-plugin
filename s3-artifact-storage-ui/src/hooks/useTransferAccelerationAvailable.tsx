@@ -20,12 +20,17 @@ export default function useTransferAccelerationAvailable() {
   >();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isAvailable, setIsAvailable] = React.useState<boolean>(false);
+  const [isTriggered, setIsTriggered] = React.useState<boolean>(false);
 
   const validateS3TransferAccelerationAvailability =
     React.useCallback(async () => {
       if (isLoading) {
         return;
       }
+      if (!isTriggered) {
+        setIsTriggered(true);
+      }
+
       setResponseErrors(undefined);
       setIsAvailable(false);
       if (isDisabled) {
@@ -34,25 +39,28 @@ export default function useTransferAccelerationAvailable() {
       setIsLoading(true);
       try {
         const data = getValues();
-        // safety measure to prevent errors when switching between buckets
-        data[FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE] = false;
         const { isAvailable: result, errors } =
           await fetchS3TransferAccelerationAvailability(config, data);
         if (errors) {
+          data[FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE] = false;
           setResponseErrors(errors);
         } else {
           setIsAvailable(result ?? false);
+          if (!result) {
+            data[FormFields.CONNECTION_TRANSFER_ACCELERATION_TOGGLE] = false;
+          }
         }
       } catch (e) {
         setResponseErrors(errorMessage(e));
       } finally {
         setIsLoading(false);
       }
-    }, [config, getValues, isDisabled, isLoading]);
+    }, [config, getValues, isDisabled, isLoading, isTriggered]);
 
   return {
     available: isAvailable,
     isLoading,
+    triggered: isTriggered,
     errors: responseErrors,
     reload: validateS3TransferAccelerationAvailability,
   };
