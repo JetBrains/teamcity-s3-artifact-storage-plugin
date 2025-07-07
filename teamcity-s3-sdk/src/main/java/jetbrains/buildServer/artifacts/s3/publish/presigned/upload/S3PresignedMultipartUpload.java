@@ -136,7 +136,7 @@ public class S3PresignedMultipartUpload extends S3PresignedUpload {
         resetUploadId();
       }
 
-      myProgressListener.onFileUploadFailed(cause.getMessage(), isRecoverable);
+      myProgressListener.onFileUploadFailed(cause.toString(), isRecoverable);
       // InterruptedException will be re-thrown wrapped in RuntimeException
       ExceptionUtil.rethrowAsRuntimeException(cause);
       return null;

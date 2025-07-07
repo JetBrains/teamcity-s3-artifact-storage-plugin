@@ -171,7 +171,7 @@ public class S3PresignedUpload implements Callable<FileUploadInfo> {
       myProgressListener.onFileUploadSuccess(digest);
       result = etag;
     } catch (final Exception e) {
-      myProgressListener.onFileUploadFailed(e.getMessage(), false);
+      myProgressListener.onFileUploadFailed(e.toString(), false);
       throw e;
     }
 
