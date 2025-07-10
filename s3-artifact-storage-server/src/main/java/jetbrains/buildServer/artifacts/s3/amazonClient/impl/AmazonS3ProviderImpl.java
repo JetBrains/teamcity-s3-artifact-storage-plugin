@@ -104,7 +104,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       // this will protect us from endless recursion (see withS3ClientShuttingDownImmediately)
       final String correctRegion = extractCorrectedRegion(awsException);
       if (correctRegion != null) {
-        Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
+        Loggers.CLOUD.debug(() -> "Running operation with corrected S3 region [" + correctRegion + "]", awsException);
         final HashMap<String, String> correctedSettings = new HashMap<>(settings);
         correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctRegion);
         return withS3ClientShuttingDownImmediately(correctedSettings, projectId, withCorrectedClient);
@@ -144,11 +144,11 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     final HashMap<String, String> correctedSettings = new HashMap<>(settings);
 
     if (isTAException) {
-      Loggers.CLOUD.debug("Running operation with disabled Transfer Acceleration for project " + projectId, s3Exception);
+      Loggers.CLOUD.debug(() -> "Running operation with disabled Transfer Acceleration for project " + projectId, s3Exception);
       correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
       return correctedSettings;
     } else if (isRegionException) {
-      Loggers.CLOUD.debug("Running operation with corrected S3 region [" + correctedRegion + "] for project " + projectId, s3Exception);
+      Loggers.CLOUD.debug(() -> "Running operation with corrected S3 region [" + correctedRegion + "] for project " + projectId, s3Exception);
       correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
       return correctedSettings;
     } else if (s3Exception instanceof ConnectionCredentialsException) { // Should never happen
