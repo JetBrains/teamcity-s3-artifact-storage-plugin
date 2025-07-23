@@ -11,15 +11,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
@@ -37,6 +34,7 @@ import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
+import jetbrains.buildServer.util.Disposable;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.Util;
@@ -178,81 +176,82 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
       }
     });
 
+    Map<String, String> settings = new HashMap<>(storageSettings);
+    ParamUtil.putSslValues(myServerPaths, settings);
+
+    String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
+
+    AtomicInteger succeededNum = new AtomicInteger();
+    AtomicInteger errorNum = new AtomicInteger();
+    AtomicReference<List<String>> currentPart = new AtomicReference<>(Collections.emptyList());
+    List<String> pathsFailedToDelete = new ArrayList<>();
+
     try {
-      final Map<String, String> correctedSettings = myAmazonS3Provider.correctRegionAndAcceleration(bucketName, storageSettings, projectId);
-
-      myAmazonS3Provider.withS3ClientShuttingDownImmediately(
-        ParamUtil.putSslValues(myServerPaths, correctedSettings),
-        projectId,
-        client -> {
-          String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
-
-          AtomicInteger succeededNum = new AtomicInteger();
-          AtomicInteger errorNum = new AtomicInteger();
-          List<String> pathsFailedToDelete = new ArrayList<>();
-
-          int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
-          List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
-          AtomicInteger currentChunk = new AtomicInteger();
-          partitions.forEach(part -> {
+      myAmazonS3Provider.withCorrectingRegionAndAcceleration(settings, projectId, client -> {
+        int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
+        List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
+        AtomicInteger processedChunksNum = new AtomicInteger();
+        for (List<String> part : partitions) {
+          currentPart.set(part);
+          try {
+            Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(build, pathsToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
             try {
-              int deletedObjects = retrier.execute(
-                () -> deleteChunk(pathPrefix, bucketName, client, part, () -> progressMessage(build, pathsToDelete, succeededNum, currentChunk, partitions.size(), part.size())));
-              succeededNum.addAndGet(deletedObjects);
-              part.forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
-            } catch (MultiObjectDeleteException e) {
-              succeededNum.addAndGet(e.getDeletedObjects().size());
-
-              if (!e.getDeletedObjects().isEmpty()) {
-                myCleanupListeners.forEach(listener -> e.getDeletedObjects().forEach(obj -> listener.onSuccess(obj.getKey())));
-              }
-
-              List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
-              errors.forEach(error -> {
-                String key = error.getKey();
-                if (key.startsWith(pathPrefix)) {
-                  CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
-                  pathsFailedToDelete.add(key.substring(pathPrefix.length()));
-                  myCleanupListeners.forEach(listener -> listener.onError(e, false));
-                }
-              });
-              errorNum.addAndGet(errors.size());
-            } catch (SdkClientException e) {
-              Throwable innerException = e.getCause();
-              if (innerException instanceof UnknownHostException) {
-                CLEANUP.warnAndDebugDetails("Could not establish connection to AWS server", innerException);
-              } else if (innerException != null) {
-                CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + part, innerException);
-              } else {
-                CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + part, e);
-              }
-              errorNum.addAndGet(part.size());
-              myCleanupListeners.forEach(listener -> listener.onError(e, false));
-            } catch (Exception e) {
-              CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + part, e);
-              errorNum.addAndGet(part.size());
-              myCleanupListeners.forEach(listener -> listener.onError(e, false));
+              retrier.execute(() -> succeededNum.addAndGet(deleteChunk(pathPrefix, bucketName, client, part)));
+            } finally {
+              threadName.dispose();
             }
-          });
 
-          if (errorNum.get() > 0) {
-            CLEANUP.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
-            cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
+            part.forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
+          } catch (MultiObjectDeleteException e) {
+            succeededNum.addAndGet(e.getDeletedObjects().size());
+
+            if (!e.getDeletedObjects().isEmpty()) {
+              myCleanupListeners.forEach(listener -> e.getDeletedObjects().forEach(obj -> listener.onSuccess(obj.getKey())));
+            }
+
+            List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
+            errors.forEach(error -> {
+              String key = error.getKey();
+              if (key.startsWith(pathPrefix)) {
+                CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
+                pathsFailedToDelete.add(key.substring(pathPrefix.length()));
+                myCleanupListeners.forEach(listener -> listener.onError(e, false));
+              }
+            });
+            errorNum.addAndGet(errors.size());
           }
-
-          CLEANUP.info(() -> "Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
-
-          if (!pathsFailedToDelete.isEmpty())
-            pathsToDelete.removeAll(pathsFailedToDelete);
-
-          myHelper.removeFromArtifactList(build, pathsToDelete);
-
-          return null;
         }
-      );
-    } catch (ConnectionCredentialsException e) {
-      CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + e.getMessage(), e);
+
+        return null;
+      }, true);
+    } catch (SdkClientException e) {
+      Throwable innerException = e.getCause();
+      if (innerException instanceof UnknownHostException) {
+        CLEANUP.warnAndDebugDetails("Could not establish connection to AWS server", innerException);
+      } else if (innerException != null) {
+        CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + currentPart.get(), innerException);
+      } else {
+        CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + currentPart.get(), e);
+      }
+      errorNum.addAndGet(currentPart.get().size());
+      myCleanupListeners.forEach(listener -> listener.onError(e, false));
+    } catch (Exception e) {
+      CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + currentPart.get(), e);
+      errorNum.addAndGet(currentPart.get().size());
+      myCleanupListeners.forEach(listener -> listener.onError(e, false));
     }
+
+    if (errorNum.get() > 0) {
+      CLEANUP.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
+      cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
+    }
+
+    CLEANUP.info(() -> "Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
+
+    if (!pathsFailedToDelete.isEmpty())
+      pathsToDelete.removeAll(pathsFailedToDelete);
+
+    myHelper.removeFromArtifactList(build, pathsToDelete);
   }
 
   @Nullable
@@ -283,20 +282,16 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
       LogUtil.describe(build), currentChunkNumber.incrementAndGet(), size, chunkSize, pathsToDelete.size() - succeededNum.get());
   }
 
-  @NotNull
-  private Integer deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull AmazonS3 client, @NotNull List<String> part, @NotNull Supplier<String> info)
-    throws Exception {
+  private int deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull AmazonS3 client, @NotNull List<String> part) {
     List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
     DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
-    return NamedThreadFactory.executeWithNewThreadName(
-      info.get(),
-      () -> Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
-        String keys = CLEANUP.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
-        CLEANUP.debug(() -> String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-        List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
-        CLEANUP.debug(() -> String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-        return deletedObjects.size();
-      }));
+    return Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
+      String keys = CLEANUP.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
+      CLEANUP.debug(() -> String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
+      List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
+      CLEANUP.debug(() -> String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
+      return deletedObjects.size();
+    });
   }
 
   @VisibleForTesting
