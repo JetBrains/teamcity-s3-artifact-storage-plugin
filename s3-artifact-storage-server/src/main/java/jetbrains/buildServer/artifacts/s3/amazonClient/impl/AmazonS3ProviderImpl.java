@@ -15,6 +15,7 @@ import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
 import jetbrains.buildServer.clouds.amazon.connector.impl.AwsConnectionCredentials;
 import jetbrains.buildServer.clouds.amazon.connector.utils.clients.ClientConfigurationBuilder;
+import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.ParamUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.IOGuard;
@@ -208,7 +209,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
   @NotNull
   @Override
-  public AmazonS3 fromS3Configuration(@NotNull final Map<String, String> s3Settings,
+  public AmazonS3   fromS3Configuration(@NotNull final Map<String, String> s3Settings,
                                       @NotNull final String projectId,
                                       @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
     throws ConnectionCredentialsException {
@@ -349,6 +350,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     if (storageFeatureId != null) {
       additionalParameters.put(ArtifactStorageSettings.STORAGE_FEATURE_ID, storageFeatureId);
     }
+
+    // TW-94823 Subprojects might use this connection and require access to the credentials
+    additionalParameters.put(AwsCloudConnectorConstants.ALLOWED_IN_SUBPROJECTS_PARAM, "true");
 
     return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId, additionalParameters);
   }
