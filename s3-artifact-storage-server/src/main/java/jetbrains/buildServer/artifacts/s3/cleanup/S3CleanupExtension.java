@@ -23,6 +23,7 @@ import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
+import jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.serverSide.*;
@@ -31,7 +32,6 @@ import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContext;
 import jetbrains.buildServer.serverSide.cleanup.BuildCleanupContextEx;
 import jetbrains.buildServer.serverSide.cleanup.BuildsCleanupExtension;
 import jetbrains.buildServer.serverSide.cleanup.CleanupInterruptedException;
-import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.cleanup.ArtifactPathsEvaluator;
 import jetbrains.buildServer.util.Disposable;
@@ -39,6 +39,7 @@ import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.Util;
 import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
+import jetbrains.buildServer.util.retry.AbortRetriesException;
 import jetbrains.buildServer.util.retry.Retrier;
 import jetbrains.buildServer.util.retry.RetrierEventListener;
 import org.jetbrains.annotations.NotNull;
@@ -172,6 +173,10 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     retrier.registerListener(new RetrierEventListener() {
       @Override
       public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+        if (AmazonS3ProviderImpl.isIncorrectRegionOrAccelerationException(e)) {
+          throw new AbortRetriesException(e);
+        }
+
         myCleanupListeners.forEach(listener -> listener.onError(e, true));
       }
     });

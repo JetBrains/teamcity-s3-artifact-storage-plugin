@@ -137,6 +137,11 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     }
   }
 
+  public static boolean isIncorrectRegionOrAccelerationException(@NotNull Throwable s3Exception) {
+    if (TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches()) return true;
+    return extractCorrectedRegion(s3Exception) != null;
+  }
+
   private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception) throws ConnectionCredentialsException, AmazonS3Exception {
     final String correctedRegion = extractCorrectedRegion(s3Exception);
     final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
