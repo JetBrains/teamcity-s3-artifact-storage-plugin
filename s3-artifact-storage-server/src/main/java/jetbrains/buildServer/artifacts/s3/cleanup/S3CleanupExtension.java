@@ -166,21 +166,6 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     }
     String projectId = project.getProjectId();
 
-    Map<String, String> projectParameters = project.getParameters();
-
-    Retrier retrier = AmazonRetrier.defaultAwsRetrier(S3Util.getNumberOfRetries(projectParameters), S3Util.getRetryDelayInMs(projectParameters), CLEANUP);
-
-    retrier.registerListener(new RetrierEventListener() {
-      @Override
-      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
-        if (AmazonS3ProviderImpl.isIncorrectRegionOrAccelerationException(e)) {
-          throw new AbortRetriesException(e);
-        }
-
-        myCleanupListeners.forEach(listener -> listener.onError(e, true));
-      }
-    });
-
     Map<String, String> settings = new HashMap<>(storageSettings);
     ParamUtil.putSslValues(myServerPaths, settings);
 
@@ -201,7 +186,8 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
           try {
             Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(build, pathsToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
             try {
-              retrier.execute(() -> succeededNum.addAndGet(deleteChunk(pathPrefix, bucketName, client, part)));
+              // recreate retrier every time to ensure we can quickly adjust its parameters in runtime
+              createRetrier(project).execute(() -> succeededNum.addAndGet(deleteChunk(pathPrefix, bucketName, client, part)));
             } finally {
               threadName.dispose();
             }
@@ -257,6 +243,29 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
       pathsToDelete.removeAll(pathsFailedToDelete);
 
     myHelper.removeFromArtifactList(build, pathsToDelete);
+  }
+
+  @NotNull
+  private Retrier createRetrier(@NotNull SProject project) {
+    int numRetries = S3Util.getNumberOfRetries(project.getParameters());
+    int delayMillis = S3Util.getRetryDelayInMs(project.getParameters());
+
+    // make sure we can overwrite number of retries and delay with cleanup specific properties
+    numRetries = TeamCityProperties.getInteger("cleanup.extensions.s3CleanupExtension.numberOfRetries", numRetries);
+    delayMillis = TeamCityProperties.getInteger("cleanup.extensions.s3CleanupExtension.retryDelayMs", delayMillis);
+
+    Retrier retrier = AmazonRetrier.defaultAwsRetrier(numRetries, delayMillis, CLEANUP);
+    retrier.registerListener(new RetrierEventListener() {
+      @Override
+      public <T> void onFailure(@NotNull Callable<T> callable, int retry, @NotNull Exception e) {
+        if (AmazonS3ProviderImpl.isIncorrectRegionOrAccelerationException(e)) {
+          throw new AbortRetriesException(e);
+        }
+
+        myCleanupListeners.forEach(listener -> listener.onError(e, true));
+      }
+    });
+    return retrier;
   }
 
   @Nullable
