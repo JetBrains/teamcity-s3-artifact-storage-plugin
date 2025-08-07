@@ -522,7 +522,7 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     }
 
     @Override
-    public <T, E extends Exception> T withCorrectingRegionAndAcceleration(@NotNull Map<String, String> settings, @NotNull String projectId, @NotNull WithS3Client<T, E> action, boolean shutdownImmediately) {
+    public <T> T withCorrectingRegionAndAcceleration(@NotNull Map<String, String> settings, @NotNull String projectId, @NotNull WithS3Client<T, AmazonS3Exception> action, boolean shutdownImmediately) {
       lock.lock();
       try {
         return action.execute(myS3);
