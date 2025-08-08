@@ -122,7 +122,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
   private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception)
     throws ConnectionCredentialsException, AmazonS3Exception {
-    return buildAndCacheCorrectedSettings(projectId, settings, s3Exception);
+    final Map<String, String> correctedSettings = new HashMap<>(settings);
+    correctedSettings.putAll(buildAndCacheCorrectedSettings(projectId, settings, s3Exception));
+    return correctedSettings;
   }
 
   @NotNull
