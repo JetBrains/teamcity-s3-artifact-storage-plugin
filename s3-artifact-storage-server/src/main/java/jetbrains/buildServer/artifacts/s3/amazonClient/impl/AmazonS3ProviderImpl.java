@@ -6,8 +6,13 @@ import com.amazonaws.services.cloudfront.AmazonCloudFrontClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.intellij.openapi.util.Pair;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.CachingSocketFactory;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
@@ -44,6 +49,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
   private final ProjectManager myProjectManager;
   private final ProjectConnectionCredentialsManager myProjectConnectionCredentialsManager;
+  private final Cache<Pair<String, String>, Map<String, String>> myCorrectedSettings = CacheBuilder.newBuilder()
+                                                                                                   .expireAfterAccess(24, java.util.concurrent.TimeUnit.HOURS)
+                                                                                                   .build();
 
   public AmazonS3ProviderImpl(@NotNull final ProjectManager projectManager,
                               @NotNull final ProjectConnectionCredentialsManager projectConnectionCredentialsManager) {
@@ -76,43 +84,13 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
                                                                         @NotNull final String projectId,
                                                                         @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
-    return withS3Client(params, projectId,
-                        s3Client -> {
-                          return withClientCorrectingRegion(s3Client, params, projectId, withClient);
-                        },
-                        true);
+    return withCorrectingRegionAndAcceleration(params, projectId, withClient, true);
   }
 
   public <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
                                                  @NotNull final String projectId,
                                                  @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException {
-    return withS3Client(params, projectId,
-                        s3Client -> {
-                          return withClientCorrectingRegion(s3Client, params, projectId, withClient);
-                        },
-                        false);
-  }
-
-  private <T, E extends Exception> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
-                                                                @NotNull final Map<String, String> settings,
-                                                                @NotNull final String projectId,
-                                                                @NotNull final WithS3Client<T, E> withCorrectedClient) throws ConnectionCredentialsException, E {
-    try {
-      return withCorrectedClient.execute(s3Client);
-    } catch (Exception awsException) {
-      // if it is region mismatch, try to correct it.
-      // in case of any other exception, just rethrow it
-      // this will protect us from endless recursion (see withS3ClientShuttingDownImmediately)
-      final String correctRegion = extractCorrectedRegion(awsException);
-      if (correctRegion != null) {
-        Loggers.CLOUD.debug(() -> "Running operation with corrected S3 region [" + correctRegion + "]", awsException);
-        final HashMap<String, String> correctedSettings = new HashMap<>(settings);
-        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctRegion);
-        return withS3ClientShuttingDownImmediately(correctedSettings, projectId, withCorrectedClient);
-      } else {
-        throw awsException;
-      }
-    }
+    return withCorrectingRegionAndAcceleration(params, projectId, withClient, false);
   }
 
   @Override
@@ -125,10 +103,10 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @Override
-  public <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
-                                                   @NotNull final String projectId,
-                                                   @NotNull final WithS3Client<T, AmazonS3Exception> action,
-                                                   final boolean shutdownImmediately) throws ConnectionCredentialsException {
+  public <T, E extends Exception> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
+                                                                        @NotNull final String projectId,
+                                                                        @NotNull final WithS3Client<T, E> action,
+                                                                        final boolean shutdownImmediately) throws ConnectionCredentialsException {
     try {
       return withS3Client(settings, projectId, action, shutdownImmediately);
     } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
@@ -142,13 +120,30 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     return extractCorrectedRegion(s3Exception) != null;
   }
 
-  private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception) throws ConnectionCredentialsException, AmazonS3Exception {
+  private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception)
+    throws ConnectionCredentialsException, AmazonS3Exception {
+    return buildAndCacheCorrectedSettings(projectId, settings, s3Exception);
+  }
+
+  @NotNull
+  private Map<String, String> buildAndCacheCorrectedSettings(@NotNull String projectId,
+                                                             @NotNull Map<String, String> settings,
+                                                             @NotNull Throwable s3Exception) throws ConnectionCredentialsException {
+    final Map<String, String> correctedSettings = buildCorrectedSettings(projectId, s3Exception);
+    final String featureId = settings.get(ArtifactStorageSettings.STORAGE_FEATURE_ID);
+    if (StringUtils.isNotBlank(featureId) && StringUtils.isNotBlank(projectId)) {
+      myCorrectedSettings.put(new Pair<>(projectId, featureId), correctedSettings);
+    }
+    return correctedSettings;
+  }
+
+  @NotNull
+  private static Map<String, String> buildCorrectedSettings(@NotNull String projectId,
+                                                            @NotNull Throwable s3Exception) throws ConnectionCredentialsException {
+    final HashMap<String, String> correctedSettings = new HashMap<>();
     final String correctedRegion = extractCorrectedRegion(s3Exception);
     final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
     final boolean isRegionException = correctedRegion != null;
-
-    final HashMap<String, String> correctedSettings = new HashMap<>(settings);
-
     if (isTAException) {
       Loggers.CLOUD.debug(() -> "Running operation with disabled Transfer Acceleration for project " + projectId, s3Exception);
       correctedSettings.put(S3_ENABLE_ACCELERATE_MODE, "false");
@@ -162,7 +157,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     } else if (s3Exception instanceof AmazonS3Exception) {
       throw (AmazonS3Exception)s3Exception;
     } else {
-      throw new RuntimeException("Cannot extract corrected settings from exception for project " + projectId);
+      throw new RuntimeException("Cannot extract corrected settings from exception for project " + projectId, s3Exception);
     }
   }
 
@@ -179,10 +174,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                           @NotNull final Map<String, String> storageSettings,
                                                           @NotNull final String projectId) {
     if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")) {
-      final String initialRegion = storageSettings.get(AWSCommonParams.REGION_NAME_PARAM);
       return IOGuard.allowNetworkCall(() -> {
         try {
-          return getCorrectedRegionAndAcceleration(bucketName, storageSettings, projectId, initialRegion);
+          return getCorrectedRegionAndAcceleration(bucketName, storageSettings, projectId);
         } catch (Throwable t) {
           throw new RuntimeException(t);
         }
@@ -195,26 +189,23 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   @NotNull
   private Map<String, String> getCorrectedRegionAndAcceleration(@NotNull String bucketName,
                                                                 @NotNull Map<String, String> storageSettings,
-                                                                @NotNull String projectId,
-                                                                String initialRegion) throws ConnectionCredentialsException {
-    try {
-      String correctedRegion = withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
-      if (!correctedRegion.equalsIgnoreCase(initialRegion)) {
-        final HashMap<String, String> correctedSettings = new HashMap<>(storageSettings);
-        correctedSettings.put(AWSCommonParams.REGION_NAME_PARAM, correctedRegion);
-        Loggers.CLOUD.debug(() -> "Bucket [" + bucketName + "] location is corrected: [" + initialRegion + "] -> [" + correctedRegion + "]");
-        return correctedSettings;
-      }
-    } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
-      final Map<String, String> correctedSettings = extractCorrectedSettings(projectId, storageSettings, s3Exception);
-      return getCorrectedRegionAndAcceleration(bucketName, correctedSettings, projectId, initialRegion);
+                                                                @NotNull String projectId) throws ConnectionCredentialsException {
+    final Map<String, String> cachedSettings = myCorrectedSettings.getIfPresent(new Pair<>(projectId, storageSettings.get(ArtifactStorageSettings.STORAGE_FEATURE_ID)));
+    if (cachedSettings != null) {
+      final Map<String, String> correctedSettings = new HashMap<>(storageSettings);
+      correctedSettings.putAll(cachedSettings);
+      return correctedSettings;
     }
-    return storageSettings;
+
+    // No call has been made to S3, we make one to verify the quality of the settings 
+    withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
+
+    return extractCachedCorrectedSettings(storageSettings, projectId);
   }
 
   @NotNull
   @Override
-  public AmazonS3   fromS3Configuration(@NotNull final Map<String, String> s3Settings,
+  public AmazonS3 fromS3Configuration(@NotNull final Map<String, String> s3Settings,
                                       @NotNull final String projectId,
                                       @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
     throws ConnectionCredentialsException {
@@ -283,10 +274,11 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
   private <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
                                                   @NotNull final String projectId,
-                                                  @NotNull final WithS3Client<T, E> withS3Client,
-                                                  boolean shutdownImmediately) throws ConnectionCredentialsException {
-    if (ParamUtil.withAwsConnectionId(params)) {
-      AmazonS3 s3Client = fromS3Settings(params, projectId);
+                                                  @NotNull final WithS3Client<T, E> withS3Client, boolean shutdownImmediately) throws ConnectionCredentialsException {
+
+    final Map<String, String> correctedSettings = extractCachedCorrectedSettings(params, projectId);
+    if (ParamUtil.withAwsConnectionId(correctedSettings)) {
+      AmazonS3 s3Client = fromS3Settings(correctedSettings, projectId);
       try {
         return withS3Client.execute(s3Client);
       } catch (Exception e) {
@@ -298,11 +290,11 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       }
     } else {
       try {
-        return AWSCommonParams.withAWSClients(params, clients -> {
+        return AWSCommonParams.withAWSClients(correctedSettings, clients -> {
           clients.setS3SignerType(S3_SIGNER_TYPE);
-          clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
-          clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
-          patchAWSClientsSsl(clients, params);
+          clients.setDisablePathStyleAccess(disablePathStyleAccess(correctedSettings));
+          clients.setAccelerateModeEnabled(isAccelerateModeEnabled(correctedSettings));
+          patchAWSClientsSsl(clients, correctedSettings);
           final AmazonS3 s3Client = clients.createS3Client();
           try {
             return withS3Client.execute(s3Client);
@@ -316,6 +308,29 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
         throw new ConnectionCredentialsException(new Exception(t));
       }
     }
+  }
+
+  private Map<String, String> extractCachedCorrectedSettings(@NotNull final Map<String, String> params,
+                                                             @NotNull final String projectId) {
+    final String featureId = params.get(ArtifactStorageSettings.STORAGE_FEATURE_ID);
+    if (StringUtils.isBlank(featureId) || StringUtils.isBlank(projectId)) {
+      return params;
+    }
+
+    final Map<String, String> cachedSettings;
+    try {
+      cachedSettings = myCorrectedSettings.get(new Pair<>(projectId, featureId), () -> Collections.emptyMap());
+    } catch (ExecutionException e) {
+      return params;
+    }
+
+    if (cachedSettings.isEmpty()) {
+      return params;
+    }
+
+    final Map<String, String> correctedSettings = new HashMap<>(params);
+    correctedSettings.putAll(cachedSettings);
+    return correctedSettings;
   }
 
   @NotNull
