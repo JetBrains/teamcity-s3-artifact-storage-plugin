@@ -46,11 +46,14 @@ import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.Aws
 
 public class AmazonS3ProviderImpl implements AmazonS3Provider {
   private final String S3_SIGNER_TYPE = "AWSS3V4SignerType";
+  private final String CACHE_EXPIRATION_TIMEOUT = "teamcity.internal.storage.s3.correctSettingsCache.expirationTimeoutInHours";
+  private final String ENABLE_CACHE = "teamcity.internal.storage.s3.correctSettingsCache.enable";
 
   private final ProjectManager myProjectManager;
   private final ProjectConnectionCredentialsManager myProjectConnectionCredentialsManager;
   private final Cache<Pair<String, String>, Map<String, String>> myCorrectedSettings = CacheBuilder.newBuilder()
-                                                                                                   .expireAfterAccess(24, java.util.concurrent.TimeUnit.HOURS)
+                                                                                                   .expireAfterAccess(TeamCityProperties.getInteger(CACHE_EXPIRATION_TIMEOUT, 24)
+                                                                                                     , java.util.concurrent.TimeUnit.HOURS)
                                                                                                    .build();
 
   public AmazonS3ProviderImpl(@NotNull final ProjectManager projectManager,
@@ -133,7 +136,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                              @NotNull Throwable s3Exception) throws ConnectionCredentialsException {
     final Map<String, String> correctedSettings = buildCorrectedSettings(projectId, s3Exception);
     final String featureId = settings.get(ArtifactStorageSettings.STORAGE_FEATURE_ID);
-    if (StringUtils.isNotBlank(featureId) && StringUtils.isNotBlank(projectId)) {
+    if (StringUtils.isNotBlank(featureId) && StringUtils.isNotBlank(projectId) && TeamCityProperties.getBooleanOrTrue(ENABLE_CACHE)) {
       myCorrectedSettings.put(new Pair<>(projectId, featureId), correctedSettings);
     }
     return correctedSettings;
