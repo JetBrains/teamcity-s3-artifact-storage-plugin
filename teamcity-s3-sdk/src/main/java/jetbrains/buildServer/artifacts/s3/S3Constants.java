@@ -75,6 +75,7 @@ public class S3Constants {
   public static final String S3_ENABLE_REACT_UI = "teamcity.internal.storage.s3.ui.react.enabled";
   public static final String ALLOW_HTTP_CONNECTION_FOR_UPLOAD = "teamcity.internal.storage.s3.allow.plain.http";
   public static final String S3_FORCE_PRESIGNED_URLS = "teamcity.internal.storage.s3.force.presigned.urls";
+  public static final String S3_VALIDATE_KEYS = "teamcity.internal.storage.s3.validate.keys";
 
   public static final String S3_ENABLE_UPLOAD_FILE_LENS_EVENTS = "teamcity.internal.storage.s3.lens.file.events.enabled";
   public static final String S3_ENABLE_UPLOAD_INFO_LENS_EVENTS = "teamcity.internal.storage.s3.lens.info.events.enabled";

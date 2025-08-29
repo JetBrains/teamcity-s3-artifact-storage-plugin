@@ -30,6 +30,7 @@ import jetbrains.buildServer.agent.artifacts.AgentArtifactHelper;
 import jetbrains.buildServer.agent.artifacts.ArtifactDigestInfo;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
+import jetbrains.buildServer.artifacts.s3.S3ArtifactUtil;
 import jetbrains.buildServer.artifacts.s3.S3Configuration;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.lens.integration.LensIntegrationService;
@@ -44,7 +45,6 @@ import jetbrains.buildServer.serverSide.BuildTypeOptions;
 import jetbrains.buildServer.serverSide.PublishArtifactCondition;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.EventDispatcher;
-import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.retry.RecoverableException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -251,15 +251,9 @@ public class S3ArtifactsPublisher implements DigestProducingArtifactsPublisher {
 
   @NotNull
   private String getPathPrefix(@NotNull final AgentRunningBuild build) {
-    final List<String> pathSegments = new ArrayList<>();
-    final String prefix = build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_PATH_PREFIX_SETTING, "");
-    if (!StringUtil.isEmptyOrSpaces(prefix)) {
-      pathSegments.add(prefix);
-    }
-    pathSegments.add(build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM));
-    pathSegments.add(build.getBuildTypeExternalId());
-    pathSegments.add(Long.toString(build.getBuildId()));
-    return StringUtil.join("/", pathSegments) + "/";
+    return S3ArtifactUtil.getPathPrefix(build.getArtifactStorageSettings().getOrDefault(S3Constants.S3_PATH_PREFIX_SETTING, ""),
+                                        build.getSharedConfigParameters().get(ServerProvidedProperties.TEAMCITY_PROJECT_ID_PARAM),
+                                        build.getBuildTypeExternalId(), build.getBuildId());
   }
 
   @NotNull
