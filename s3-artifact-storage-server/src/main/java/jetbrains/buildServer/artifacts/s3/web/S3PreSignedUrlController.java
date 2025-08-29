@@ -22,6 +22,7 @@ import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
 import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
+import jetbrains.buildServer.artifacts.s3.S3ArtifactUtil;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProvider;
@@ -35,6 +36,7 @@ import jetbrains.buildServer.controllers.interceptors.auth.util.AuthorizationHea
 import jetbrains.buildServer.http.SimpleCredentials;
 import jetbrains.buildServer.serverSide.ProjectManagerEx;
 import jetbrains.buildServer.serverSide.RunningBuildEx;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.impl.LogUtil;
 import jetbrains.buildServer.serverSide.impl.ProjectEx;
 import jetbrains.buildServer.serverSide.impl.RunningBuildsManagerEx;
@@ -49,9 +51,7 @@ import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.servlet.ModelAndView;
 
 import static java.util.Base64.getDecoder;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.ERROR_SOURCE_HEADER_NAME;
-import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
+import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.artifacts.s3.transport.PresignedUrlRequestSerializer.*;
 
 /**
@@ -121,6 +121,9 @@ public class S3PreSignedUrlController extends BaseController {
         final CloudFrontSettings settings = request.getSecond();
         final PresignedUrlListRequestDto urlsRequest = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
 
+        if(TeamCityProperties.getBoolean(S3_VALIDATE_KEYS))
+          validateUrlsRequest(urlsRequest, runningBuild);
+
         final Long customTtl = urlsRequest.getCustomTtl();
         if (customTtl != null) {
           settings.setTtl(customTtl);
@@ -145,6 +148,24 @@ public class S3PreSignedUrlController extends BaseController {
       logError(httpServletRequest, e);
       handleException(httpServletResponse, e);
       return null;
+    }
+  }
+
+  private void validateUrlsRequest(@NotNull PresignedUrlListRequestDto urlsRequest, @NotNull RunningBuildEx build) {
+    String projectId = build.getProjectExternalId();
+    if (projectId == null) {
+      throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "Invalid URLs request: no project id associated with the build " + build.getBuildId());
+    }
+
+    final Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(build);
+    final String customPrefix = storageSettings.getOrDefault(S3_PATH_PREFIX_SETTING, "");
+
+    final String prefix = S3ArtifactUtil.getPathPrefix(customPrefix, projectId, build.getBuildTypeExternalId(), build.getBuildId());
+    for (PresignedUrlRequestDto request : urlsRequest.getPresignedUrlRequests()) {
+      String key = request.getObjectKey();
+      if (key == null || !key.startsWith(prefix)) {
+        throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "Invalid URLs request: object key '" + key + "' does not start with '" + prefix + "' for build id " + build.getBuildId());
+      }
     }
   }
 
