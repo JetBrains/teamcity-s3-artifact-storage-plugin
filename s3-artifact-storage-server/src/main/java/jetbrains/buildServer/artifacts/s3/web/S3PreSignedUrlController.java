@@ -121,7 +121,7 @@ public class S3PreSignedUrlController extends BaseController {
         final CloudFrontSettings settings = request.getSecond();
         final PresignedUrlListRequestDto urlsRequest = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
 
-        if(TeamCityProperties.getBoolean(S3_VALIDATE_KEYS))
+        if(TeamCityProperties.getBooleanOrTrue(S3_VALIDATE_KEYS))
           validateUrlsRequest(urlsRequest, runningBuild);
 
         final Long customTtl = urlsRequest.getCustomTtl();
