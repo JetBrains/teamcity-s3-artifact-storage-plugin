@@ -1,8 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.orphans;
 
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.Build;
@@ -23,6 +20,10 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.services.s3.model.CommonPrefix;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -44,6 +45,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_PATH_PREFIX_SETTING;
@@ -247,8 +249,11 @@ public class S3OrphanedArtifactsScanner {
   }
 
   private Set<ProjectEntry> scanBasePath(String projectId, String basePrefix, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
-    ListObjectsV2Result projectsList = getObjects(parameters, bucketName, projectId, basePrefix);
-    List<String> paths = projectsList.getCommonPrefixes();
+    List<ListObjectsV2Response> builds = getObjects(parameters, bucketName, projectId, basePrefix);
+    List<String> paths = builds.stream()
+      .flatMap(res -> res.commonPrefixes().stream())
+      .map(CommonPrefix::prefix)
+      .collect(Collectors.toList());
 
     Set<ProjectEntry> projectEntries = new HashSet<>(paths.size());
     for (String path : paths) {
@@ -261,8 +266,11 @@ public class S3OrphanedArtifactsScanner {
   }
 
   private ProjectEntry scanProjectPath(String projectId, String projectPath, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
-    ListObjectsV2Result projectPaths = getObjects(parameters, bucketName, projectId, projectPath);
-    List<String> paths = projectPaths.getCommonPrefixes();
+    List<ListObjectsV2Response> builds = getObjects(parameters, bucketName, projectId, projectPath);
+    List<String> paths = builds.stream()
+      .flatMap(res -> res.commonPrefixes().stream())
+      .map(CommonPrefix::prefix)
+      .collect(Collectors.toList());
 
     if (paths.isEmpty()) {
       return new ProjectEntry(projectPath, Collections.emptySet());
@@ -279,8 +287,11 @@ public class S3OrphanedArtifactsScanner {
   }
 
   private BuildTypeEntry scanBuildTypePath(String projectId, String buildTypePath, String bucketName, Map<String, String> parameters) throws ConnectionCredentialsException {
-    ListObjectsV2Result builds = getObjects(parameters, bucketName, projectId, buildTypePath);
-    List<String> paths = builds.getCommonPrefixes();
+    List<ListObjectsV2Response> builds = getObjects(parameters, bucketName, projectId, buildTypePath);
+    List<String> paths = builds.stream()
+      .flatMap(res -> res.commonPrefixes().stream())
+      .map(CommonPrefix::prefix)
+      .collect(Collectors.toList());
 
     if (paths.isEmpty()) {
       LOG.debug("Found path that doesn't correlate to the expected storage structure: " + buildTypePath);
@@ -351,27 +362,38 @@ public class S3OrphanedArtifactsScanner {
 
   private long calculateSize(Map<String, String> parameters, String bucketName, String projectId, String prefix) throws ConnectionCredentialsException {
     return IOGuard.allowNetworkCall(() -> myAmazonS3Provider.withS3Client(parameters, projectId, s3client -> {
-      final ListObjectsV2Result result = getObjects(parameters, bucketName, projectId, prefix);
-      long totalSize = 0;
-      for (S3ObjectSummary summary : result.getObjectSummaries()) {
-        totalSize += summary.getSize();
-      }
-      for (String commonPrefix : result.getCommonPrefixes()) {
+      final List<ListObjectsV2Response> result = getObjects(parameters, bucketName, projectId, prefix);
+
+      long totalSize = result.stream()
+        .flatMap(res -> res.contents().stream())
+        .mapToLong(S3Object::size)
+        .sum();
+
+      List<String> prefixes = result.stream()
+        .flatMap(res -> res.commonPrefixes().stream())
+        .map(CommonPrefix::prefix)
+        .collect(Collectors.toList());
+
+      for (String commonPrefix : prefixes) {
         totalSize += calculateSize(parameters, bucketName, projectId, commonPrefix);
       }
       return totalSize;
     }));
   }
 
-  private ListObjectsV2Result getObjects(Map<String, String> parameters, String bucketName, String projectId, String prefix) throws ConnectionCredentialsException {
+  private List<ListObjectsV2Response> getObjects(Map<String, String> parameters, String bucketName, String projectId, String prefix) throws ConnectionCredentialsException {
     return IOGuard.allowNetworkCall(() -> myAmazonS3Provider.withS3Client(parameters, projectId, s3client -> {
-      final ListObjectsV2Request projectFoldersRequest = new ListObjectsV2Request();
-      projectFoldersRequest.setBucketName(bucketName);
-      projectFoldersRequest.setDelimiter(DELIMITER);
+      ListObjectsV2Request.Builder projectFoldersRequestBuilder = ListObjectsV2Request.builder()
+        .bucket(bucketName)
+        .delimiter(DELIMITER);
+
       if (prefix != null) {
-        projectFoldersRequest.setPrefix(prefix);
+        projectFoldersRequestBuilder.prefix(prefix);
       }
-      return s3client.listObjectsV2(projectFoldersRequest);
+
+      return s3client.listObjectsV2Paginator(projectFoldersRequestBuilder.build())
+        .stream()
+        .collect(Collectors.toList());
     }));
   }
 

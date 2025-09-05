@@ -1,11 +1,11 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.Map;
 import java.util.Objects;
 import jetbrains.buildServer.util.amazon.S3Util.S3AdvancedConfiguration;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 public class S3Configuration {
   @NotNull
@@ -52,7 +52,7 @@ public class S3Configuration {
   }
 
   @NotNull
-  public CannedAccessControlList getAcl() {
+  public ObjectCannedACL getAcl() {
     return myS3AdvancedConfiguration.getAcl();
   }
 

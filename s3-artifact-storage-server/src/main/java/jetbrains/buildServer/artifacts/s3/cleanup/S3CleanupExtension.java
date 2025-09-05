@@ -2,11 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
-import com.amazonaws.SdkClientException;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.DeleteObjectsRequest;
-import com.amazonaws.services.s3.model.DeleteObjectsResult;
-import com.amazonaws.services.s3.model.MultiObjectDeleteException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import java.io.IOException;
@@ -44,6 +39,15 @@ import jetbrains.buildServer.util.retry.Retrier;
 import jetbrains.buildServer.util.retry.RetrierEventListener;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
+import software.amazon.awssdk.services.s3.model.DeletedObject;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.S3Error;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 
@@ -183,33 +187,40 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
         AtomicInteger processedChunksNum = new AtomicInteger();
         for (List<String> part : partitions) {
           currentPart.set(part);
+          Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(build, pathsToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
           try {
-            Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(build, pathsToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
-            try {
-              // recreate retrier every time to ensure we can quickly adjust its parameters in runtime
-              createRetrier(project).execute(() -> succeededNum.addAndGet(deleteChunk(pathPrefix, bucketName, client, part)));
-            } finally {
-              threadName.dispose();
-            }
+            // recreate retrier every time to ensure we can quickly adjust its parameters in runtime
+            DeleteObjectsResponse response = createRetrier(project).execute(() -> deleteChunk(pathPrefix, bucketName, client, part));
+            List<DeletedObject> deleted = response.deleted();
+            succeededNum.addAndGet(deleted.size());
 
-            part.forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
-          } catch (MultiObjectDeleteException e) {
-            succeededNum.addAndGet(e.getDeletedObjects().size());
+            List<S3Error> errors = response.errors();
 
-            if (!e.getDeletedObjects().isEmpty()) {
-              myCleanupListeners.forEach(listener -> e.getDeletedObjects().forEach(obj -> listener.onSuccess(obj.getKey())));
-            }
+            errors
+              .forEach(error -> {
+                String key = error.key();
+                if (key.startsWith(pathPrefix)) {
+                  CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.message());
+                  pathsFailedToDelete.add(key.substring(pathPrefix.length()));
+                  myCleanupListeners.forEach(listener ->
+                    listener.onError(
+                      S3Exception.builder()
+                        .message(error.message())
+                        .build(),
+                      false)
+                  );
+                }
+              });
 
-            List<MultiObjectDeleteException.DeleteError> errors = e.getErrors();
-            errors.forEach(error -> {
-              String key = error.getKey();
-              if (key.startsWith(pathPrefix)) {
-                CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.getMessage());
-                pathsFailedToDelete.add(key.substring(pathPrefix.length()));
-                myCleanupListeners.forEach(listener -> listener.onError(e, false));
-              }
-            });
             errorNum.addAndGet(errors.size());
+
+            deleted
+              .stream()
+              .map(DeletedObject::key)
+              .forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
+
+          } finally {
+            threadName.dispose();
           }
         }
 
@@ -296,15 +307,29 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
       LogUtil.describe(build), currentChunkNumber.incrementAndGet(), size, chunkSize, pathsToDelete.size() - succeededNum.get());
   }
 
-  private int deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull AmazonS3 client, @NotNull List<String> part) {
-    List<DeleteObjectsRequest.KeyVersion> objectKeys = part.stream().map(path -> new DeleteObjectsRequest.KeyVersion(pathPrefix + path)).collect(Collectors.toList());
-    DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucketName).withKeys(objectKeys);
+  private DeleteObjectsResponse deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull S3Client client, @NotNull List<String> part) {
+    List<ObjectIdentifier> objectKeys = part.stream()
+      .map(path -> ObjectIdentifier.builder()
+        .key(pathPrefix + path)
+        .build()
+      )
+      .collect(Collectors.toList());
+
+    DeleteObjectsRequest deleteObjectsRequest = DeleteObjectsRequest.builder()
+      .bucket(bucketName)
+      .delete(
+        Delete.builder()
+        .objects(objectKeys)
+        .build()
+      )
+      .build();
+
     return Util.doUnderContextClassLoader(S3Util.class.getClassLoader(), () -> {
-      String keys = CLEANUP.isDebugEnabled() ? deleteObjectsRequest.getKeys().stream().map(DeleteObjectsRequest.KeyVersion::getKey).collect(Collectors.joining()) : "";
-      CLEANUP.debug(() -> String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-      List<DeleteObjectsResult.DeletedObject> deletedObjects = client.deleteObjects(deleteObjectsRequest).getDeletedObjects();
-      CLEANUP.debug(() -> String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.getBucketName()));
-      return deletedObjects.size();
+      String keys = objectKeys.stream().map(ObjectIdentifier::key).collect(Collectors.joining(","));
+      CLEANUP.debug(() -> String.format("Starting to remove %s from S3 bucket %s", keys, deleteObjectsRequest.bucket()));
+      DeleteObjectsResponse deletedObjects = client.deleteObjects(deleteObjectsRequest);
+      CLEANUP.debug(() -> String.format("Finished to remove %s from S3 bucket %s", keys, deleteObjectsRequest.bucket()));
+      return deletedObjects;
     });
   }
 

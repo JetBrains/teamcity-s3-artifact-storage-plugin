@@ -9,7 +9,7 @@ plugins {
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
-  teamcityVersion = anyParam('teamcityVersion') ?: '2025.03-SNAPSHOT'
+  teamcityVersion = anyParam('teamcityVersion') ?: '2025.11-SNAPSHOT'
   awsCoreVersion = anyParam('awsCoreVersion') ?: teamcityVersion ?: 'SNAPSHOT'
   teamcityS3SDKVersion = project.hasProperty('teamcityS3SDKVersion') ? property('teamcityS3SDKVersion') : teamcityVersion
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
@@ -28,6 +28,7 @@ allprojects {
   project.repositories.clear()
 
   repositories {
+    mavenLocal()
     if (localRepo) {
       maven {
         name = "local-teamcity-artifacts"
@@ -50,7 +51,6 @@ allprojects {
         password = spacePassword as String
       }
     }
-    mavenLocal()
     mavenCentral()
   }
 }
@@ -64,7 +64,7 @@ subprojects {
   jar.version = null
 
   dependencies{
-    api("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
+    compileOnly ("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
       changing = true
       exclude group: 'com.fasterxml.jackson.core'
       exclude group: 'com.fasterxml.jackson.dataformat'

@@ -42,7 +42,7 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
       parameters,
       projectId,
       s3Client -> {
-        List<BucketDto> bucketList = s3Client.listBuckets()
+        List<BucketDto> bucketList = s3Client.listBucketsPaginator()
                                              .stream()
                                              .map(Bucket::getName)
                                              .map(BucketDto::new)
