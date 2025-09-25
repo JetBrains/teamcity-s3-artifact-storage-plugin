@@ -45,20 +45,10 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
   @Override
   public PresignedUrlWithTtl generateDownloadUrl(@NotNull final SdkHttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
     int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, true);
-    String contentType = getObjectMetadata(objectKey, settings)
-      .map(HeadObjectResponse::contentType)
-      .map(it -> {
-        if (it.indexOf("charset") < 0) {
-          return it + ";" + S3Util.DEFAULT_CHARSET;
-        }
-
-        return it;
-      })
-      .orElse(S3Util.DEFAULT_CONTENT_TYPE);
     GetObjectRequest.Builder objectRequestBuilder = GetObjectRequest.builder()
                                                      .bucket(settings.getBucketName())
                                                      .key(objectKey)
-                                                     .responseContentType(contentType);
+                                                     .responseContentType(getContentType(objectKey, settings));
     getContentDisposition(objectKey).ifPresent(objectRequestBuilder::responseContentDisposition);
     GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
                                                                     .signatureDuration(Duration.ofSeconds(urlTtlSeconds))
@@ -157,14 +147,14 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
         for (int i = 0; i < etags.length; i++) {
           partETags.add(CompletedPart.builder().partNumber(i + 1).eTag(etags[i]).build());
         }
-        client.completeMultipartUpload(cmu -> cmu
+        client.completeMultipartUpload(b -> b
           .bucket(settings.getBucketName())
           .key(objectKey)
           .uploadId(uploadId)
-          .multipartUpload(mu -> mu.parts(partETags))
+          .multipartUpload(partBuilder -> partBuilder.parts(partETags))
         );
       } else {
-        client.abortMultipartUpload(amu -> amu
+        client.abortMultipartUpload(b -> b
           .bucket(settings.getBucketName())
           .key(objectKey)
           .uploadId(uploadId)
@@ -180,6 +170,19 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
     return new S3SettingsImpl(rawSettings, projectSettings);
+  }
+
+  private String getContentType(@NotNull final String objectKey, @NotNull final S3Settings settings) {
+    return getObjectMetadata(objectKey, settings)
+      .map(HeadObjectResponse::contentType)
+      .map(it -> {
+        if (it.indexOf("charset") < 0) {
+          return it + ";" + S3Util.DEFAULT_CHARSET;
+        }
+
+        return it;
+      })
+      .orElse(S3Util.DEFAULT_CONTENT_TYPE);
   }
 
   private static Optional<String> getContentDisposition(@NotNull final String objectKey) {

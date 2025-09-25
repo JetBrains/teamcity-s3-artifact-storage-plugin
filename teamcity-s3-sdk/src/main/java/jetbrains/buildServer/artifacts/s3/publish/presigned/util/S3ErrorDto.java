@@ -59,6 +59,7 @@ public class S3ErrorDto {
     return AwsServiceException.builder()
                               .awsErrorDetails(details)
                               .requestId(requestId)
+                              .extendedRequestId(hostId)
                               .build();
   }
 }

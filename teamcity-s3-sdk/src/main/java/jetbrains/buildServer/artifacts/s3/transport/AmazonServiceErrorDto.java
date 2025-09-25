@@ -21,7 +21,7 @@ public class AmazonServiceErrorDto {
       errorDto.error = details.errorMessage();
       errorDto.code = details.errorCode();
     }
-    errorDto.hostId = null;
+    errorDto.hostId = e.extendedRequestId();
     errorDto.requestId = e.requestId();
     errorDto.statusCode = e.statusCode();
     return errorDto;
@@ -76,6 +76,7 @@ public class AmazonServiceErrorDto {
     return AwsServiceException.builder()
                               .awsErrorDetails(details)
                               .requestId(requestId)
+                              .extendedRequestId(hostId)
                               .statusCode(statusCode)
                               .build();
   }

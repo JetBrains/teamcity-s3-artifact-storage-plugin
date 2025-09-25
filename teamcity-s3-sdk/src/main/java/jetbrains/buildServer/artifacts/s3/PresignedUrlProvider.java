@@ -12,7 +12,6 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
@@ -32,7 +31,7 @@ public abstract class PresignedUrlProvider {
     try {
       String projectId = settings.getProjectId();
       if (projectId == null) {
-        throw new ConnectionCredentialsException("Cannot generate PresignedUrl, project ID is not provided");
+        throw new ConnectionCredentialsException("Cannot generate presigned url, project ID is not provided");
       }
       return myAmazonS3Provider.withS3PresignerShuttingDownImmediately(
         settings.getBucketName(),
@@ -80,11 +79,7 @@ public abstract class PresignedUrlProvider {
     HeadObjectResponse metadata = null;
 
     try {
-      metadata = callS3(client -> client.headObject(HeadObjectRequest.builder()
-                                                                     .bucket(settings.getBucketName())
-                                                                     .key(objectKey)
-                                                                     .build()),
-                        settings);
+      metadata = callS3(client -> client.headObject(b -> b.bucket(settings.getBucketName()).key(objectKey)), settings);
     } catch (Exception e) {
       LOG.debug("Metadata not found for object " + objectKey + " in a bucket " + settings.getBucketName(), e);
     }

@@ -24,14 +24,10 @@ import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import software.amazon.awssdk.core.SdkResponse;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.CompletedDirectoryTransfer;
-import software.amazon.awssdk.transfer.s3.model.CompletedObjectTransfer;
 import software.amazon.awssdk.transfer.s3.model.FileUpload;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.progress.TransferListener;
@@ -124,7 +120,7 @@ public class S3RegularFileUploader extends S3FileUploader {
     };
 
     return UploadFileRequest.builder()
-                            .putObjectRequest(por -> por
+                            .putObjectRequest(b -> b
                               .bucket(bucketName)
                               .key(objectKey)
                               .contentType(S3Util.getContentType(file))
@@ -154,7 +150,7 @@ public class S3RegularFileUploader extends S3FileUploader {
       } catch (NoSuchBucketException e) {
         throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " doesn't exist", false);
       } catch (S3Exception e) {
-        throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " is not found", false, e);
+        throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " is not accessable", false, e);
       }
     });
   }

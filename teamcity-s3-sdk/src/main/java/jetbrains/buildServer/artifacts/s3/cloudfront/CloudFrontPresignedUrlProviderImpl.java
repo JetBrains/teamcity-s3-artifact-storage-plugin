@@ -164,7 +164,7 @@ public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider imp
   @Nullable
   private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params, String projectId) throws CloudFrontException, ConnectionCredentialsException {
     return myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
-      return cloudFrontClient.getDistribution(GetDistributionRequest.builder().id(distributionName).build())
+      return cloudFrontClient.getDistribution(b -> b.id(distributionName))
                              .distribution()
                              .domainName();
     });

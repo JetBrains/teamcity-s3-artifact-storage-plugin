@@ -381,11 +381,7 @@ public final class S3Util {
     throws Throwable {
     final S3AdvancedConfiguration configuration = advancedConfiguration != null ? advancedConfiguration : S3AdvancedConfiguration.defaultConfiguration();
     return AWSCommonParams.withAWSClients(s3Settings, clients -> {
-      try {
-        return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3AsyncClient(configuration, createTrustManagerProvider(s3Settings)), withTransferManager, configuration);
-      } catch (Throwable e) {
-        throw Throwables.propagate(e);
-      }
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3AsyncClient(configuration, createTrustManagerProvider(s3Settings)), withTransferManager, configuration);
     });
   }
 
@@ -442,7 +438,7 @@ public final class S3Util {
       return withS3ClientShuttingDownImmediately(settings, action);
     } catch (S3Exception s3Exception) {
       final String correctedRegion = extractCorrectedRegion(s3Exception);
-      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getMessage()).matches();
+      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.awsErrorDetails().errorMessage()).matches();
       final boolean isRegionException = correctedRegion != null;
 
       final HashMap<String, String> correctedSettings = new HashMap<>(settings);

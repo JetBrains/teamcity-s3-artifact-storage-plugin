@@ -29,14 +29,14 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
       final List<DistributionDto> distributionDtos = new ArrayList<>();
 
       if (uploadDistr != null) {
-        final Distribution distribution = client.getDistribution(GetDistributionRequest.builder().id(uploadDistr).build()).distribution();
+        final Distribution distribution = client.getDistribution(b -> b.id(uploadDistr)).distribution();
         distributionDtos.add(toDto(distribution, publicKeyId));
       }
 
       final String downloadDistr = S3Util.getCloudFrontDownloadDistribution(parameters);
 
       if (downloadDistr != null) {
-        final Distribution distribution = client.getDistribution(GetDistributionRequest.builder().id(downloadDistr).build()).distribution();
+        final Distribution distribution = client.getDistribution(b -> b.id(downloadDistr)).distribution();
         distributionDtos.add(toDto(distribution, publicKeyId));
       }
 
@@ -63,7 +63,7 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String bucketRegion = BucketLocationFetcher.getRegionName(myAmazonS3Builder.withCorrectingRegionAndAcceleration(
       parameters,
       projectId,
-      correctedClient -> correctedClient.headBucket(HeadBucketRequest.builder().bucket(bucketName).build()).bucketRegion(),
+      correctedClient -> correctedClient.headBucket(b -> b.bucket(bucketName)).bucketRegion(),
       true
     ));
 
@@ -71,10 +71,9 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
 
     return myAmazonS3Builder.withCloudFrontClient(parameters, projectId, client -> {
-      ListDistributionsRequest request = ListDistributionsRequest.builder().build();
-      ListDistributionsResponse result = client.listDistributions(request);
+      ListDistributionsResponse result = client.listDistributions(b -> b.build());
 
-      List<KeyGroupSummary> keyGroups = client.listKeyGroups(ListKeyGroupsRequest.builder().build())
+      List<KeyGroupSummary> keyGroups = client.listKeyGroups(b -> b.build())
                                               .keyGroupList()
                                               .items();
 
