@@ -1,18 +1,18 @@
 package jetbrains.buildServer.artifacts.s3.amazonClient.impl;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.Pair;
+import java.util.concurrent.ExecutionException;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.CachingSocketFactory;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
+import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Presigner;
 import jetbrains.buildServer.clouds.amazon.connector.impl.AwsConnectionCredentials;
 import jetbrains.buildServer.clouds.amazon.connector.utils.clients.ClientConfigurationBuilder;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
@@ -33,8 +33,8 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
-import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.auth.signer.AwsS3V4Signer;
 import software.amazon.awssdk.awscore.defaultsmode.DefaultsMode;
 import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
@@ -44,10 +44,15 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
-import static jetbrains.buildServer.artifacts.s3.S3Util.*;
+import static jetbrains.buildServer.artifacts.s3.S3Util.disablePathStyleAccess;
+import static jetbrains.buildServer.artifacts.s3.S3Util.isAccelerateModeEnabled;
+import static jetbrains.buildServer.artifacts.s3.S3Util.patchAWSClientsSsl;
+import static jetbrains.buildServer.artifacts.s3.S3Util.TRANSFER_ACC_ERROR_PATTERN;
 import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCommonParameters.SSL_CERT_DIRECTORY_PARAM;
 
 public class AmazonS3ProviderImpl implements AmazonS3Provider {
@@ -85,10 +90,31 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @NotNull
-  @Override
-  public S3Client fromS3Settings(@NotNull final Map<String, String> s3Settings,
+  private S3Client fromS3Settings(@NotNull final Map<String, String> s3Settings,
                                  @NotNull final String projectId) throws ConnectionCredentialsException {
     return fromS3Configuration(s3Settings, projectId, null);
+  }
+
+  @NotNull
+  private S3Presigner presignerFromS3Settings(@NotNull final Map<String, String> s3Settings,
+                                       @NotNull final String projectId) throws ConnectionCredentialsException {
+    AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(s3Settings, projectId);
+
+    String regionName = awsConnectionCredentials.getAwsRegion();
+    if (StringUtils.isNotBlank(s3Settings.get(AWSCommonParams.REGION_NAME_PARAM))) {
+      regionName = s3Settings.get(AWSCommonParams.REGION_NAME_PARAM);
+    }
+
+    return S3Presigner.builder()
+                      .region(Region.of(regionName))
+                      .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
+                      .serviceConfiguration(
+                        S3Configuration.builder()
+                                       .accelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
+                                       .pathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
+                                       .build()
+                      )
+                      .build();
   }
 
   public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
@@ -109,6 +135,15 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       s3Client.close();
     } catch (Exception e) {
       Loggers.CLOUD.warnAndDebugDetails("Shutting down s3 client " + s3Client + " failed.", e);
+    }
+  }
+
+  @Override
+  public void shutdownPresigner(@NotNull final S3Presigner s3Presigner) {
+    try {
+      s3Presigner.close();
+    } catch (Exception e) {
+      Loggers.CLOUD.warnAndDebugDetails("Shutting down s3 presigner " + s3Presigner + " failed.", e);
     }
   }
 
@@ -218,8 +253,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @NotNull
-  @Override
-  public S3Client fromS3Configuration(@NotNull final Map<String, String> s3Settings,
+  private S3Client fromS3Configuration(@NotNull final Map<String, String> s3Settings,
                                       @NotNull final String projectId,
                                       @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
     throws ConnectionCredentialsException {
@@ -325,6 +359,51 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
             if (shutdownImmediately) {
               S3Util.shutdownClient(s3Client);
             }
+          }
+        });
+      } catch (Throwable t) {
+        throw new ConnectionCredentialsException(new Exception(t));
+      }
+    }
+  }
+
+  @Override
+  public  <T, E extends Exception> T withS3PresignerShuttingDownImmediately(@NotNull final String bucket,
+                                                                            @NotNull final Map<String, String> params,
+                                                                            @NotNull final String projectId,
+                                                                            @NotNull final WithS3Presigner<T, E> withS3Presigner)
+    throws ConnectionCredentialsException {
+    final Map<String, String> correctedSettings = getCorrectedRegionAndAcceleration(bucket, params, projectId);
+    if (ParamUtil.withAwsConnectionId(correctedSettings)) {
+      S3Presigner s3Presigner = presignerFromS3Settings(correctedSettings, projectId);
+      try {
+        return withS3Presigner.execute(s3Presigner);
+      } catch (Exception e) {
+        throw new ConnectionCredentialsException(e);
+      } finally {
+        shutdownPresigner(s3Presigner);
+      }
+    } else {
+      try {
+        return AWSCommonParams.withAWSClients(correctedSettings, clients -> {
+          final AwsCredentials credentials = clients.getCredentials();
+          if (credentials == null) {
+            throw new ConnectionCredentialsException("Cannot generate presigned url, no AWS credentials provided");
+          }
+          final S3Presigner s3Presigner = S3Presigner.builder()
+                                                     .region(Region.of(clients.getRegion()))
+                                                     .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                                                     .serviceConfiguration(
+                                                       S3Configuration.builder()
+                                                                      .accelerateModeEnabled(isAccelerateModeEnabled(correctedSettings))
+                                                                      .pathStyleAccessEnabled(!disablePathStyleAccess(correctedSettings))
+                                                                      .build()
+                                                     )
+                                                     .build();
+          try {
+            return withS3Presigner.execute(s3Presigner);
+          } finally {
+            shutdownPresigner(s3Presigner);
           }
         });
       } catch (Throwable t) {

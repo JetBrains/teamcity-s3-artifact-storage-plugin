@@ -2,7 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
-import com.amazonaws.AmazonClientException;
 import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import java.util.HashMap;
@@ -28,6 +27,7 @@ import jetbrains.buildServer.web.util.SessionUser;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.web.servlet.ModelAndView;
+import software.amazon.awssdk.core.exception.SdkException;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 
@@ -160,7 +160,7 @@ public class S3SettingsController extends BaseFormXmlController {
     final String uiFriendlyMessage = getUiFriendlyErrorMessage(e);
     final StringBuilder messageBuilder = new StringBuilder(String.format(FAILED_TO_PROCESS_REQUEST_FORMAT, resource));
 
-    if (e instanceof AmazonClientException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
+    if (e instanceof SdkException && e.getMessage().startsWith("Failed to parse XML document with handler class")) {
       messageBuilder.append(" invalid response. Ensure that the credentials in S3 storage profile are correct.");
     } else {
       messageBuilder.append(uiFriendlyMessage);

@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +7,7 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 class CloudFrontSettingsImpl implements CloudFrontSettings {
   @NotNull
@@ -99,7 +99,7 @@ class CloudFrontSettingsImpl implements CloudFrontSettings {
 
   @NotNull
   @Override
-  public CannedAccessControlList getAcl() {
+  public ObjectCannedACL getAcl() {
     return S3Util.getAcl(mySettings, myProjectSettings);
   }
 

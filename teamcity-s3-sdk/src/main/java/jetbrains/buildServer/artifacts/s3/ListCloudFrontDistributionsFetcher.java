@@ -1,6 +1,6 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.cloudfront.model.*;
+import software.amazon.awssdk.services.cloudfront.model.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -10,6 +10,7 @@ import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<ListCloudFrontDistributionsFetcher.ListDistributionsDto> {
   private final AmazonS3Provider myAmazonS3Builder;
@@ -28,14 +29,14 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
       final List<DistributionDto> distributionDtos = new ArrayList<>();
 
       if (uploadDistr != null) {
-        final Distribution distribution = client.getDistribution(new GetDistributionRequest().withId(uploadDistr)).getDistribution();
+        final Distribution distribution = client.getDistribution(GetDistributionRequest.builder().id(uploadDistr).build()).distribution();
         distributionDtos.add(toDto(distribution, publicKeyId));
       }
 
       final String downloadDistr = S3Util.getCloudFrontDownloadDistribution(parameters);
 
       if (downloadDistr != null) {
-        final Distribution distribution = client.getDistribution(new GetDistributionRequest().withId(downloadDistr)).getDistribution();
+        final Distribution distribution = client.getDistribution(GetDistributionRequest.builder().id(downloadDistr).build()).distribution();
         distributionDtos.add(toDto(distribution, publicKeyId));
       }
 
@@ -45,9 +46,9 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
 
   @NotNull
   private static DistributionDto toDto(Distribution distribution, String publicKeyId) {
-    final String id = distribution.getId();
-    final String comment = distribution.getDistributionConfig().getComment();
-    final Boolean enabled = distribution.getDistributionConfig().isEnabled();
+    final String id = distribution.id();
+    final String comment = distribution.distributionConfig().comment();
+    final Boolean enabled = distribution.distributionConfig().enabled();
     return new DistributionDto(id, comment, enabled, Collections.singletonList(publicKeyId));
   }
 
@@ -62,7 +63,7 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String bucketRegion = BucketLocationFetcher.getRegionName(myAmazonS3Builder.withCorrectingRegionAndAcceleration(
       parameters,
       projectId,
-      correctedClient -> correctedClient.getBucketLocation(bucketName),
+      correctedClient -> correctedClient.headBucket(HeadBucketRequest.builder().bucket(bucketName).build()).bucketRegion(),
       true
     ));
 
@@ -70,35 +71,35 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
 
     return myAmazonS3Builder.withCloudFrontClient(parameters, projectId, client -> {
-      ListDistributionsRequest request = new ListDistributionsRequest();
-      ListDistributionsResult result = client.listDistributions(request);
+      ListDistributionsRequest request = ListDistributionsRequest.builder().build();
+      ListDistributionsResponse result = client.listDistributions(request);
 
-      List<KeyGroupSummary> keyGroups = client.listKeyGroups(new ListKeyGroupsRequest())
-                                              .getKeyGroupList()
-                                              .getItems();
+      List<KeyGroupSummary> keyGroups = client.listKeyGroups(ListKeyGroupsRequest.builder().build())
+                                              .keyGroupList()
+                                              .items();
 
       Map<String, KeyGroup> groupMap = keyGroups
         .stream()
-        .map(KeyGroupSummary::getKeyGroup)
-        .collect(Collectors.toMap(KeyGroup::getId, Function.identity()));
+        .map(KeyGroupSummary::keyGroup)
+        .collect(Collectors.toMap(KeyGroup::id, Function.identity()));
 
       List<DistributionDto> distributions = result
-        .getDistributionList()
-        .getItems()
+        .distributionList()
+        .items()
         .stream()
-        .filter(d -> d.getOrigins()
-                      .getItems()
+        .filter(d -> d.origins()
+                      .items()
                       .stream()
-                      .anyMatch(o -> o.getDomainName().equals(domainPattern) || o.getDomainName().equals(domainPatternNoRegion))
+                      .anyMatch(o -> o.domainName().equals(domainPattern) || o.domainName().equals(domainPatternNoRegion))
         ).map(d -> {
-          String id = d.getId();
-          String comment = d.getComment();
-          Boolean enabled = d.isEnabled();
+          String id = d.id();
+          String comment = d.comment();
+          Boolean enabled = d.enabled();
           Set<String> publicKeys = new HashSet<>();
-          TrustedKeyGroups defaultKeyGroups = d.getDefaultCacheBehavior().getTrustedKeyGroups();
+          TrustedKeyGroups defaultKeyGroups = d.defaultCacheBehavior().trustedKeyGroups();
           publicKeys.addAll(getAllPublicKeys(groupMap, defaultKeyGroups));
-          for (CacheBehavior item : d.getCacheBehaviors().getItems()) {
-            publicKeys.addAll(getAllPublicKeys(groupMap, item.getTrustedKeyGroups()));
+          for (CacheBehavior item : d.cacheBehaviors().items()) {
+            publicKeys.addAll(getAllPublicKeys(groupMap, item.trustedKeyGroups()));
           }
           return new DistributionDto(id, comment, enabled, publicKeys);
         })
@@ -109,9 +110,9 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
 
   private Set<String> getAllPublicKeys(Map<String, KeyGroup> groupMap, TrustedKeyGroups keyGroups) {
     HashSet<String> publicKeys = new HashSet<>();
-    for (String keyGroupId : keyGroups.getItems()) {
+    for (String keyGroupId : keyGroups.items()) {
       KeyGroup keyGroup = groupMap.get(keyGroupId);
-      publicKeys.addAll(keyGroup.getKeyGroupConfig().getItems());
+      publicKeys.addAll(keyGroup.keyGroupConfig().items());
     }
 
     return publicKeys;

@@ -1,17 +1,15 @@
 package jetbrains.buildServer.artifacts.s3.download;
 
-import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.GeneratePresignedUrlRequest;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,6 +28,14 @@ import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
 import org.jetbrains.annotations.NotNull;
 import org.testng.annotations.*;
+import software.amazon.awssdk.awscore.defaultsmode.DefaultsMode;
+import software.amazon.awssdk.core.ServiceConfiguration;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -47,7 +53,8 @@ public class S3ArtifactTransportTest {
   private S3MockContainer s3Container;
   private Path sourceFilesTempDir;
   private Path targetFilesDir;
-  private AmazonS3 s3Client;
+  private S3Client s3Client;
+  private S3Presigner s3Presigner;
   private ExecutorService executorService;
   private MultiThreadedHttpConnectionManager httpConnectionManager;
   private HttpClient httpClient;
@@ -58,7 +65,7 @@ public class S3ArtifactTransportTest {
   private DependencyHttpHelper dependencyHttpHelperMock;
 
   @BeforeClass
-  public void setUpClass() throws IOException {
+  public void setUpClass() throws IOException, URISyntaxException {
     sourceFilesTempDir = perClassTempFiles.createTempDir().toPath();
 
     s3Container = new S3MockContainer("3.12.0")
@@ -66,10 +73,19 @@ public class S3ArtifactTransportTest {
       .withRetainFilesOnExit(false);
     s3Container.start();
 
-    s3Client = AmazonS3ClientBuilder.standard()
-      .withEndpointConfiguration(new AmazonS3ClientBuilder.EndpointConfiguration(s3Container.getHttpEndpoint(), "us-east-1"))
-      .enablePathStyleAccess()
-      .build();
+    S3Configuration s3Config = S3Configuration.builder().pathStyleAccessEnabled(true).build();
+    s3Client = S3Client.builder()
+                       .defaultsMode(DefaultsMode.STANDARD)
+                       .endpointOverride(URI.create(s3Container.getHttpEndpoint()))
+                       .region(Region.US_EAST_1)
+                       .serviceConfiguration(s3Config)
+                       .build();
+
+    s3Presigner = S3Presigner.builder()
+                             .endpointOverride(URI.create(s3Container.getHttpEndpoint()))
+                             .region(Region.US_EAST_1)
+                             .serviceConfiguration(s3Config)
+                             .build();
 
     executorService = Executors.newFixedThreadPool(10);
 
@@ -101,14 +117,14 @@ public class S3ArtifactTransportTest {
     for (TestFile file : TestFile.values()) {
       String fileName = file.getName();
       Path sourceFile = sourceFilesTempDir.resolve(fileName);
-      s3Client.putObject(BUCKET_NAME, fileName, sourceFile.toFile());
+      s3Client.putObject(b -> b.bucket(BUCKET_NAME).key(fileName), RequestBody.fromFile(sourceFile));
     }
   }
 
   @AfterClass
   public void tearDownTests() {
     s3Container.stop();
-    s3Client.shutdown();
+    s3Presigner.close();
     perClassTempFiles.cleanup();
     executorService.shutdownNow();
     httpConnectionManager.shutdown();
@@ -345,11 +361,8 @@ public class S3ArtifactTransportTest {
   }
 
   private URL createPresignedUrl(@NotNull String key) {
-    GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(BUCKET_NAME, key)
-      .withMethod(HttpMethod.GET)
-      .withExpiration(Date.from(Instant.now().plusSeconds(300)));
-
-    return s3Client.generatePresignedUrl(request);
+    GetObjectRequest getObjectRequest = GetObjectRequest.builder().bucket(BUCKET_NAME).key(key).build();
+    return s3Presigner.presignGetObject(builder -> builder.getObjectRequest(getObjectRequest).signatureDuration(Duration.ofSeconds(300))).url();
   }
 
   private void writeSyntheticData(@NotNull Path file, int dataSize, byte[] syntheticDataBasis) throws IOException {

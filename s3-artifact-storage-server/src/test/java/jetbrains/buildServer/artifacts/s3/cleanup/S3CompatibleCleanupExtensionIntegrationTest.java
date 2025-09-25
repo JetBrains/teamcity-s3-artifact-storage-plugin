@@ -1,10 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.cleanup;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
+import java.net.URI;
+import java.nio.file.Paths;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.ArtifactData;
 import jetbrains.buildServer.artifacts.ArtifactDataInstance;
@@ -30,7 +27,7 @@ import org.jmock.core.stub.CustomStub;
 import org.jmock.core.stub.DefaultResultStub;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.shaded.org.apache.commons.lang.BooleanUtils;
+import org.testcontainers.shaded.org.apache.commons.lang3.BooleanUtils;
 import org.testcontainers.utility.DockerImageName;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -49,6 +46,14 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.defaultsmode.DefaultsMode;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import static jetbrains.buildServer.artifacts.ArtifactStorageSettings.TEAMCITY_STORAGE_TYPE_KEY;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_COMPATIBLE_STORAGE_TYPE;
@@ -120,10 +125,13 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
 
   @Test
   public void deletesArtifactsFromS3WithPartitionedContext() {
-    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
-    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
+    AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(
+      AwsBasicCredentials.create(myLocalStack.getAccessKey(), myLocalStack.getSecretKey())
+    );
+    URI endpoint = myLocalStack.getEndpointOverride(LocalStackContainer.Service.S3);
+    String region = myLocalStack.getRegion();
 
-    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
+    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpoint.toString(), region);
 
     String expectedContents = "content";
 
@@ -134,11 +142,12 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
 
     S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, buildArtifacts);
 
-    AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
+    S3Client s3 = getS3Client(credentialsProvider, endpoint, region);
 
-    s3.createBucket(BUCKET_NAME);
+    s3.createBucket(b -> b.bucket(BUCKET_NAME));
     for (Map.Entry<Long, ArtifactData> artifactsEntry : buildArtifacts.entrySet()) {
-      s3.putObject(BUCKET_NAME, artifactsEntry.getValue().getPath(), expectedContents);
+      final String path = artifactsEntry.getValue().getPath();
+      s3.putObject(b -> b.bucket(BUCKET_NAME).key(path), RequestBody.fromString(expectedContents));
     }
 
     final Map<String, Object> contextDataStorage = new ConcurrentHashMap<>();
@@ -149,21 +158,22 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     cleanupExtension.cleanupBuildsData((BuildCleanupContext)getContextMock(Arrays.asList(2L, 3L), contextDataStorage).proxy());
 
     for (Map.Entry<Long, ArtifactData> artifactsEntry : buildArtifacts.entrySet()) {
-      assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactsEntry.getValue().getPath()));
+      assertFalse(objectExists(s3, BUCKET_NAME, artifactsEntry.getValue().getPath()));
     }
 
-    if (s3.doesBucketExistV2(BUCKET_NAME)) {
-      s3.deleteBucket(BUCKET_NAME);
-    }
+    deleteBucketIfExists(s3, BUCKET_NAME);
   }
 
   @Test
   @Ignore
   public void deletesArtifactsFromS3WithRetry() {
-    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
-    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
+    AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(
+      AwsBasicCredentials.create(myLocalStack.getAccessKey(), myLocalStack.getSecretKey())
+    );
+    URI endpoint = myLocalStack.getEndpointOverride(LocalStackContainer.Service.S3);
+    String region = myLocalStack.getRegion();
 
-    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
+    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpoint.toString(), region);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "500");
     storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "50");
 
@@ -173,16 +183,16 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     ArtifactDataInstance artifact = ArtifactDataInstance.create(artifactPath, expectedContents.length());
     S3CleanupExtension cleanupExtension = getCleanupExtension(storageSettings, Collections.singletonMap(1L, artifact));
 
-    AmazonS3 s3 = getS3Client(credentialsProvider, endpointConfiguration);
+    S3Client s3 = getS3Client(credentialsProvider, endpoint, region);
 
     final AtomicBoolean listenerCalled = new AtomicBoolean(false);
     cleanupExtension.registerListener(new AbstractCleanupListener() {
       @Override
       public void onError(Exception exception, boolean isRecoverable) {
-        if (exception instanceof AmazonS3Exception && isRecoverable) {
+        if (exception instanceof S3Exception && isRecoverable) {
           listenerCalled.set(true);
-          s3.createBucket(BUCKET_NAME);
-          s3.putObject(BUCKET_NAME, artifactPath, expectedContents);
+          s3.createBucket(b -> b.bucket(BUCKET_NAME));
+          s3.putObject(b -> b.bucket(BUCKET_NAME).key(artifactPath), RequestBody.fromString(expectedContents));
         }
       }
     });
@@ -194,12 +204,10 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     cleanupExtension.prepareBuildsData(context);
     cleanupExtension.cleanupBuildsData(context);
 
-    assertFalse(s3.doesObjectExist(BUCKET_NAME, artifactPath));
+    assertFalse(objectExists(s3, BUCKET_NAME, artifactPath));
     assertTrue(listenerCalled.get());
 
-    if (s3.doesBucketExistV2(BUCKET_NAME)) {
-      s3.deleteBucket(BUCKET_NAME);
-    }
+    deleteBucketIfExists(s3, BUCKET_NAME);
   }
 
 
@@ -209,10 +217,13 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     if (myTestLogger != null) {
       myTestLogger.doNotFailOnErrorMessages();
     }
-    AWSCredentialsProvider credentialsProvider = myLocalStack.getDefaultCredentialsProvider();
-    AwsClientBuilder.EndpointConfiguration endpointConfiguration = myLocalStack.getEndpointConfiguration(S3);
+    AwsCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(
+      AwsBasicCredentials.create(myLocalStack.getAccessKey(), myLocalStack.getSecretKey())
+    );
+    URI endpoint = myLocalStack.getEndpointOverride(LocalStackContainer.Service.S3);
+    String region = myLocalStack.getRegion();
 
-    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpointConfiguration);
+    Map<String, String> storageSettings = getStorageSettings(credentialsProvider, endpoint.toString(), region);
     storageSettings.put("teamcity.internal.storage.s3.upload.retryDelayMs", "200");
     storageSettings.put("teamcity.internal.storage.s3.upload.numberOfRetries", "5");
 
@@ -227,7 +238,7 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     cleanupExtension.registerListener(new AbstractCleanupListener() {
       @Override
       public void onError(Exception exception, boolean isRecoverable) {
-        if (exception instanceof AmazonS3Exception && isRecoverable) {
+        if (exception instanceof S3Exception && isRecoverable) {
           tryCount.incrementAndGet();
         }
       }
@@ -244,25 +255,26 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
   }
 
   @NotNull
-  private HashMap<String, String> getStorageSettings(AWSCredentialsProvider credentialsProvider, AwsClientBuilder.EndpointConfiguration endpointConfiguration) {
+  private HashMap<String, String> getStorageSettings(AwsCredentialsProvider credentialsProvider, String endpoint, String region) {
     HashMap<String, String> storageSettings = new HashMap<>();
     storageSettings.put(TEAMCITY_STORAGE_TYPE_KEY, S3_COMPATIBLE_STORAGE_TYPE);
-    storageSettings.put("aws.region.name", endpointConfiguration.getSigningRegion());
-    storageSettings.put("secure:aws.secret.access.key", credentialsProvider.getCredentials().getAWSSecretKey());
-    storageSettings.put("aws.access.key.id", credentialsProvider.getCredentials().getAWSAccessKeyId());
+    storageSettings.put("aws.region.name", region);
+    storageSettings.put("secure:aws.secret.access.key", credentialsProvider.resolveCredentials().secretAccessKey());
+    storageSettings.put("aws.access.key.id", credentialsProvider.resolveCredentials().accessKeyId());
     storageSettings.put("aws.credentials.type", "aws.access.keys");
     storageSettings.put("storage.s3.bucket.name", BUCKET_NAME);
     storageSettings.put("aws.environment", "custom");
-    storageSettings.put("aws.service.endpoint", endpointConfiguration.getServiceEndpoint());
+    storageSettings.put("aws.service.endpoint", endpoint);
     return storageSettings;
   }
 
-  private AmazonS3 getS3Client(AWSCredentialsProvider credentialsProvider, AwsClientBuilder.EndpointConfiguration endpointConfiguration) {
-    return AmazonS3ClientBuilder
-      .standard()
-      .withEndpointConfiguration(endpointConfiguration)
-      .withCredentials(credentialsProvider)
-      .build();
+  private S3Client getS3Client(AwsCredentialsProvider credentialsProvider, URI endpoint, String region) {
+    return S3Client.builder()
+                   .defaultsMode(DefaultsMode.STANDARD)
+                   .endpointOverride(endpoint)
+                   .region(Region.of(region))
+                   .credentialsProvider(credentialsProvider)
+                   .build();
   }
 
   @NotNull
@@ -379,6 +391,24 @@ public class S3CompatibleCleanupExtensionIntegrationTest extends BaseTestCase {
     };
   }
 
+  private static boolean objectExists(S3Client s3, String bucket, String key) {
+    try {
+      s3.headObject(b -> b.bucket(bucket).key(key));
+      return true;
+    } catch (S3Exception e) {
+      if (e.statusCode() == 404) return false;
+      if (e.statusCode() == 403) return true; // exists but access denied
+      throw e;
+    }
+  }
 
+  private static void deleteBucketIfExists(S3Client s3, String bucket) {
+    try {
+      s3.headBucket(b -> b.bucket(bucket));
+      s3.deleteBucket(b -> b.bucket(BUCKET_NAME));
+    } catch (S3Exception e) {
+      throw e;
+    }
+  }
 
 }

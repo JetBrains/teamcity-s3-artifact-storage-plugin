@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
-import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
@@ -10,6 +9,7 @@ import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.http.SdkHttpMethod;
 
 public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnabledPresignedUrlProvider {
 
@@ -23,7 +23,7 @@ public class CloudFrontEnabledPresignedUrlProviderImpl implements CloudFrontEnab
 
   @Override
   @NotNull
-  public PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod,
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull SdkHttpMethod httpMethod,
                                                  @NotNull String objectKey,
                                                  @NotNull CloudFrontSettings settings) throws IOException {
     PresignedUrlWithTtl preSignedUrl = null;

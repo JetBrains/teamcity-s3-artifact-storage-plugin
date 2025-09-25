@@ -2,10 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.HttpMethod;
-import com.amazonaws.SdkBaseException;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.intellij.openapi.util.io.StreamUtil;
@@ -49,6 +45,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.servlet.ModelAndView;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 import static java.util.Base64.getDecoder;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
@@ -172,8 +172,8 @@ public class S3PreSignedUrlController extends BaseController {
   private void handleException(@NotNull final HttpServletResponse httpServletResponse, @NotNull final Exception e) throws IOException {
     final Exception cause = getMostInformativeRootException(e);
     setErrorHeader(httpServletResponse, cause);
-    if (cause instanceof AmazonServiceException) {
-      handleAmazonException(httpServletResponse, (AmazonServiceException)cause);
+    if (cause instanceof AwsServiceException) {
+      handleAmazonException(httpServletResponse, (AwsServiceException)cause);
     } else {
       handleGenericException(httpServletResponse, cause);
     }
@@ -181,16 +181,16 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private Exception getMostInformativeRootException(@NotNull final Exception e) {
-    return Util.ofNullable(() -> ExceptionUtil.getCause(e, AmazonS3Exception.class),
-                           Util.ofNullable(() -> ExceptionUtil.getCause(e, SdkBaseException.class),
+    return Util.ofNullable(() -> ExceptionUtil.getCause(e, S3Exception.class),
+                           Util.ofNullable(() -> ExceptionUtil.getCause(e, SdkException.class),
                                            Util.ofNullable(() -> ExceptionUtil.getCause(e, HttpStatusCodeException.class), e)));
   }
 
   private void setErrorHeader(HttpServletResponse httpServletResponse, Exception e) {
     final String header;
-    if (e instanceof AmazonServiceException) {
+    if (e instanceof AwsServiceException) {
       header = S3Constants.ErrorSource.S3.name();
-    } else if (e instanceof SdkBaseException) {
+    } else if (e instanceof SdkException) {
       header = S3Constants.ErrorSource.SDK.name();
     } else {
       header = S3Constants.ErrorSource.TEAMCITY.name();
@@ -202,7 +202,7 @@ public class S3PreSignedUrlController extends BaseController {
     response.sendError(e instanceof HttpStatusCodeException ? ((HttpStatusCodeException)e).getRawStatusCode() : HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
   }
 
-  private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AmazonServiceException e) throws IOException {
+  private void handleAmazonException(@NotNull HttpServletResponse httpServletResponse, AwsServiceException e) throws IOException {
     httpServletResponse.setStatus(HttpServletResponse.SC_BAD_REQUEST);
     httpServletResponse.getWriter().append(S3XmlSerializerFactory.getInstance().serialize(AmazonServiceErrorDto.from(e)));
   }
@@ -283,7 +283,7 @@ public class S3PreSignedUrlController extends BaseController {
         } else if (request.getDigests() != null && request.getDigests().size() == 1) {
           return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
         } else if (request.getHttpMethod() != null) {
-          PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedManager.generateDownloadUrl(HttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings);
+          PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedManager.generateDownloadUrl(SdkHttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings);
           return PresignedUrlDto.singlePart(request.getObjectKey(), presignedUrlWithTtl.getUrl());
         } else {
           return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));

@@ -31,7 +31,7 @@ public class CheckS3TransferAccelerationAvailability extends S3ClientResourceFet
           throw new IllegalArgumentException(message);
         }
         // Verify that transfer acceleration is enabled for the bucket.
-        String accelerateStatus = s3Client.getBucketAccelerateConfiguration(bucketName).getStatus();
+        String accelerateStatus = s3Client.getBucketAccelerateConfiguration(b -> b.bucket(bucketName)).statusAsString();
 
         return new S3AccelerationDto(bucketName, accelerateStatus);
       });

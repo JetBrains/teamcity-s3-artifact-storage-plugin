@@ -2,13 +2,13 @@
 
 package jetbrains.buildServer.artifacts.s3.web;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 public class S3ParametersProvider {
   public String getBucketName() {
@@ -83,12 +83,12 @@ public class S3ParametersProvider {
   }
 
   public List<String> getAclEnum() {
-    return Arrays.stream(CannedAccessControlList.values()).map(CannedAccessControlList::name)
+    return Arrays.stream(ObjectCannedACL.values()).map(ObjectCannedACL::name)
                  .collect(Collectors.toList());
   }
 
   public String getDefaultAcl() {
-    return CannedAccessControlList.Private.name();
+    return ObjectCannedACL.PRIVATE.name();
   }
 
   public String getTransferAccelerationEnabled() {

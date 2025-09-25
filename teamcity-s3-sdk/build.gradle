@@ -15,6 +15,9 @@ dependencies {
   testImplementation "org.testng:testng:6.8.21"
   testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
   testImplementation "org.mockito:mockito-core:3.9.0"
+  testImplementation("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
+    changing = true
+  }
 }
 
 publishing {
