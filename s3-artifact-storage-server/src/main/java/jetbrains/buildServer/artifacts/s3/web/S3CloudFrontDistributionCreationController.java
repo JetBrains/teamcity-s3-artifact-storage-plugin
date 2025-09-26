@@ -14,6 +14,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -57,11 +58,13 @@ import software.amazon.awssdk.services.cloudfront.model.CachePolicyCookieBehavio
 import software.amazon.awssdk.services.cloudfront.model.CachePolicyCookiesConfig;
 import software.amazon.awssdk.services.cloudfront.model.CachePolicyHeaderBehavior;
 import software.amazon.awssdk.services.cloudfront.model.CachePolicyHeadersConfig;
+import software.amazon.awssdk.services.cloudfront.model.CachePolicyList;
 import software.amazon.awssdk.services.cloudfront.model.CachePolicyQueryStringBehavior;
 import software.amazon.awssdk.services.cloudfront.model.CachePolicyQueryStringsConfig;
 import software.amazon.awssdk.services.cloudfront.model.CachePolicySummary;
 import software.amazon.awssdk.services.cloudfront.model.CloudFrontException;
 import software.amazon.awssdk.services.cloudfront.model.CloudFrontOriginAccessIdentityConfig;
+import software.amazon.awssdk.services.cloudfront.model.CloudFrontOriginAccessIdentityList;
 import software.amazon.awssdk.services.cloudfront.model.CloudFrontOriginAccessIdentitySummary;
 import software.amazon.awssdk.services.cloudfront.model.CreateCachePolicyRequest;
 import software.amazon.awssdk.services.cloudfront.model.CreateCloudFrontOriginAccessIdentityRequest;
@@ -76,6 +79,7 @@ import software.amazon.awssdk.services.cloudfront.model.DeleteKeyGroupRequest;
 import software.amazon.awssdk.services.cloudfront.model.DeletePublicKeyRequest;
 import software.amazon.awssdk.services.cloudfront.model.Distribution;
 import software.amazon.awssdk.services.cloudfront.model.DistributionConfig;
+import software.amazon.awssdk.services.cloudfront.model.DistributionList;
 import software.amazon.awssdk.services.cloudfront.model.KeyGroupConfig;
 import software.amazon.awssdk.services.cloudfront.model.ListCachePoliciesRequest;
 import software.amazon.awssdk.services.cloudfront.model.ListCloudFrontOriginAccessIdentitiesRequest;
@@ -96,6 +100,7 @@ import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.
 public class S3CloudFrontDistributionCreationController extends BaseFormXmlController {
   private static final Logger LOG = Logger.getInstance(S3CloudFrontDistributionCreationController.class.getName());
 
+  public static final String OAI_RESOURCE_BUCKET_TEMPLATE = "arn:aws:s3:::%s/*";
   public static final String BASE_COMMENT = "Created by TeamCity";
   public static final String COMMENT = BASE_COMMENT + " for '%s'";
   public static final String NUMBERED_COMMENT = COMMENT + " (%d)";
@@ -163,9 +168,18 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
               return myAmazonS3Provider.withS3Client(params, projectId, s3Client -> {
                   String comment;
 
-                  long distrCount =
-                    cloudFrontClient.listDistributions(ListDistributionsRequest.builder().build()).distributionList().items().stream()
-                                    .filter(d -> d.comment().startsWith(String.format(COMMENT, projectName))).count();
+                  long distrCount = 0;
+                  DistributionList distributionsList;
+                  String marker = null;
+                  do {
+                    ListDistributionsRequest.Builder requestBuilder = ListDistributionsRequest.builder().maxItems("1000").marker(marker);
+                    distributionsList = cloudFrontClient.listDistributions(requestBuilder.build()).distributionList();
+                    distrCount += distributionsList.items()
+                                                   .stream()
+                                                   .filter(d -> d.comment() != null && d.comment().startsWith(String.format(COMMENT, projectName)))
+                                                   .count();
+                    marker = distributionsList.nextMarker();
+                  } while ( marker != null);
                   if (distrCount > 0) {
                     comment = String.format(NUMBERED_COMMENT, projectName, distrCount);
                   } else {
@@ -360,9 +374,15 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
 
   @NotNull
   private CachePolicy getOrCreateCachePolicy(@NotNull CloudFrontClient cloudFrontClient) {
-    List<CachePolicySummary> existingPolicies = cloudFrontClient.listCachePolicies(ListCachePoliciesRequest.builder().build())
-      .cachePolicyList()
-      .items();
+    final List<CachePolicySummary> existingPolicies = new LinkedList<>();
+    CachePolicyList cachePolicyList;
+    String marker = null;
+    do {
+      ListCachePoliciesRequest.Builder requestBuilder = ListCachePoliciesRequest.builder().maxItems("1000").marker(marker);
+      cachePolicyList = cloudFrontClient.listCachePolicies(requestBuilder.build()).cachePolicyList();
+      existingPolicies.addAll(cachePolicyList.items());
+      marker = cachePolicyList.nextMarker();
+    } while ( marker != null);
 
     return existingPolicies
       .stream()
@@ -423,9 +443,16 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
   @NotNull
   private String getOriginAccessIdentityId(@NotNull S3Client s3Client, @NotNull CloudFrontClient cloudFrontClient, @NotNull String bucketName) {
     IamPolicy policy = getPolicy(bucketName, s3Client);
-    List<CloudFrontOriginAccessIdentitySummary> existingIdentities = cloudFrontClient.listCloudFrontOriginAccessIdentities(ListCloudFrontOriginAccessIdentitiesRequest.builder().build())
-                                                                                     .cloudFrontOriginAccessIdentityList()
-                                                                                     .items();
+    final List<CloudFrontOriginAccessIdentitySummary> existingIdentities = new LinkedList<>();
+    CloudFrontOriginAccessIdentityList cloudFrontOriginAccessIdentityList;
+    String marker = null;
+    do {
+      ListCloudFrontOriginAccessIdentitiesRequest.Builder requestBuilder = ListCloudFrontOriginAccessIdentitiesRequest.builder().maxItems("1000").marker(marker);
+      cloudFrontOriginAccessIdentityList = cloudFrontClient.listCloudFrontOriginAccessIdentities(requestBuilder.build()).cloudFrontOriginAccessIdentityList();
+      existingIdentities.addAll(cloudFrontOriginAccessIdentityList.items());
+      marker = cloudFrontOriginAccessIdentityList.nextMarker();
+    } while ( marker != null);
+
     List<String> existingOaiIds = existingIdentities
       .stream()
       .map(CloudFrontOriginAccessIdentitySummary::id)
@@ -493,9 +520,9 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     return IamStatement.builder()
       .effect(IamEffect.ALLOW)
       .actionIds(Arrays.asList("s3:GetObject", "s3:PutObject",  "s3:DeleteObject"))
-      .addPrincipal(IamPrincipal.builder().id(String.format(S3_CLOUDFRONT_PRINCIPAL_TEMPLATE, id)).build())
+      .addPrincipal(b -> b.id(String.format(S3_CLOUDFRONT_PRINCIPAL_TEMPLATE, id)))
       //todo check against https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/feature-iam-policy-builder.html
-      .addResource(IamResource.create(bucketName + "/*"))
+      .addResource(IamResource.create(String.format(OAI_RESOURCE_BUCKET_TEMPLATE, bucketName)))
       .build();
   }
 

@@ -7,8 +7,10 @@ import javax.xml.bind.annotation.*;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import org.jetbrains.annotations.NotNull;
-import software.amazon.awssdk.services.cloudfront.model.ListPublicKeysResponse;
+import software.amazon.awssdk.services.cloudfront.model.ListPublicKeysRequest;
 import software.amazon.awssdk.services.cloudfront.model.PublicKey;
+import software.amazon.awssdk.services.cloudfront.model.PublicKeyList;
+import software.amazon.awssdk.services.cloudfront.model.PublicKeySummary;
 
 public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<ListCloudFrontPublicKeysFetcher.ListPublicKeysDto> {
 
@@ -34,8 +36,16 @@ public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<Lis
   @Override
   protected ListPublicKeysDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws Exception {
     return myAmazonS3Provider.withCloudFrontClient(parameters, projectId, client -> {
-      ListPublicKeysResponse result = client.listPublicKeys();
-      List<PublicKeyDto> keys = result.publicKeyList().items().stream()
+      final List<PublicKeySummary> publicKeySummaries = new LinkedList<>();
+      PublicKeyList publicKeyList;
+      String marker = null;
+      do {
+        ListPublicKeysRequest.Builder requestBuilder = ListPublicKeysRequest.builder().maxItems("1000").marker(marker);
+        publicKeyList = client.listPublicKeys(requestBuilder.build()).publicKeyList();
+        publicKeySummaries.addAll(publicKeyList.items());
+        marker = publicKeyList.nextMarker();
+      } while (marker != null);
+      List<PublicKeyDto> keys = publicKeySummaries.stream()
         .map(key -> new PublicKeyDto(key.id(), key.name()))
         .collect(Collectors.toList());
       return new ListPublicKeysDto(keys);

@@ -10,7 +10,6 @@ import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<ListCloudFrontDistributionsFetcher.ListDistributionsDto> {
   private final AmazonS3Provider myAmazonS3Builder;
@@ -71,20 +70,31 @@ public class ListCloudFrontDistributionsFetcher extends S3ClientResourceFetcher<
     String domainPatternNoRegion = String.format(CloudFrontConstants.S3_BUCKET_DOMAIN_PATTERN_NO_REGION, bucketName);
 
     return myAmazonS3Builder.withCloudFrontClient(parameters, projectId, client -> {
-      ListDistributionsResponse result = client.listDistributions(b -> b.build());
+      final List<DistributionSummary> distributionSummaries = new LinkedList<>();
+      DistributionList distributionsList;
+      String marker = null;
+      do {
+        ListDistributionsRequest.Builder requestBuilder = ListDistributionsRequest.builder().maxItems("1000").marker(marker);
+        distributionsList = client.listDistributions(requestBuilder.build()).distributionList();
+        distributionSummaries.addAll(distributionsList.items());
+        marker = distributionsList.nextMarker();
+      } while (marker != null);
 
-      List<KeyGroupSummary> keyGroups = client.listKeyGroups(b -> b.build())
-                                              .keyGroupList()
-                                              .items();
+      final List<KeyGroupSummary> keyGroups = new LinkedList<>();
+      KeyGroupList keyGroupList;
+      do {
+        ListKeyGroupsRequest.Builder requestBuilder = ListKeyGroupsRequest.builder().maxItems("1000").marker(marker);
+        keyGroupList = client.listKeyGroups(requestBuilder.build()).keyGroupList();
+        keyGroups.addAll(keyGroupList.items());
+        marker = keyGroupList.nextMarker();
+      } while (marker != null);
 
       Map<String, KeyGroup> groupMap = keyGroups
         .stream()
         .map(KeyGroupSummary::keyGroup)
         .collect(Collectors.toMap(KeyGroup::id, Function.identity()));
 
-      List<DistributionDto> distributions = result
-        .distributionList()
-        .items()
+      List<DistributionDto> distributions = distributionSummaries
         .stream()
         .filter(d -> d.origins()
                       .items()
