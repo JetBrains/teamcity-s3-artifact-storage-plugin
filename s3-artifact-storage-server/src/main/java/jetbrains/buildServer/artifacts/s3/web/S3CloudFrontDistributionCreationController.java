@@ -477,14 +477,14 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
                                      .map(CloudFrontOriginAccessIdentitySummary::id)
                                      .orElseGet(() -> createOriginAccessIdentity(cloudFrontClient));
 
-    Collection<IamStatement> statements = policy.statements();
+    Collection<IamStatement> statements = new LinkedList<>(policy.statements());
     statements.add(generateStatementForOAI(bucketName, oaiId));
     IamPolicy updatedPolicy = policy.toBuilder()
       .statements(statements)
       .build();
     s3Client.putBucketPolicy(builder ->
       builder.bucket(bucketName)
-        .policy(policy.toJson())
+        .policy(updatedPolicy.toJson())
     );
     return oaiId;
   }
@@ -520,8 +520,7 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     return IamStatement.builder()
       .effect(IamEffect.ALLOW)
       .actionIds(Arrays.asList("s3:GetObject", "s3:PutObject",  "s3:DeleteObject"))
-      .addPrincipal(b -> b.id(String.format(S3_CLOUDFRONT_PRINCIPAL_TEMPLATE, id)))
-      //todo check against https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/feature-iam-policy-builder.html
+      .addPrincipal(b -> b.id(String.format(S3_CLOUDFRONT_PRINCIPAL_TEMPLATE, id)).type(IamPrincipalType.AWS))
       .addResource(IamResource.create(String.format(OAI_RESOURCE_BUCKET_TEMPLATE, bucketName)))
       .build();
   }
