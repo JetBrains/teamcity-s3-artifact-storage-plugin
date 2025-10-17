@@ -13,4 +13,7 @@
     </vendor>
   </info>
   <deployment use-separate-classloader="true" node-responsibilities-aware="true"/>
+  <dependencies>
+    <plugin name="aws-core-plugin"/>
+  </dependencies>
 </teamcity-plugin>

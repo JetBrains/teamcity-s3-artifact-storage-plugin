@@ -1,12 +1,12 @@
 package jetbrains.buildServer.artifacts.s3.publish.errors;
 
-import com.amazonaws.AmazonServiceException;
-import com.amazonaws.retry.RetryUtils;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.presigned.util.HttpClientUtil;
 import jetbrains.buildServer.artifacts.s3.serialization.S3XmlSerializerFactory;
 import jetbrains.buildServer.artifacts.s3.transport.AmazonServiceErrorDto;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.retry.RetryUtils;
 
 public class S3ServerResponseErrorHandler implements HttpResponseErrorHandler {
   @Override
@@ -22,9 +22,9 @@ public class S3ServerResponseErrorHandler implements HttpResponseErrorHandler {
     }
     if (responseWrapper.getResponse() != null) {
       final AmazonServiceErrorDto deserialize = S3XmlSerializerFactory.getInstance().deserialize(responseWrapper.getResponse(), AmazonServiceErrorDto.class);
-      final AmazonServiceException exception = deserialize.toException();
-      final boolean isRecoverable = RetryUtils.isRetryableServiceException(exception) || RetryUtils.isThrottlingException(exception);
-      return new HttpClientUtil.HttpErrorCodeException(exception.getStatusCode(), exception.getMessage(), isRecoverable);
+      final AwsServiceException exception = deserialize.toException();
+      final boolean isRecoverable = RetryUtils.isRetryableException(exception) || RetryUtils.isThrottlingException(exception);
+      return new HttpClientUtil.HttpErrorCodeException(exception.statusCode(), exception.getMessage(), isRecoverable);
     } else {
       return new HttpClientUtil.HttpErrorCodeException(responseWrapper.getStatusCode(), null, false);
     }

@@ -1,7 +1,5 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.Regions;
 import java.util.ArrayList;
 import java.util.List;
 import jetbrains.buildServer.agent.AgentLifeCycleAdapter;
@@ -12,6 +10,8 @@ import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvide
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.providers.DefaultAwsRegionProviderChain;
 
 public class S3AdditionalHeadersProvider implements ArtifactTransportAdditionalHeadersProvider {
 
@@ -46,7 +46,7 @@ public class S3AdditionalHeadersProvider implements ArtifactTransportAdditionalH
     if (isAmazonAvailable) {
       Region region = getRegion();
       if (region != null) {
-        headers.add(new Header(S3Constants.S3_REGION_HEADER_NAME, region.getName()));
+        headers.add(new Header(S3Constants.S3_REGION_HEADER_NAME, region.id()));
       }
     }
     return headers;
@@ -54,7 +54,9 @@ public class S3AdditionalHeadersProvider implements ArtifactTransportAdditionalH
 
   private Region getRegion() {
     if (myRegion == null) {
-      myRegion = Regions.getCurrentRegion();
+      myRegion = DefaultAwsRegionProviderChain.builder()
+        .build()
+        .getRegion();
     }
     return myRegion;
   }

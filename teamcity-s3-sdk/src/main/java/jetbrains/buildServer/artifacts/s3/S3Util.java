@@ -2,22 +2,19 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.cloudfront.AmazonCloudFront;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.CannedAccessControlList;
-import com.amazonaws.services.s3.transfer.Transfer;
+import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.IOException;
 import java.net.URLConnection;
 import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
 import java.util.regex.Pattern;
+import javax.net.ssl.TrustManager;
 import jetbrains.buildServer.artifacts.ArtifactListData;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
@@ -25,11 +22,21 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.*;
 import jetbrains.buildServer.util.amazon.AWSClients;
 import jetbrains.buildServer.util.amazon.AWSCommonParams;
+import jetbrains.buildServer.util.ssl.SSLContextUtil;
+import jetbrains.buildServer.util.ssl.TrustStoreIO;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.http.SdkHttpResponse;
+import software.amazon.awssdk.http.TlsTrustManagersProvider;
+import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.transfer.s3.model.CompletedTransfer;
+import software.amazon.awssdk.transfer.s3.model.Transfer;
 
-import static com.amazonaws.ClientConfiguration.DEFAULT_CONNECTION_TIMEOUT;
+import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants.DEFAULT_CONNECTION_TIMEOUT;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.*;
 import static jetbrains.buildServer.util.amazon.AWSCommonParams.SSL_CERT_DIRECTORY_PARAM;
 import static jetbrains.buildServer.util.amazon.S3Util.*;
@@ -277,9 +284,9 @@ public final class S3Util {
   }
 
   @NotNull
-  public static CannedAccessControlList getAcl(@NotNull final Map<String, String> configuration, Map<String, String> projectConfiguration) {
-    final String acl = projectConfiguration.getOrDefault(S3_ACL, configuration.getOrDefault(S3_ACL, CannedAccessControlList.BucketOwnerFullControl.name()));
-    return Arrays.stream(CannedAccessControlList.values())
+  public static ObjectCannedACL getAcl(@NotNull final Map<String, String> configuration, Map<String, String> projectConfiguration) {
+    final String acl = projectConfiguration.getOrDefault(S3_ACL, configuration.getOrDefault(S3_ACL, ObjectCannedACL.BUCKET_OWNER_FULL_CONTROL.name()));
+    return Arrays.stream(ObjectCannedACL.values())
                  .filter(v -> v.toString().equals(acl) || v.name().equals(acl))
                  .findFirst()
                  .orElseThrow(() -> new IllegalArgumentException("Non-existent ACL provided: " + acl));
@@ -317,7 +324,7 @@ public final class S3Util {
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
       clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
       patchAWSClientsSsl(clients, params);
-      final AmazonCloudFront client = clients.createCloudFrontClient();
+      final CloudFrontClient client = clients.createCloudFrontClient();
       try {
         return withClient.run(client);
       } finally {
@@ -337,7 +344,7 @@ public final class S3Util {
       clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
       clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
       patchAWSClientsSsl(clients, params);
-      final AmazonS3 s3Client = clients.createS3Client();
+      final S3Client s3Client = clients.createS3Client();
       try {
         return withClient.run(s3Client);
       } finally {
@@ -349,7 +356,7 @@ public final class S3Util {
   }
 
   @Deprecated
-  public static <T extends Transfer> Collection<T> withTransferManagerCorrectingRegion(@NotNull final Map<String, String> s3Settings,
+  public static <T extends Transfer> Collection<CompletedTransfer> withTransferManagerCorrectingRegion(@NotNull final Map<String, String> s3Settings,
                                                                                        @NotNull final WithTransferManager<T> withTransferManager,
                                                                                        @NotNull final S3AdvancedConfiguration advancedConfiguration)
     throws Throwable {
@@ -368,22 +375,31 @@ public final class S3Util {
   }
 
   @Deprecated
-  private static <T extends Transfer> Collection<T> withTransferManager(@NotNull final Map<String, String> s3Settings,
-                                                                        @NotNull final WithTransferManager<T> withTransferManager,
-                                                                        @Nullable final S3AdvancedConfiguration advancedConfiguration)
+  private static <T extends Transfer> Collection<CompletedTransfer> withTransferManager(@NotNull final Map<String, String> s3Settings,
+                                                                                        @NotNull final WithTransferManager<T> withTransferManager,
+                                                                                        @Nullable final S3AdvancedConfiguration advancedConfiguration)
     throws Throwable {
     final S3AdvancedConfiguration configuration = advancedConfiguration != null ? advancedConfiguration : S3AdvancedConfiguration.defaultConfiguration();
     return AWSCommonParams.withAWSClients(s3Settings, clients -> {
-      patchAWSClientsSsl(clients, s3Settings);
-      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3Client(), withTransferManager, configuration);
+      return jetbrains.buildServer.util.amazon.S3Util.withTransferManager(clients.createS3AsyncClient(configuration, createTrustManagerProvider(s3Settings)), withTransferManager, configuration);
     });
+  }
+
+  private static TlsTrustManagersProvider createTrustManagerProvider(@NotNull final Map<String, String> s3Settings) throws NoSuchAlgorithmException, KeyStoreException {
+    String certDirectory = s3Settings.get(SSL_CERT_DIRECTORY_PARAM);
+    if (certDirectory != null) {
+      KeyStore ks = TrustStoreIO.readTrustStoreFromDirectory(certDirectory);
+      TrustManager[] trustManagers = { SSLContextUtil.createTrustManager(ks) };
+      return () -> trustManagers;
+    }
+    return null;
   }
 
   @Deprecated
   public static void patchAWSClientsSsl(@NotNull final AWSClients clients, @NotNull final Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = OUR_SOCKET_FACTORY.socketFactory(params.get(SSL_CERT_DIRECTORY_PARAM));
     if (socketFactory != null) {
-      clients.getClientConfiguration().getApacheHttpClientConfig().withSslSocketFactory(socketFactory);
+      clients.setSocketFactory(socketFactory);
     }
   }
 
@@ -417,12 +433,12 @@ public final class S3Util {
 
   @Deprecated
   public static <T> T withCorrectingRegionAndAcceleration(@NotNull final Map<String, String> settings,
-                                                          @NotNull final WithS3<T, AmazonS3Exception> action) {
+                                                          @NotNull final WithS3<T, S3Exception> action) {
     try {
       return withS3ClientShuttingDownImmediately(settings, action);
-    } catch (AmazonS3Exception s3Exception) {
+    } catch (S3Exception s3Exception) {
       final String correctedRegion = extractCorrectedRegion(s3Exception);
-      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.getErrorMessage()).matches();
+      final boolean isTAException = TRANSFER_ACC_ERROR_PATTERN.matcher(s3Exception.awsErrorDetails().errorMessage()).matches();
       final boolean isRegionException = correctedRegion != null;
 
       final HashMap<String, String> correctedSettings = new HashMap<>(settings);
@@ -442,12 +458,12 @@ public final class S3Util {
   }
 
   @Deprecated
-  public static <T> T withClientCorrectingRegion(@NotNull final AmazonS3 s3Client,
+  public static <T> T withClientCorrectingRegion(@NotNull final S3Client s3Client,
                                                  @NotNull final Map<String, String> settings,
-                                                 @NotNull final WithS3<T, AmazonS3Exception> withCorrectedClient) {
+                                                 @NotNull final WithS3<T, S3Exception> withCorrectedClient) {
     try {
       return withCorrectedClient.run(s3Client);
-    } catch (AmazonS3Exception awsException) {
+    } catch (S3Exception awsException) {
       final String correctRegion = extractCorrectedRegion(awsException);
       if (correctRegion != null) {
         LOGGER.debug("Running operation with corrected S3 region [" + correctRegion + "]", awsException);
@@ -463,14 +479,10 @@ public final class S3Util {
   @Deprecated
   @Nullable
   private static String extractCorrectedRegion(@NotNull final Throwable e) {
-    @Nullable final AmazonS3Exception awsException = e instanceof AmazonS3Exception ? (AmazonS3Exception)e : ExceptionUtil.getCause(e, AmazonS3Exception.class);
-    if (awsException != null && TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && awsException.getAdditionalDetails() != null) {
-      final String correctRegion = awsException.getAdditionalDetails().get("Region");
-      if (correctRegion != null) {
-        return correctRegion;
-      } else {
-        return awsException.getAdditionalDetails().get("x-amz-bucket-region");
-      }
+    @Nullable final S3Exception awsException = e instanceof S3Exception ? (S3Exception)e : ExceptionUtil.getCause(e, S3Exception.class);
+    if (awsException != null && TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && awsException.awsErrorDetails() != null) {
+      final SdkHttpResponse response = awsException.awsErrorDetails().sdkHttpResponse();
+      return response.firstMatchingHeader("Region").orElse(response.firstMatchingHeader("x-amz-bucket-region").orElse(null));
     } else {
       return null;
     }
@@ -487,13 +499,13 @@ public final class S3Util {
   @Deprecated
   public interface WithS3<T, E extends Throwable> {
     @Nullable
-    T run(@NotNull AmazonS3 client) throws E;
+    T run(@NotNull S3Client client) throws E;
   }
 
   @Deprecated
   public interface WithCloudFront<T, E extends Throwable> {
     @Nullable
-    T run(@NotNull AmazonCloudFront client) throws E;
+    T run(@NotNull CloudFrontClient client) throws E;
   }
 
 }

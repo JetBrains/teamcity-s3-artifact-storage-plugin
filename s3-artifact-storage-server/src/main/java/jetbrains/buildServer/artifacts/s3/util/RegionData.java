@@ -1,14 +1,13 @@
 package jetbrains.buildServer.artifacts.s3.util;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.regions.RegionMetadata;
+import software.amazon.awssdk.regions.internal.MetadataLoader;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -46,19 +45,15 @@ public final class RegionData {
     return RegionSortPriority.getFromPrefix(prefix).getPriority();
   }
 
-  @SuppressWarnings("FieldCanBeLocal")
-  private final Map<String, String> myRegionsData;
   private final String mySerializedRegionCodes;
   private final String mySerializedRegionDescriptions;
 
   public RegionData() {
-    Map<String, String> allRegionsMap = Arrays.stream(Regions.values())
-      .collect(Collectors.toMap(Regions::getName, Regions::getDescription));
-
-    myRegionsData = RegionUtils.getRegionsForService(SERVICE_NAME)
+    Map<String, String> myRegionsData = MetadataLoader.serviceMetadata(SERVICE_NAME)
+      .regions()
       .stream()
-      .map(Region::getName)
-      .collect(Collectors.toMap(Function.identity(), allRegionsMap::get, (a, b) -> a, () -> new TreeMap<>(REGION_COMPARATOR)));
+      .map(Region::metadata)
+      .collect(Collectors.toMap(RegionMetadata::id, RegionMetadata::description, (a, b) -> a, () -> new TreeMap<>(REGION_COMPARATOR)));
 
     mySerializedRegionCodes = Arrays.toString(myRegionsData.keySet().toArray());
     mySerializedRegionDescriptions = Arrays.toString(myRegionsData.values().toArray());

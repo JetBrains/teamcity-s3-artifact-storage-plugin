@@ -2,14 +2,15 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.HttpMethod;
-import com.amazonaws.services.s3.model.*;
-import com.amazonaws.util.SdkHttpUtils;
+import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.UploadPartPresignRequest;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,10 +19,12 @@ import java.util.Optional;
 import java.util.function.Function;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
-import jetbrains.buildServer.util.TimeService;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_URL_LIFETIME_SEC;
 
@@ -33,25 +36,41 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
   private static final Logger LOG = Logger.getInstance(S3PresignedUrlProviderImpl.class.getName());
   @NotNull
   private static final String TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION = "teamcity.s3.override.content.disposition.enabled";
-  @NotNull
-  private final TimeService myTimeService;
 
-  public S3PresignedUrlProviderImpl(@NotNull final TimeService timeService, @NotNull final AmazonS3Provider amazonS3Provider) {
+  public S3PresignedUrlProviderImpl(@NotNull final AmazonS3Provider amazonS3Provider) {
     super(amazonS3Provider);
-    myTimeService = timeService;
   }
 
   @NotNull
   @Override
-  public PresignedUrlWithTtl generateDownloadUrl(@NotNull final HttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
+  public PresignedUrlWithTtl generateDownloadUrl(@NotNull final SdkHttpMethod httpMethod, @NotNull final String objectKey, @NotNull final S3Settings settings) throws IOException {
     int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, true);
-    return new PresignedUrlWithTtl(generateUrl(httpMethod, objectKey, null, null, null, settings, urlTtlSeconds), urlTtlSeconds);
+    GetObjectRequest.Builder objectRequestBuilder = GetObjectRequest.builder()
+                                                     .bucket(settings.getBucketName())
+                                                     .key(objectKey)
+                                                     .responseContentType(getContentType(objectKey, settings));
+    getContentDisposition(objectKey).ifPresent(objectRequestBuilder::responseContentDisposition);
+    GetObjectPresignRequest presignRequest = GetObjectPresignRequest.builder()
+                                                                    .signatureDuration(Duration.ofSeconds(urlTtlSeconds))
+                                                                    .getObjectRequest(objectRequestBuilder.build())
+                                                                    .build();
+    return new PresignedUrlWithTtl(generateUrl(httpMethod, objectKey, p -> p.presignGetObject(presignRequest).url().toExternalForm(), settings), urlTtlSeconds);
   }
 
   @NotNull
   @Override
   public String generateUploadUrl(@NotNull final String objectKey, @Nullable final String digest, @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, digest, null, null, settings, getUrlTtlSeconds(objectKey, settings, false));
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, false);
+    PutObjectRequest.Builder putObjectRequestBuilder = PutObjectRequest.builder()
+                                                        .bucket(settings.getBucketName())
+                                                        .key(objectKey)
+                                                        .acl(settings.getAcl().toString());
+    getContentMd5(settings, digest).ifPresent(putObjectRequestBuilder::contentMD5);
+    PutObjectPresignRequest presignRequest = PutObjectPresignRequest.builder()
+                                                                    .signatureDuration(Duration.ofSeconds(urlTtlSeconds))
+                                                                    .putObjectRequest(putObjectRequestBuilder.build())
+                                                                    .build();
+    return generateUrl(SdkHttpMethod.PUT, objectKey, p -> p.presignPutObject(presignRequest).url().toExternalForm(), settings);
   }
 
   @NotNull
@@ -61,62 +80,27 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
                                          final int nPart,
                                          @NotNull final String uploadId,
                                          @NotNull final S3Settings settings) throws IOException {
-    return generateUrl(HttpMethod.PUT, objectKey, digest, nPart, uploadId, settings, getUrlTtlSeconds(objectKey, settings, false));
+    int urlTtlSeconds = getUrlTtlSeconds(objectKey, settings, false);
+    UploadPartRequest.Builder uploadPartRequestBuilder = UploadPartRequest.builder()
+                                                         .bucket(settings.getBucketName())
+                                                         .key(objectKey)
+                                                         .partNumber(nPart)
+                                                         .uploadId(uploadId);
+    getContentMd5(settings, digest).ifPresent(uploadPartRequestBuilder::contentMD5);
+    UploadPartPresignRequest presignRequest = UploadPartPresignRequest.builder()
+                                                                     .signatureDuration(Duration.ofSeconds(urlTtlSeconds))
+                                                                     .uploadPartRequest(uploadPartRequestBuilder.build())
+                                                                     .build();
+    return generateUrl(SdkHttpMethod.PUT, objectKey, p -> p.presignUploadPart(presignRequest).url().toExternalForm(), settings);
   }
 
   @NotNull
-  private String generateUrl(@NotNull final HttpMethod httpMethod,
+  private String generateUrl(@NotNull final SdkHttpMethod httpMethod,
                              @NotNull final String objectKey,
-                             @Nullable String digest,
-                             @Nullable final Integer nPart,
-                             @Nullable final String uploadId,
-                             @NotNull final S3Settings settings,
-                             int urlTtlSeconds) throws IOException {
+                             @NotNull final Function<S3Presigner, String> withS3Presginer,
+                             @NotNull final S3Settings settings) throws IOException {
     try {
-      final GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(settings.getBucketName(), objectKey, httpMethod)
-        .withExpiration(new Date(myTimeService.now() + urlTtlSeconds * 1000L));
-      if (nPart != null) {
-        request.addRequestParameter("partNumber", String.valueOf(nPart));
-      }
-      if (uploadId != null) {
-        request.addRequestParameter("uploadId", uploadId);
-      }
-      if (S3Util.isConsistencyCheckEnabled(settings.toRawSettings()) && digest != null) {
-        request.setContentMd5(digest);
-      }
-
-      ResponseHeaderOverrides headerOverrides = new ResponseHeaderOverrides();
-
-      if (HttpMethod.GET.equals(httpMethod)) {
-        String contentType = getObjectMetadata(objectKey, settings)
-          .map(ObjectMetadata::getContentType)
-          .map(it -> {
-            if (it.indexOf("charset") < 0) {
-              return it + ";" + S3Util.DEFAULT_CHARSET;
-            }
-
-            return it;
-          })
-          .orElse(S3Util.DEFAULT_CONTENT_TYPE);
-
-        headerOverrides.withContentType(contentType);
-      }
-
-      if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
-        final List<String> split = StringUtil.split(objectKey, "/");
-        if (!split.isEmpty()) {
-          //Unfortunately S3 expects everything to be ISO-8859-1 compliant. We have to encode filename to allow any non-ISO-8859-1 characters
-          String filename = SdkHttpUtils.urlEncode(split.get(split.size() - 1), false);
-          headerOverrides.withContentDisposition("inline; filename=\"" + filename + "\"");
-        }
-      }
-      //This header ensures that bucket owner always has access to uploaded objects
-      if ((httpMethod == HttpMethod.PUT || httpMethod == HttpMethod.POST) && nPart == null) {
-        request.putCustomRequestHeader("x-amz-acl", settings.getAcl().toString());
-      }
-
-      request.withResponseHeaders(headerOverrides);
-      return callS3(client -> client.generatePresignedUrl(request).toString(), settings);
+      return callS3Presign(withS3Presginer, settings);
     } catch (Exception e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
@@ -134,20 +118,17 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
   @Override
   public String startMultipartUpload(@NotNull final String objectKey, @Nullable String contentType, @NotNull final S3Settings settings) throws Exception {
     return callS3(client -> {
-      final InitiateMultipartUploadRequest initiateMultipartUploadRequest = new InitiateMultipartUploadRequest(
-        settings.getBucketName(),
-        objectKey
-      );
+      final CreateMultipartUploadRequest.Builder initiateMultipartUploadRequest = CreateMultipartUploadRequest.builder()
+                                                                                              .bucket(settings.getBucketName())
+                                                                                              .key(objectKey)
+                                                                                              .acl(settings.getAcl());
 
       if (contentType != null) {
-        ObjectMetadata metadata = new ObjectMetadata();
-        metadata.setContentType(contentType);
-        initiateMultipartUploadRequest.withObjectMetadata(metadata);
+        initiateMultipartUploadRequest.contentType(contentType);
       }
 
-      initiateMultipartUploadRequest.setCannedACL(settings.getAcl());
-      final InitiateMultipartUploadResult initiateMultipartUploadResult = client.initiateMultipartUpload(initiateMultipartUploadRequest);
-      return initiateMultipartUploadResult.getUploadId();
+      final CreateMultipartUploadResponse initiateMultipartUploadResult = client.createMultipartUpload(initiateMultipartUploadRequest.build());
+      return initiateMultipartUploadResult.uploadId();
     }, settings);
   }
 
@@ -162,13 +143,22 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
         if (etags == null || etags.length == 0) {
           throw new IllegalArgumentException("Cannot complete multipart request without etags");
         }
-        final List<PartETag> partETags = new ArrayList<>();
+        final List<CompletedPart> partETags = new ArrayList<>();
         for (int i = 0; i < etags.length; i++) {
-          partETags.add(new PartETag(i + 1, etags[i]));
+          partETags.add(CompletedPart.builder().partNumber(i + 1).eTag(etags[i]).build());
         }
-        client.completeMultipartUpload(new CompleteMultipartUploadRequest(settings.getBucketName(), objectKey, uploadId, partETags));
+        client.completeMultipartUpload(b -> b
+          .bucket(settings.getBucketName())
+          .key(objectKey)
+          .uploadId(uploadId)
+          .multipartUpload(partBuilder -> partBuilder.parts(partETags))
+        );
       } else {
-        client.abortMultipartUpload(new AbortMultipartUploadRequest(settings.getBucketName(), objectKey, uploadId));
+        client.abortMultipartUpload(b -> b
+          .bucket(settings.getBucketName())
+          .key(objectKey)
+          .uploadId(uploadId)
+        );
       }
       return null;
     }, settings);
@@ -180,6 +170,38 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
       throw new IllegalArgumentException("Settings don't contain bucket name");
     }
     return new S3SettingsImpl(rawSettings, projectSettings);
+  }
+
+  private String getContentType(@NotNull final String objectKey, @NotNull final S3Settings settings) {
+    return getObjectMetadata(objectKey, settings)
+      .map(HeadObjectResponse::contentType)
+      .map(it -> {
+        if (it.indexOf("charset") < 0) {
+          return it + ";" + S3Util.DEFAULT_CHARSET;
+        }
+
+        return it;
+      })
+      .orElse(S3Util.DEFAULT_CONTENT_TYPE);
+  }
+
+  private static Optional<String> getContentDisposition(@NotNull final String objectKey) {
+    if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_S3_OVERRIDE_CONTENT_DISPOSITION)) {
+      final List<String> split = StringUtil.split(objectKey, "/");
+      if (!split.isEmpty()) {
+        //Unfortunately S3 expects everything to be ISO-8859-1 compliant. We have to encode filename to allow any non-ISO-8859-1 characters
+        String filename = SdkHttpUtils.urlEncode(split.get(split.size() - 1));
+        return Optional.of("inline; filename=\"" + filename + "\"");
+      }
+    }
+    return Optional.empty();
+  }
+
+  private static Optional<String> getContentMd5(@NotNull final S3Settings settings, final String digest) {
+    if (S3Util.isConsistencyCheckEnabled(settings.toRawSettings()) && digest != null) {
+      return Optional.of(digest);
+    }
+    return Optional.empty();
   }
 
   private static class S3SettingsImpl implements S3Settings {
@@ -211,7 +233,7 @@ public class S3PresignedUrlProviderImpl extends PresignedUrlProvider implements 
 
     @NotNull
     @Override
-    public CannedAccessControlList getAcl() {
+    public ObjectCannedACL getAcl() {
       return S3Util.getAcl(mySettings, myProjectSettings);
     }
 

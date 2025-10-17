@@ -1,23 +1,18 @@
 package jetbrains.buildServer.artifacts.s3.amazonClient.impl;
 
-import com.amazonaws.ClientConfiguration;
-import com.amazonaws.services.cloudfront.AmazonCloudFront;
-import com.amazonaws.services.cloudfront.AmazonCloudFrontClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.intellij.openapi.util.Pair;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import com.intellij.openapi.util.Pair;
 import java.util.concurrent.ExecutionException;
 import jetbrains.buildServer.artifacts.ArtifactStorageSettings;
 import jetbrains.buildServer.artifacts.s3.CachingSocketFactory;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
+import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Presigner;
 import jetbrains.buildServer.clouds.amazon.connector.impl.AwsConnectionCredentials;
 import jetbrains.buildServer.clouds.amazon.connector.utils.clients.ClientConfigurationBuilder;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
@@ -38,10 +33,26 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.auth.credentials.AwsCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.signer.AwsS3V4Signer;
+import software.amazon.awssdk.awscore.defaultsmode.DefaultsMode;
+import software.amazon.awssdk.core.client.config.SdkAdvancedClientOption;
+import software.amazon.awssdk.http.SdkHttpClient;
+import software.amazon.awssdk.http.SdkHttpResponse;
+import software.amazon.awssdk.http.apache.ApacheHttpClient;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-import static jetbrains.buildServer.artifacts.s3.BucketLocationFetcher.getRegionName;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
-import static jetbrains.buildServer.artifacts.s3.S3Util.*;
+import static jetbrains.buildServer.artifacts.s3.S3Util.disablePathStyleAccess;
+import static jetbrains.buildServer.artifacts.s3.S3Util.isAccelerateModeEnabled;
+import static jetbrains.buildServer.artifacts.s3.S3Util.patchAWSClientsSsl;
+import static jetbrains.buildServer.artifacts.s3.S3Util.TRANSFER_ACC_ERROR_PATTERN;
 import static jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCommonParameters.SSL_CERT_DIRECTORY_PARAM;
 
 public class AmazonS3ProviderImpl implements AmazonS3Provider {
@@ -64,24 +75,46 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
   @Nullable
   private static String extractCorrectedRegion(@NotNull final Throwable e) {
-    @Nullable final AmazonS3Exception awsException = e instanceof AmazonS3Exception ? (AmazonS3Exception)e : ExceptionUtil.getCause(e, AmazonS3Exception.class);
-    if (awsException != null && TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && awsException.getAdditionalDetails() != null) {
-      final String correctRegion = awsException.getAdditionalDetails().get("Region");
-      if (correctRegion != null) {
-        return correctRegion;
-      } else {
-        return awsException.getAdditionalDetails().get("x-amz-bucket-region");
+    @Nullable final S3Exception awsException = e instanceof S3Exception ? (S3Exception) e : ExceptionUtil.getCause(e, S3Exception.class);
+    if (TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion")
+      && awsException != null
+      && awsException.awsErrorDetails() != null) {
+      SdkHttpResponse sdkHttpResponse = awsException.awsErrorDetails().sdkHttpResponse();
+      if (sdkHttpResponse != null) {
+        return sdkHttpResponse.firstMatchingHeader("x-amz-bucket-region")
+          .orElse(null);
       }
-    } else {
-      return null;
     }
+
+    return null;
   }
 
   @NotNull
-  @Override
-  public AmazonS3 fromS3Settings(@NotNull final Map<String, String> s3Settings,
+  private S3Client fromS3Settings(@NotNull final Map<String, String> s3Settings,
                                  @NotNull final String projectId) throws ConnectionCredentialsException {
     return fromS3Configuration(s3Settings, projectId, null);
+  }
+
+  @NotNull
+  private S3Presigner presignerFromS3Settings(@NotNull final Map<String, String> s3Settings,
+                                       @NotNull final String projectId) throws ConnectionCredentialsException {
+    AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(s3Settings, projectId);
+
+    String regionName = awsConnectionCredentials.getAwsRegion();
+    if (StringUtils.isNotBlank(s3Settings.get(AWSCommonParams.REGION_NAME_PARAM))) {
+      regionName = s3Settings.get(AWSCommonParams.REGION_NAME_PARAM);
+    }
+
+    return S3Presigner.builder()
+                      .region(Region.of(regionName))
+                      .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
+                      .serviceConfiguration(
+                        S3Configuration.builder()
+                                       .accelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
+                                       .pathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
+                                       .build()
+                      )
+                      .build();
   }
 
   public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
@@ -97,11 +130,20 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @Override
-  public void shutdownClient(@NotNull final AmazonS3 s3Client) {
+  public void shutdownClient(@NotNull final S3Client s3Client) {
     try {
-      s3Client.shutdown();
+      s3Client.close();
     } catch (Exception e) {
       Loggers.CLOUD.warnAndDebugDetails("Shutting down s3 client " + s3Client + " failed.", e);
+    }
+  }
+
+  @Override
+  public void shutdownPresigner(@NotNull final S3Presigner s3Presigner) {
+    try {
+      s3Presigner.close();
+    } catch (Exception e) {
+      Loggers.CLOUD.warnAndDebugDetails("Shutting down s3 presigner " + s3Presigner + " failed.", e);
     }
   }
 
@@ -112,7 +154,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
                                                                         final boolean shutdownImmediately) throws ConnectionCredentialsException {
     try {
       return withS3Client(settings, projectId, action, shutdownImmediately);
-    } catch (AmazonS3Exception | ConnectionCredentialsException s3Exception) {
+    } catch (S3Exception | ConnectionCredentialsException s3Exception) {
       final Map<String, String> correctedSettings = extractCorrectedSettings(projectId, settings, s3Exception);
       return withS3Client(correctedSettings, projectId, action, shutdownImmediately);
     }
@@ -124,7 +166,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   private Map<String, String> extractCorrectedSettings(@NotNull String projectId, @NotNull Map<String, String> settings, @NotNull Throwable s3Exception)
-    throws ConnectionCredentialsException, AmazonS3Exception {
+    throws ConnectionCredentialsException, S3Exception {
     final Map<String, String> correctedSettings = new HashMap<>(settings);
     correctedSettings.putAll(buildAndCacheCorrectedSettings(projectId, settings, s3Exception));
     return correctedSettings;
@@ -159,8 +201,8 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       return correctedSettings;
     } else if (s3Exception instanceof ConnectionCredentialsException) { // Should never happen
       throw (ConnectionCredentialsException)s3Exception;
-    } else if (s3Exception instanceof AmazonS3Exception) {
-      throw (AmazonS3Exception)s3Exception;
+    } else if (s3Exception instanceof S3Exception) {
+      throw (S3Exception) s3Exception;
     } else {
       throw new RuntimeException("Cannot extract corrected settings from exception for project " + projectId, s3Exception);
     }
@@ -202,22 +244,21 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       return correctedSettings;
     }
 
-    // No call has been made to S3, we make one to verify the quality of the settings 
-    withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
+    // No call has been made to S3, we make one to verify the quality of the settings
+    withS3ClientShuttingDownImmediately(storageSettings, projectId, client ->
+      client.getBucketLocation(builder -> builder.bucket(bucketName))
+    );
 
     return extractCachedCorrectedSettings(storageSettings, projectId);
   }
 
   @NotNull
-  @Override
-  public AmazonS3 fromS3Configuration(@NotNull final Map<String, String> s3Settings,
+  private S3Client fromS3Configuration(@NotNull final Map<String, String> s3Settings,
                                       @NotNull final String projectId,
                                       @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
     throws ConnectionCredentialsException {
-    //TODO clarify when this should be used:
-    S3Util.S3AdvancedConfiguration configuration = advancedConfiguration != null ? advancedConfiguration : S3Util.S3AdvancedConfiguration.defaultConfiguration();
 
-    ClientConfiguration s3ClientConfig = getClientConfiguration(s3Settings);
+    SdkHttpClient.Builder<ApacheHttpClient.Builder> clientConfiguration = getClientConfiguration(s3Settings);
     AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(s3Settings, projectId);
 
     String regionName = awsConnectionCredentials.getAwsRegion();
@@ -225,13 +266,20 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       regionName = s3Settings.get(AWSCommonParams.REGION_NAME_PARAM);
     }
 
-    return AmazonS3ClientBuilder
-      .standard()
-      .withRegion(regionName)
-      .withClientConfiguration(s3ClientConfig)
-      .withCredentials(awsConnectionCredentials.toAWSCredentialsProvider())
-      .withAccelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
-      .withPathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
+    return S3Client.builder()
+      .defaultsMode(DefaultsMode.STANDARD)
+      .region(Region.of(regionName))
+      .httpClientBuilder(clientConfiguration)
+      .overrideConfiguration(
+        ClientConfigurationBuilder.clientOverrideConfigurationBuilder()
+          .putAdvancedOption(SdkAdvancedClientOption.SIGNER, AwsS3V4Signer.create())
+          .build()
+      )
+      .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
+      .serviceConfiguration(
+        builder -> builder.accelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
+        .pathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
+      )
       .build();
   }
 
@@ -242,17 +290,18 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     if (ParamUtil.withAwsConnectionId(params)) {
       AwsConnectionCredentials awsConnectionCredentials = getAwsConnectionCredentials(params, projectId);
 
-      final AmazonCloudFront client = AmazonCloudFrontClientBuilder
-        .standard()
-        .withRegion(awsConnectionCredentials.getAwsRegion())
-        .withClientConfiguration(ClientConfigurationBuilder.createClientConfigurationEx("cloudFront"))
-        .withCredentials(awsConnectionCredentials.toAWSCredentialsProvider())
+      final CloudFrontClient client = CloudFrontClient.builder()
+        .defaultsMode(DefaultsMode.STANDARD)
+        .region(Region.of(awsConnectionCredentials.getAwsRegion()))
+        .httpClientBuilder(ClientConfigurationBuilder.createClientBuilder("cloudFront"))
+        .overrideConfiguration(ClientConfigurationBuilder.clientOverrideConfigurationBuilder().build())
+        .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
         .build();
       try {
         return withClient.execute(client);
       } finally {
         if (shutdownImmediately) {
-          jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+          S3Util.shutdownClient(client);
         }
       }
     } else {
@@ -262,12 +311,12 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
           clients.setDisablePathStyleAccess(disablePathStyleAccess(params));
           clients.setAccelerateModeEnabled(isAccelerateModeEnabled(params));
           patchAWSClientsSsl(clients, params);
-          final AmazonCloudFront client = clients.createCloudFrontClient();
+          final CloudFrontClient client = clients.createCloudFrontClient();
           try {
             return withClient.execute(client);
           } finally {
             if (shutdownImmediately) {
-              jetbrains.buildServer.util.amazon.S3Util.shutdownClient(client);
+              S3Util.shutdownClient(client);
             }
           }
         });
@@ -283,7 +332,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
     final Map<String, String> correctedSettings = extractCachedCorrectedSettings(params, projectId);
     if (ParamUtil.withAwsConnectionId(correctedSettings)) {
-      AmazonS3 s3Client = fromS3Settings(correctedSettings, projectId);
+      S3Client s3Client = fromS3Settings(correctedSettings, projectId);
       try {
         return withS3Client.execute(s3Client);
       } catch (Exception e) {
@@ -295,18 +344,66 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       }
     } else {
       try {
+        //todo shouldn't be merged unless this branch is supported
+        //to think about of converging both paths (need to sep static creds vs session ones)
+        //better to move it to this plugin instead of leaving it in the AWS Core
         return AWSCommonParams.withAWSClients(correctedSettings, clients -> {
           clients.setS3SignerType(S3_SIGNER_TYPE);
           clients.setDisablePathStyleAccess(disablePathStyleAccess(correctedSettings));
           clients.setAccelerateModeEnabled(isAccelerateModeEnabled(correctedSettings));
           patchAWSClientsSsl(clients, correctedSettings);
-          final AmazonS3 s3Client = clients.createS3Client();
+          final S3Client s3Client = clients.createS3Client();
           try {
             return withS3Client.execute(s3Client);
           } finally {
             if (shutdownImmediately) {
-              jetbrains.buildServer.util.amazon.S3Util.shutdownClient(s3Client);
+              S3Util.shutdownClient(s3Client);
             }
+          }
+        });
+      } catch (Throwable t) {
+        throw new ConnectionCredentialsException(new Exception(t));
+      }
+    }
+  }
+
+  @Override
+  public  <T, E extends Exception> T withS3PresignerShuttingDownImmediately(@NotNull final String bucket,
+                                                                            @NotNull final Map<String, String> params,
+                                                                            @NotNull final String projectId,
+                                                                            @NotNull final WithS3Presigner<T, E> withS3Presigner)
+    throws ConnectionCredentialsException {
+    final Map<String, String> correctedSettings = getCorrectedRegionAndAcceleration(bucket, params, projectId);
+    if (ParamUtil.withAwsConnectionId(correctedSettings)) {
+      S3Presigner s3Presigner = presignerFromS3Settings(correctedSettings, projectId);
+      try {
+        return withS3Presigner.execute(s3Presigner);
+      } catch (Exception e) {
+        throw new ConnectionCredentialsException(e);
+      } finally {
+        shutdownPresigner(s3Presigner);
+      }
+    } else {
+      try {
+        return AWSCommonParams.withAWSClients(correctedSettings, clients -> {
+          final AwsCredentials credentials = clients.getCredentials();
+          if (credentials == null) {
+            throw new ConnectionCredentialsException("Cannot generate presigned url, no AWS credentials provided");
+          }
+          final S3Presigner s3Presigner = S3Presigner.builder()
+                                                     .region(Region.of(clients.getRegion()))
+                                                     .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                                                     .serviceConfiguration(
+                                                       S3Configuration.builder()
+                                                                      .accelerateModeEnabled(isAccelerateModeEnabled(correctedSettings))
+                                                                      .pathStyleAccessEnabled(!disablePathStyleAccess(correctedSettings))
+                                                                      .build()
+                                                     )
+                                                     .build();
+          try {
+            return withS3Presigner.execute(s3Presigner);
+          } finally {
+            shutdownPresigner(s3Presigner);
           }
         });
       } catch (Throwable t) {
@@ -339,12 +436,9 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
   }
 
   @NotNull
-  private ClientConfiguration getClientConfiguration(@NotNull Map<String, String> params) {
+  private SdkHttpClient.Builder<ApacheHttpClient.Builder> getClientConfiguration(@NotNull Map<String, String> params) {
     final ConnectionSocketFactory socketFactory = new CachingSocketFactory(SystemTimeService.getInstance()).socketFactory(params.get(SSL_CERT_DIRECTORY_PARAM));
-    ClientConfiguration s3ClientConfig = ClientConfigurationBuilder.createClientConfigurationEx("s3", socketFactory);
-    //TODO Can we just always use the V4 signer type?
-    s3ClientConfig.withSignerOverride(S3_SIGNER_TYPE);
-    return s3ClientConfig;
+    return ClientConfigurationBuilder.createClientBuilder("s3", socketFactory);
   }
 
   @NotNull

@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.transport;
 
-import com.amazonaws.AmazonServiceException;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.jetbrains.annotations.NotNull;
 
@@ -13,13 +14,16 @@ public class AmazonServiceErrorDto {
   private int statusCode;
 
   @NotNull
-  public static AmazonServiceErrorDto from(@NotNull final AmazonServiceException e) {
+  public static AmazonServiceErrorDto from(@NotNull final AwsServiceException e) {
     final AmazonServiceErrorDto errorDto = new AmazonServiceErrorDto();
-    errorDto.error = e.getErrorMessage();
-    errorDto.code = e.getErrorCode();
-    errorDto.hostId = e.getProxyHost();
-    errorDto.requestId = e.getRequestId();
-    errorDto.statusCode = e.getStatusCode();
+    final AwsErrorDetails details = e.awsErrorDetails();
+    if (details != null) {
+      errorDto.error = details.errorMessage();
+      errorDto.code = details.errorCode();
+    }
+    errorDto.hostId = e.extendedRequestId();
+    errorDto.requestId = e.requestId();
+    errorDto.statusCode = e.statusCode();
     return errorDto;
   }
 
@@ -64,12 +68,16 @@ public class AmazonServiceErrorDto {
   }
 
   @NotNull
-  public AmazonServiceException toException() {
-    AmazonServiceException exception = new AmazonServiceException(error);
-    exception.setErrorCode(code);
-    exception.setProxyHost(hostId);
-    exception.setRequestId(requestId);
-    exception.setStatusCode(statusCode);
-    return exception;
+  public AwsServiceException toException() {
+    AwsErrorDetails details = AwsErrorDetails.builder()
+                                             .errorMessage(error)
+                                             .errorCode(code)
+                                             .build();
+    return AwsServiceException.builder()
+                              .awsErrorDetails(details)
+                              .requestId(requestId)
+                              .extendedRequestId(hostId)
+                              .statusCode(statusCode)
+                              .build();
   }
 }

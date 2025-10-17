@@ -2,8 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.model.Bucket;
-import com.amazonaws.services.s3.model.ListBucketsRequest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +12,7 @@ import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.services.s3.model.Bucket;
 
 /**
  * Gets a list of buckets in S3 storage.
@@ -42,9 +41,10 @@ public class ListBucketsResourceFetcher extends S3ClientResourceFetcher<ListBuck
       parameters,
       projectId,
       s3Client -> {
-        List<BucketDto> bucketList = s3Client.listBuckets()
+        List<BucketDto> bucketList = s3Client.listBucketsPaginator()
+                                             .buckets()
                                              .stream()
-                                             .map(Bucket::getName)
+                                             .map(Bucket::name)
                                              .map(BucketDto::new)
                                              .collect(Collectors.toList());
         return new ListBucketsDto(bucketList);

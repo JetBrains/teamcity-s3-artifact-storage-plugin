@@ -1,9 +1,9 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.s3.model.CannedAccessControlList;
 import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 
@@ -16,7 +16,7 @@ public interface S3Settings {
   int getUrlExtendedTtlSeconds();
 
   @NotNull
-  CannedAccessControlList getAcl();
+  ObjectCannedACL getAcl();
 
   Map<String, String> toRawSettings();
 

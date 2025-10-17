@@ -1,6 +1,7 @@
 package jetbrains.buildServer.artifacts.s3.publish.presigned.util;
 
-import com.amazonaws.AmazonServiceException;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
 import org.jetbrains.annotations.NotNull;
@@ -49,11 +50,16 @@ public class S3ErrorDto {
   }
 
   @NotNull
-  public AmazonServiceException toException() {
-    AmazonServiceException exception = new AmazonServiceException(message);
-    exception.setErrorCode(code);
-    exception.setProxyHost(hostId);
-    exception.setRequestId(requestId);
-    return exception;
+  public AwsServiceException toException() {
+    AwsErrorDetails details = AwsErrorDetails.builder()
+                                             .errorMessage(message)
+                                             .errorCode(code)
+                                             .build();
+
+    return AwsServiceException.builder()
+                              .awsErrorDetails(details)
+                              .requestId(requestId)
+                              .extendedRequestId(hostId)
+                              .build();
   }
 }

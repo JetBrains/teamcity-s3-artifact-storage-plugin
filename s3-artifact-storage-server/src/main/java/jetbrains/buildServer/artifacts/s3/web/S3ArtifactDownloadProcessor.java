@@ -31,8 +31,8 @@ import jetbrains.buildServer.web.util.WebUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpHeaders;
+import software.amazon.awssdk.http.SdkHttpMethod;
 
-import static com.amazonaws.HttpMethod.valueOf;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.PROJECT_ID_PARAM;
 
 /**
@@ -87,7 +87,7 @@ public class S3ArtifactDownloadProcessor implements ArtifactDownloadProcessor {
     String userAgent = WebUtil.getUserAgent(httpServletRequest);
     CloudFrontSettings settings = myPreSignedUrlProvider.settings(storageSettings, projectParameters, RequestMetadata.from(requestRegion, userAgent));
 
-    PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedUrlProvider.generateDownloadUrl(valueOf(httpServletRequest.getMethod()), objectKey, settings);
+    PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedUrlProvider.generateDownloadUrl(SdkHttpMethod.fromValue(httpServletRequest.getMethod()), objectKey, settings);
     String preSignedUrl = presignedUrlWithTtl.getUrl();
     fixContentSecurityPolicy(preSignedUrl);
 

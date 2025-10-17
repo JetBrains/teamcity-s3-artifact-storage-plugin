@@ -1,8 +1,5 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.SdkClientException;
-import com.amazonaws.auth.PEM;
-import com.amazonaws.services.cloudfront.model.GetPublicKeyRequest;
 import com.intellij.openapi.diagnostic.Logger;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -23,6 +20,8 @@ import jetbrains.buildServer.serverSide.IOGuard;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.services.cloudfront.internal.auth.Pem;
 
 import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_PRIVATE_KEY;
 import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.S3_CLOUDFRONT_PUBLIC_KEY_ID;
@@ -70,7 +69,7 @@ public class ValidateCloudFrontKeys extends S3ClientResourceFetcher<ValidateClou
 
     PrivateKey privateKey;
     try {
-      privateKey = PEM.readPrivateKey(new ByteArrayInputStream(cloudFrontPrivateKey.getBytes(StandardCharsets.UTF_8)));
+      privateKey = Pem.readPrivateKey(new ByteArrayInputStream(cloudFrontPrivateKey.getBytes(StandardCharsets.UTF_8)));
     } catch (InvalidKeySpecException | IOException | IllegalArgumentException | NullPointerException e) {
       LOG.warnAndDebugDetails("Error while processing private key in CloudFront settings", e);
       throw new InvalidSettingsException(Collections.singletonMap(S3_CLOUDFRONT_PRIVATE_KEY, "Chosen Private key is not compatible with CloudFront"));
@@ -96,13 +95,13 @@ public class ValidateCloudFrontKeys extends S3ClientResourceFetcher<ValidateClou
     return myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
       try {
         byte[] keyBytes = IOGuard.allowNetworkCall(
-          () -> cloudFrontClient.getPublicKey(new GetPublicKeyRequest().withId(cloudFrontPublicKeyId))
-                                .getPublicKey()
-                                .getPublicKeyConfig()
-                                .getEncodedKey()
+          () -> cloudFrontClient.getPublicKey(b -> b.id(cloudFrontPublicKeyId))
+                                .publicKey()
+                                .publicKeyConfig()
+                                .encodedKey()
                                 .getBytes(StandardCharsets.UTF_8));
 
-        return PEM.readPublicKey(new ByteArrayInputStream(keyBytes));
+        return Pem.readPublicKey(new ByteArrayInputStream(keyBytes));
       } catch (SdkClientException | InvalidKeySpecException | IOException e) {
         LOG.warnAndDebugDetails("Error while retrieving public key from CloudFront", e);
         throw new InvalidSettingsException(Collections.singletonMap(S3_CLOUDFRONT_PUBLIC_KEY_ID, e.getMessage()));

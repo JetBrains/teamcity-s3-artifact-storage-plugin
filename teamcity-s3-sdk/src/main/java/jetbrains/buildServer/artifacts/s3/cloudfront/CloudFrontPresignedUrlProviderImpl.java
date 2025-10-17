@@ -1,11 +1,11 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
-import com.amazonaws.auth.PEM;
-import com.amazonaws.services.cloudfront.CloudFrontUrlSigner;
-import com.amazonaws.services.cloudfront.model.AmazonCloudFrontException;
-import com.amazonaws.services.cloudfront.model.GetDistributionRequest;
-import com.amazonaws.services.cloudfront.util.SignerUtils;
-import com.amazonaws.util.SdkHttpUtils;
+import software.amazon.awssdk.services.cloudfront.internal.auth.Pem;
+import software.amazon.awssdk.services.cloudfront.model.CannedSignerRequest;
+import software.amazon.awssdk.services.cloudfront.model.CloudFrontException;
+import software.amazon.awssdk.services.cloudfront.model.GetDistributionRequest;
+import software.amazon.awssdk.services.cloudfront.CloudFrontUtilities;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.diagnostic.Logger;
@@ -38,6 +38,9 @@ import static jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants.
 public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider implements CloudFrontPresignedUrlProvider {
   @NotNull
   private static final Logger LOG = Logger.getInstance(CloudFrontPresignedUrlProviderImpl.class.getName());
+
+  @NotNull
+  private static final CloudFrontUtilities CLOUD_FRONT_UTILITIES = CloudFrontUtilities.create();
 
   @NotNull
   private final TimeService myTimeService;
@@ -85,9 +88,9 @@ public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider imp
       String domain = getDomainName(settings, distribution);
       String publicKeyId = settings.getCloudFrontPublicKeyId();
 
-      String encodedObjectKey = SdkHttpUtils.urlEncode(objectKey, true);
+      String encodedObjectKey = SdkHttpUtils.urlEncodeIgnoreSlashes(objectKey);
       if (jetbrains.buildServer.util.StringUtil.isNotEmpty(domain) && StringUtil.isNotEmpty(publicKeyId)) {
-        String resourcePath = SignerUtils.generateResourcePath(SignerUtils.Protocol.https, domain, encodedObjectKey);
+        String resourcePath = CloudFrontUtils.generateResourcePath(CloudFrontUtils.Protocol.https, domain, encodedObjectKey);
 
         URIBuilder builder = new URIBuilder(resourcePath);
 
@@ -100,13 +103,18 @@ public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider imp
         resourcePath = builder.build().toString();
 
         byte[] privateKeyBytes = settings.getCloudFrontPrivateKey().getBytes(StandardCharsets.UTF_8);
-        PrivateKey decodedPrivateKey = PEM.readPrivateKey(new ByteArrayInputStream(privateKeyBytes));
+        PrivateKey decodedPrivateKey = Pem.readPrivateKey(new ByteArrayInputStream(privateKeyBytes));
 
-        return CloudFrontUrlSigner.getSignedURLWithCannedPolicy(resourcePath, publicKeyId, decodedPrivateKey,
-                                                                new Date(myTimeService.now() + urlTtlSeconds * 1000L));
+        final CannedSignerRequest request = CannedSignerRequest.builder()
+                                                               .resourceUrl(resourcePath)
+                                                               .privateKey(decodedPrivateKey)
+                                                               .keyPairId(publicKeyId)
+                                                               .expirationDate(new Date(myTimeService.now() + urlTtlSeconds * 1000L).toInstant())
+                                                               .build();
+        return CLOUD_FRONT_UTILITIES.getSignedUrlWithCannedPolicy(request).url();
       }
       return null;
-    } catch (AmazonCloudFrontException | InvalidKeySpecException | IOException | URISyntaxException e) {
+    } catch (CloudFrontException | InvalidKeySpecException | IOException | URISyntaxException e) {
       final Throwable cause = e.getCause();
       final AWSException awsException = cause != null ? new AWSException(cause) : new AWSException(e);
       final String details = awsException.getDetails();
@@ -154,11 +162,11 @@ public class CloudFrontPresignedUrlProviderImpl extends PresignedUrlProvider imp
   }
 
   @Nullable
-  private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params, String projectId) throws AmazonCloudFrontException, ConnectionCredentialsException {
+  private String getDistribution(@NotNull String distributionName, @NotNull Map<String, String> params, String projectId) throws CloudFrontException, ConnectionCredentialsException {
     return myAmazonS3Provider.withCloudFrontClient(params, projectId, cloudFrontClient -> {
-      return cloudFrontClient.getDistribution(new GetDistributionRequest(distributionName))
-                             .getDistribution()
-                             .getDomainName();
+      return cloudFrontClient.getDistribution(b -> b.id(distributionName))
+                             .distribution()
+                             .domainName();
     });
   }
 }

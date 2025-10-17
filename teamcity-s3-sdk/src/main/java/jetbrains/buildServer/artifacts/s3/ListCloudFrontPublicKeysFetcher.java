@@ -1,7 +1,5 @@
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.services.cloudfront.model.*;
-
 import java.util.*;
 import java.util.stream.Collectors;
 import javax.xml.bind.annotation.*;
@@ -9,6 +7,10 @@ import javax.xml.bind.annotation.*;
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import org.jetbrains.annotations.NotNull;
+import software.amazon.awssdk.services.cloudfront.model.ListPublicKeysRequest;
+import software.amazon.awssdk.services.cloudfront.model.PublicKey;
+import software.amazon.awssdk.services.cloudfront.model.PublicKeyList;
+import software.amazon.awssdk.services.cloudfront.model.PublicKeySummary;
 
 public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<ListCloudFrontPublicKeysFetcher.ListPublicKeysDto> {
 
@@ -24,8 +26,8 @@ public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<Lis
       final String cloudFrontPublicKeyId = S3Util.getCloudFrontPublicKeyId(parameters);
 
       if (cloudFrontPublicKeyId != null) {
-        final PublicKey publicKey = client.getPublicKey(new GetPublicKeyRequest().withId(cloudFrontPublicKeyId)).getPublicKey();
-        publicKeys.add(new PublicKeyDto(publicKey.getId(), publicKey.getPublicKeyConfig().getName()));
+        final PublicKey publicKey = client.getPublicKey(b -> b.id(cloudFrontPublicKeyId)).publicKey();
+        publicKeys.add(new PublicKeyDto(publicKey.id(), publicKey.publicKeyConfig().name()));
       }
       return new ListPublicKeysDto(publicKeys);
     });
@@ -34,9 +36,17 @@ public class ListCloudFrontPublicKeysFetcher extends S3ClientResourceFetcher<Lis
   @Override
   protected ListPublicKeysDto fetchDto(Map<String, String> parameters, @NotNull String projectId) throws Exception {
     return myAmazonS3Provider.withCloudFrontClient(parameters, projectId, client -> {
-      ListPublicKeysResult result = client.listPublicKeys(new ListPublicKeysRequest());
-      List<PublicKeyDto> keys = result.getPublicKeyList().getItems().stream()
-        .map(key -> new PublicKeyDto(key.getId(), key.getName()))
+      final List<PublicKeySummary> publicKeySummaries = new LinkedList<>();
+      PublicKeyList publicKeyList;
+      String marker = null;
+      do {
+        ListPublicKeysRequest.Builder requestBuilder = ListPublicKeysRequest.builder().maxItems("1000").marker(marker);
+        publicKeyList = client.listPublicKeys(requestBuilder.build()).publicKeyList();
+        publicKeySummaries.addAll(publicKeyList.items());
+        marker = publicKeyList.nextMarker();
+      } while (marker != null);
+      List<PublicKeyDto> keys = publicKeySummaries.stream()
+        .map(key -> new PublicKeyDto(key.id(), key.name()))
         .collect(Collectors.toList());
       return new ListPublicKeysDto(keys);
     });

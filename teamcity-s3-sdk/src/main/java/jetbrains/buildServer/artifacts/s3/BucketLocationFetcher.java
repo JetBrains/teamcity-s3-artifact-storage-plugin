@@ -2,9 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.amazonaws.regions.Region;
-import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
 import java.util.Map;
 import javax.xml.bind.annotation.XmlAttribute;
 import javax.xml.bind.annotation.XmlRootElement;
@@ -13,6 +10,7 @@ import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.regions.Region;
 
 public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocationFetcher.BucketLocationDto> {
 
@@ -24,18 +22,14 @@ public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocatio
 
   public static String getRegionName(@Nullable String location) {
     if (location == null) {
-      return Regions.US_EAST_1.getName();
+      return Region.US_EAST_1.id();
     }
 
-    final Region region = RegionUtils.getRegion(location);
-    if (region == null && location.equals("US")) {
-      return Regions.US_EAST_1.getName();
+    if ("EU".equalsIgnoreCase(location)) {
+      return Region.EU_WEST_1.id();
     }
-    if (region != null) {
-      return !"US".equals(region.getName()) ? region.getName() : Regions.US_EAST_1.getName();
-    } else {
-      return location;
-    }
+
+    return location;
   }
 
   @Override
@@ -54,7 +48,7 @@ public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocatio
           final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
           throw new IllegalArgumentException(message);
         }
-        return new BucketLocationDto(bucketName, getRegionName(s3Client.getBucketLocation(bucketName)));
+        return new BucketLocationDto(bucketName, getRegionName(s3Client.getBucketLocation(b -> b.bucket(bucketName)).locationConstraintAsString()));
       });
   }
 

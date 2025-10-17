@@ -1,16 +1,16 @@
 package jetbrains.buildServer.artifacts.s3.cloudfront;
 
-import com.amazonaws.HttpMethod;
 import java.io.IOException;
 import java.util.Map;
 
 import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.http.SdkHttpMethod;
 
 public interface CloudFrontEnabledPresignedUrlProvider {
   @NotNull
-  PresignedUrlWithTtl generateDownloadUrl(@NotNull HttpMethod httpMethod,
+  PresignedUrlWithTtl generateDownloadUrl(@NotNull SdkHttpMethod httpMethod,
                                           @NotNull String objectKey,
                                           @NotNull CloudFrontSettings settings) throws IOException;
 

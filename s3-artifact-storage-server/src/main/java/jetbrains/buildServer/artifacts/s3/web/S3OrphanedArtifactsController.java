@@ -1,6 +1,5 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
-import com.amazonaws.HttpMethod;
 import jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner;
 import jetbrains.buildServer.controllers.AuthorizationInterceptor;
 import jetbrains.buildServer.controllers.BaseController;
@@ -26,6 +25,7 @@ import java.security.Security;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import software.amazon.awssdk.http.SdkHttpMethod;
 
 /**
  * REST Controller for {@link S3OrphanedArtifactsScanner}
@@ -69,7 +69,7 @@ public class S3OrphanedArtifactsController extends BaseController {
   @Nullable
   @Override
   protected ModelAndView doHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response) throws Exception {
-    if (!HttpMethod.GET.name().equals(request.getMethod())) {
+    if (!SdkHttpMethod.GET.name().equals(request.getMethod())) {
       response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
       return null;
     }

@@ -1,28 +1,21 @@
 package jetbrains.buildServer.artifacts.s3.amazonClient;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
 import java.util.Map;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
-import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 public interface AmazonS3Provider {
-
-  @NotNull
-  AmazonS3 fromS3Settings(@NotNull final Map<String, String> s3Settings,
-                          @NotNull final String projectId) throws ConnectionCredentialsException;
-
-  @NotNull
-  AmazonS3 fromS3Configuration(@NotNull final Map<String, String> s3Settings,
-                               @NotNull final String projectId,
-                               @Nullable final S3Util.S3AdvancedConfiguration advancedConfiguration)
-    throws ConnectionCredentialsException;
 
   <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
                                                                  @NotNull final String projectId,
                                                                  @NotNull final WithS3Client<T, E> withClient) throws ConnectionCredentialsException;
+
+  <T, E extends Exception> T withS3PresignerShuttingDownImmediately(@NotNull final String bucket,
+                                                                    @NotNull final Map<String, String> params,
+                                                                    @NotNull final String projectId,
+                                                                    @NotNull final WithS3Presigner<T, E> withS3Presigner) throws ConnectionCredentialsException;
 
   <T, E extends Exception> T withS3Client(@NotNull final Map<String, String> params,
                                           @NotNull final String projectId,
@@ -32,7 +25,9 @@ public interface AmazonS3Provider {
                                             @NotNull final String projectId,
                                             @NotNull final WithS3Client<T, E> action, boolean shutdownImmediately) throws ConnectionCredentialsException;
 
-  void shutdownClient(@NotNull final AmazonS3 s3Client);
+  void shutdownClient(@NotNull final S3Client s3Client);
+
+  void shutdownPresigner(@NotNull final S3Presigner s3Presigner);
 
   <T, E extends Exception> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final String projectId, @NotNull final WithCloudFrontClient<T, E> withClient)
     throws E, ConnectionCredentialsException;

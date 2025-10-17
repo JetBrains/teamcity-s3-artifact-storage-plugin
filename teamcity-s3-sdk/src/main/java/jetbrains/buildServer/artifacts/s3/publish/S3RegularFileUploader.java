@@ -2,20 +2,12 @@
 
 package jetbrains.buildServer.artifacts.s3.publish;
 
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.event.ProgressEvent;
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.transfer.PersistableTransfer;
-import com.amazonaws.services.s3.transfer.Upload;
-import com.amazonaws.services.s3.transfer.internal.S3ProgressListener;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
@@ -32,6 +24,13 @@ import jetbrains.buildServer.util.amazon.AWSCommonParams;
 import jetbrains.buildServer.util.amazon.AWSException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.FileUpload;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.progress.TransferListener;
 
 public class S3RegularFileUploader extends S3FileUploader {
   @NotNull
@@ -60,15 +59,12 @@ public class S3RegularFileUploader extends S3FileUploader {
                      .map(entry -> createRequest(myS3Configuration.getPathPrefix(), bucketName, uploadInfoConsumer, new Pair<>(entry.getValue(), entry.getKey())))
                      .filter(Objects::nonNull)
                      .map(request -> doUpload(transferManager, request))
-                     .collect(Collectors.toList()), myS3Configuration.getAdvancedConfiguration()).forEach(upload -> {
-        try {
-          upload.waitForCompletion();
-        } catch (Exception e) {
-          LOG.infoAndDebugDetails("Got exception while waiting for upload completion", e);
-          myLogger.info("Got error while waiting for async artifact upload " + e.getMessage());
-        }
-      });
+                     .collect(Collectors.toList()), myS3Configuration.getAdvancedConfiguration());
     } catch (Throwable t) {
+      for (Throwable e: t.getSuppressed()) {
+        LOG.infoAndDebugDetails("Got exception while waiting for upload completion", e);
+        myLogger.info("Got error while waiting for async artifact upload " + e.getMessage());
+      }
       final AWSException awsException = new AWSException(t);
       final String details = awsException.getDetails();
 
@@ -83,41 +79,22 @@ public class S3RegularFileUploader extends S3FileUploader {
     return null;
   }
 
-  private Upload doUpload(@NotNull final com.amazonaws.services.s3.transfer.TransferManager transferManager,
-                          @NotNull final PutObjectRequest request) {
+  private FileUpload doUpload(@NotNull final S3TransferManager transferManager,
+                              @NotNull final UploadFileRequest request) {
+    File file = request.source().toFile();
     try {
-      return transferManager.upload(request, new S3ProgressListener() {
-        final AtomicLong fileSize = new AtomicLong(request.getFile().length());
-        final AtomicInteger reportCounter = new AtomicInteger(0);
-        final AtomicBoolean isPersistableTransfer = new AtomicBoolean();
-
-        @Override
-        public void onPersistableTransfer(PersistableTransfer persistableTransfer) {
-          isPersistableTransfer.set(true);
-        }
-
-        @Override
-        public void progressChanged(ProgressEvent progressEvent) {
-          if (isPersistableTransfer.get() && progressEvent.getEventType().isByteCountEvent()) {
-            final int percentage = 100 - (int)Math.round((fileSize.getAndAdd(-progressEvent.getBytesTransferred()) * 100.) / request.getFile().length());
-            if (percentage >= reportCounter.get() + 10) {
-              myLogger.debug("S3 Multipart Uploading [" + request.getFile().getName() + "] " + percentage + "%");
-              reportCounter.set(percentage);
-            }
-          }
-        }
-      });
-    } catch (AmazonClientException e) {
-      myLogger.warn("Artifact upload " + request.getFile().getName() + " with key " + request.getKey() + " to " + request.getBucketName() + " failed with error " + e.getMessage());
+      return transferManager.uploadFile(request);
+    } catch (SdkException e) {
+      myLogger.warn("Artifact upload " + file.getName() + " with key " + request.putObjectRequest().key() + " to " + request.putObjectRequest().bucket() + " failed with error " + e.getMessage());
       throw e;
     }
   }
 
   @Nullable
-  private PutObjectRequest createRequest(@NotNull final String pathPrefix,
-                                         @NotNull final String bucketName,
-                                         @NotNull final Consumer<FileUploadInfo> uploadConsumer,
-                                         @NotNull final Pair<String, File> fileWithPath) {
+  private UploadFileRequest createRequest(@NotNull final String pathPrefix,
+                                      @NotNull final String bucketName,
+                                      @NotNull final Consumer<FileUploadInfo> uploadConsumer,
+                                      @NotNull final Pair<String, File> fileWithPath) {
     final File file = fileWithPath.getSecond();
     if (!file.exists()) {
       myLogger.warn("Artifact \"" + file.getAbsolutePath() + "\" does not exist and will not be published to the server");
@@ -128,11 +105,30 @@ public class S3RegularFileUploader extends S3FileUploader {
 
     uploadConsumer.accept(new FileUploadInfo(artifactPath, file.getAbsolutePath(), file.length(), null));
 
-    final ObjectMetadata metadata = new ObjectMetadata();
-    metadata.setContentType(S3Util.getContentType(file));
-    return new PutObjectRequest(bucketName, objectKey, file)
-      .withCannedAcl(myS3Configuration.getAcl())
-      .withMetadata(metadata);
+    TransferListener loggingTransferListener = new TransferListener() {
+      final AtomicLong fileSize = new AtomicLong(file.length());
+      final AtomicInteger reportCounter = new AtomicInteger(0);
+
+      @Override
+      public void bytesTransferred(Context.BytesTransferred context) {
+        final int percentage = 100 - (int)Math.round((fileSize.getAndAdd(-context.progressSnapshot().transferredBytes()) * 100.) / file.length());
+        if (percentage >= reportCounter.get() + 10) {
+          myLogger.debug("S3 Multipart Uploading [" + file.getName() + "] " + percentage + "%");
+          reportCounter.set(percentage);
+        }
+      }
+    };
+
+    return UploadFileRequest.builder()
+                            .putObjectRequest(b -> b
+                              .bucket(bucketName)
+                              .key(objectKey)
+                              .contentType(S3Util.getContentType(file))
+                              .acl(myS3Configuration.getAcl())
+                            )
+                            .addTransferListener(loggingTransferListener)
+                            .source(file)
+                            .build();
   }
 
   private void prepareDestination(final String bucketName,
@@ -147,11 +143,15 @@ public class S3RegularFileUploader extends S3FileUploader {
     }
 
     S3Util.withS3ClientShuttingDownImmediately(params, (S3Util.WithS3<Void, Throwable>)s3Client -> {
-      if (s3Client.doesBucketExistV2(bucketName)) {
+      try {
+        s3Client.headBucket(b -> b.bucket(bucketName));
         isDestinationPrepared = true;
         return null;
+      } catch (NoSuchBucketException e) {
+        throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " doesn't exist", false);
+      } catch (S3Exception e) {
+        throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " is not accessable", false, e);
       }
-      throw new FileUploadFailedException("Target S3 artifact bucket " + bucketName + " doesn't exist", false);
     });
   }
 }

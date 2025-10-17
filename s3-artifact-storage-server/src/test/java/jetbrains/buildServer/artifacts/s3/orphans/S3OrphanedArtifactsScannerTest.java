@@ -1,26 +1,22 @@
 package jetbrains.buildServer.artifacts.s3.orphans;
 
-import com.amazonaws.SdkClientException;
-import com.amazonaws.services.s3.AbstractAmazonS3;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.AmazonS3Exception;
-import com.amazonaws.services.s3.model.ListObjectsV2Request;
-import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.amazonaws.services.s3.model.S3ObjectSummary;
+import java.util.*;
+import java.util.stream.Stream;
 import jetbrains.buildServer.BaseTestCase;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithCloudFrontClient;
 import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Client;
+import jetbrains.buildServer.artifacts.s3.amazonClient.WithS3Presigner;
 import jetbrains.buildServer.configs.DefaultParams;
 import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.serverSide.executors.ExecutorServices;
 import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.amazon.S3Util;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 import org.testng.annotations.Test;
 import org.testng.internal.collections.Pair;
 
@@ -28,13 +24,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -42,6 +31,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.*;
+import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_BUCKET_NAME;
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_STORAGE_TYPE;
@@ -91,13 +84,14 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(storage.getParameters()).thenReturn(parameters);
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final MockS3 s3 = MockS3.builder()
+      .putPrefix("", NON_EXISTENT_PROJECT_ID)
+      .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
 
-    s3.putPrefix("", NON_EXISTENT_PROJECT_ID);
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, false, false);
     assertNotNull(artifacts);
@@ -128,16 +122,16 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(storage.getParameters()).thenReturn(parameters);
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, projectPrefix + "buildType1" + DELIMITER)
+                            .putPrefix(projectPrefix, projectPrefix + "buildType2" + DELIMITER)
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    s3.putPrefix(projectPrefix, projectPrefix + "buildType1" + DELIMITER);
-    s3.putPrefix(projectPrefix, projectPrefix + "buildType2" + DELIMITER);
 
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, false, false);
@@ -172,17 +166,17 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(buildHistory.findEntries(anyList())).thenReturn(Collections.emptyList());
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456")
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    s3.putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456");
 
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, true, false);
@@ -225,17 +219,17 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     when(build2.getBuildId()).thenReturn(234523L);
     when(buildHistory.findEntries(anyList())).thenReturn(Arrays.asList(build1, build2));
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456")
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    s3.putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456");
 
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, true, false);
@@ -277,17 +271,17 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(server.getRunningBuilds(any(), any(BuildDataFilter.class))).thenReturn(builds);
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456")
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    s3.putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456");
 
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, true, false);
@@ -324,25 +318,25 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     when(storage.getParameters()).thenReturn(parameters);
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final String build1 = buildTypePrefix + existingBuild;
+    final String build2 = buildTypePrefix + "3456";
+    final long size1 = 1024 * 5L;
+    final long size2 = 1024 * 45L;
+    final long size3 = 1024 * 10L;
+    final long size4 = 1024 * 45000L;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, build1, build2)
+                            .putObjects(build1, Pair.of("object1", size1), Pair.of("object2", size2))
+                            .putObjects(build2, Pair.of("object3", size3), Pair.of("object4", size4))
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, new TestExecutors(), myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    final String build1 = buildTypePrefix + existingBuild;
-    final String build2 = buildTypePrefix + "3456";
-    s3.putPrefixes(buildTypePrefix, build1, build2);
-    final long size1 = 1024 * 5L;
-    final long size2 = 1024 * 45L;
-    s3.putObjects(build1, Pair.of("object1", size1), Pair.of("object2", size2));
-    final long size3 = 1024 * 10L;
-    final long size4 = 1024 * 45000L;
-    s3.putObjects(build2, Pair.of("object3", size3), Pair.of("object4", size4));
 
     final SUser user = Mockito.mock(SUser.class);
     final OrphanedArtifacts artifacts = scanner.scanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, true, true);
@@ -382,18 +376,18 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     when(build2.getBuildId()).thenReturn(234523L);
     when(buildHistory.findEntries(anyList())).thenReturn(Arrays.asList(build1, build2));
 
-    final MockS3 s3 = new MockS3();
-    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456")
+                            .build();
+    final AmazonS3Provider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final TestExecutors executors = new TestExecutors();
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, executors, myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    s3.putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456");
 
     final SUser user = Mockito.mock(SUser.class);
     scanner.tryScanArtifacts(TEST_PROJECT_EXTERNAL_ID, user, true, false, true);
@@ -433,18 +427,18 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     when(build2.getBuildId()).thenReturn(234523L);
     when(buildHistory.findEntries(anyList())).thenReturn(Arrays.asList(build1, build2));
 
-    final MockS3 s3 = new MockS3();
-    final MockAmazonProvider s3Provider = new MockAmazonProvider(s3);
+    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
+    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
+    final MockS3 s3 = MockS3.builder()
+                            .putPrefix("", projectPrefix)
+                            .putPrefix(projectPrefix, buildTypePrefix)
+                            .putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456")
+                            .build();
+    final MockAmazonProvider s3Provider = new MockAmazonProvider(s3.getClient());
     final Path rootDir = Files.createTempDirectory("orphanTest");
     ServerPaths myServerPaths = new ServerPaths(rootDir.toFile());
     final TestExecutors executors = new TestExecutors();
     final S3OrphanedArtifactsScanner scanner = new S3OrphanedArtifactsScanner(server, projectManager, s3Provider, executors, myServerPaths);
-
-    final String projectPrefix = TEST_PROJECT_EXTERNAL_ID + DELIMITER;
-    s3.putPrefix("", projectPrefix);
-    final String buildTypePrefix = projectPrefix + buildTypeId + DELIMITER;
-    s3.putPrefix(projectPrefix, buildTypePrefix);
-    s3.putPrefixes(buildTypePrefix, buildTypePrefix + "1234", buildTypePrefix + "234523", buildTypePrefix + "3456");
 
     final SUser user = Mockito.mock(SUser.class);
     s3Provider.pause();
@@ -471,9 +465,9 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     private final Lock lock = new ReentrantLock();
 
-    private final AmazonS3 myS3;
+    private final S3Client myS3;
 
-    public MockAmazonProvider(AmazonS3 s3) {
+    public MockAmazonProvider(S3Client s3) {
       this.myS3 = s3;
     }
 
@@ -483,18 +477,6 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
 
     public void unpause() {
       lock.unlock();
-    }
-
-    @NotNull
-    @Override
-    public AmazonS3 fromS3Settings(@NotNull Map<String, String> s3Settings, @NotNull String projectId) {
-      return myS3;
-    }
-
-    @NotNull
-    @Override
-    public AmazonS3 fromS3Configuration(@NotNull Map<String, String> s3Settings, @NotNull String projectId, @Nullable S3Util.S3AdvancedConfiguration advancedConfiguration) {
-      return myS3;
     }
 
     @Override
@@ -507,6 +489,14 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
       } finally {
         lock.unlock();
       }
+    }
+
+    @Override
+    public <T, E extends Exception> T withS3PresignerShuttingDownImmediately(@NotNull String bucket,
+                                                                             @NotNull Map<String, String> params,
+                                                                             @NotNull String projectId,
+                                                                             @NotNull WithS3Presigner<T, E> withS3Presigner) throws ConnectionCredentialsException {
+      return null;
     }
 
     @Override
@@ -534,7 +524,12 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     }
 
     @Override
-    public void shutdownClient(@NotNull AmazonS3 s3Client) {
+    public void shutdownClient(@NotNull S3Client s3Client) {
+
+    }
+
+    @Override
+    public void shutdownPresigner(@NotNull S3Presigner s3Presigner) {
 
     }
 
@@ -549,10 +544,17 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
     }
   }
 
-  static class MockS3 extends AbstractAmazonS3 {
+  static class MockS3 {
 
-    private final Map<String, List<Pair<String, Long>>> objects = new HashMap<>();
-    private final Map<String, List<String>> prefixes = new HashMap<>();
+    private final S3Client s3;
+    private final Map<String, List<Pair<String, Long>>> objects;
+    private final Map<String, List<String>> prefixes;
+
+    private MockS3(S3Client s3, Map<String, List<Pair<String, Long>>> objects, Map<String, List<String>> prefixes) {
+      this.s3 = s3;
+      this.objects = objects;
+      this.prefixes = prefixes;
+    }
 
     @SafeVarargs
     public final void putObjects(String prefix, Pair<String, Long>... objects) {
@@ -567,26 +569,68 @@ public class S3OrphanedArtifactsScannerTest extends BaseTestCase {
       prefixes.computeIfAbsent(prefix, k -> new ArrayList<>()).add(object);
     }
 
-    @Override
-    public ListObjectsV2Result listObjectsV2(ListObjectsV2Request request) throws SdkClientException {
-      final String prefix = request.getPrefix() == null ? "" : request.getPrefix();
-
-      final ListObjectsV2Result result = new ListObjectsV2Result();
-      final List<String> commonPrefixes = prefixes.getOrDefault(prefix, Collections.emptyList());
-      result.setCommonPrefixes(commonPrefixes);
-      final List<S3ObjectSummary> summaries = objects.getOrDefault(prefix, Collections.emptyList()).stream().map(p -> {
-        final S3ObjectSummary summary = new S3ObjectSummary();
-        summary.setKey(p.first());
-        summary.setSize(p.second());
-        return summary;
-      }).collect(Collectors.toList());
-      result.getObjectSummaries().addAll(summaries);
-      return result;
+    public HeadBucketResponse headBucket(HeadBucketRequest headBucketRequest) {
+      return s3.headBucket(headBucketRequest);
     }
 
-    @Override
-    public boolean doesBucketExistV2(String bucketName) throws SdkClientException {
-      return true;
+    public ListObjectsV2Iterable listObjectsV2Paginator(ListObjectsV2Request listObjectsV2Request) {
+      return s3.listObjectsV2Paginator(listObjectsV2Request);
+    }
+
+    public S3Client getClient() {
+      return s3;
+    }
+
+    public static Builder builder() {
+      return new Builder();
+    }
+
+    public static class Builder {
+      private final S3Client s3 = Mockito.mock(S3Client.class);
+      private final Map<String, List<Pair<String, Long>>> objects = new HashMap<>();
+      private final Map<String, List<String>> prefixes = new HashMap<>();
+
+      @SafeVarargs
+      public final Builder putObjects(String prefix, Pair<String, Long>... objects) {
+        this.objects.put(prefix, Arrays.asList(objects));
+        return this;
+      }
+
+      public Builder putPrefixes(String prefix, String... objects) {
+        this.prefixes.put(prefix, Arrays.asList(objects));
+        return this;
+      }
+
+      public Builder putPrefix(String prefix, String object) {
+        prefixes.computeIfAbsent(prefix, k -> new ArrayList<>()).add(object);
+        return this;
+      }
+
+      public MockS3 build() {
+        when(s3.headBucket(any(HeadBucketRequest.class)))
+          .thenReturn(HeadBucketResponse.builder().build());
+
+        when(s3.listObjectsV2Paginator(any(ListObjectsV2Request.class)))
+          .thenAnswer((Answer<ListObjectsV2Iterable>) invocation -> {
+            ListObjectsV2Request request = invocation.getArgument(0);
+            final String prefix = request.prefix() == null ? "" : request.prefix();
+
+            final ListObjectsV2Response.Builder resultBuilder = ListObjectsV2Response.builder();
+            final List<String> commonPrefixes = prefixes.getOrDefault(prefix, Collections.emptyList());
+            resultBuilder.commonPrefixes(commonPrefixes.stream().map(p -> CommonPrefix.builder().prefix(p).build()).collect(Collectors.toList()));
+            final List<S3Object> summaries = objects.getOrDefault(prefix, Collections.emptyList()).stream().map(p -> {
+              final S3Object.Builder summaryBuilder = S3Object.builder();
+              summaryBuilder.key(p.first());
+              summaryBuilder.size(p.second());
+              return summaryBuilder.build();
+            }).collect(Collectors.toList());
+            resultBuilder.contents(summaries);
+            final ListObjectsV2Iterable responseIterator = Mockito.mock(ListObjectsV2Iterable.class);
+            when(responseIterator.stream()).thenReturn(Stream.of(resultBuilder.build()));
+            return responseIterator;
+          });
+        return new MockS3(s3, objects, prefixes);
+      }
     }
   }
 
