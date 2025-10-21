@@ -48,7 +48,7 @@ public class BucketLocationFetcher extends S3ClientResourceFetcher<BucketLocatio
           final String message = String.format("Invalid request: %s parameter was not set", S3Util.beanPropertyNameForBucketName());
           throw new IllegalArgumentException(message);
         }
-        return new BucketLocationDto(bucketName, getRegionName(s3Client.getBucketLocation(b -> b.bucket(bucketName)).locationConstraintAsString()));
+        return new BucketLocationDto(bucketName, getRegionName(s3Client.headBucket(b -> b.bucket(bucketName)).bucketRegion()));
       });
   }
 

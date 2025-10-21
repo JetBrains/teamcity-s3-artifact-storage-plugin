@@ -2,7 +2,6 @@
 
 package jetbrains.buildServer.artifacts.s3;
 
-import com.google.common.base.Throwables;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.File;
@@ -13,6 +12,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.net.ssl.TrustManager;
 import jetbrains.buildServer.artifacts.ArtifactListData;
@@ -48,6 +48,9 @@ import static jetbrains.buildServer.util.amazon.S3Util.*;
 public final class S3Util {
   public static final Pattern TRANSFER_ACC_ERROR_PATTERN =
     Pattern.compile(".*S3 Transfer Acceleration is (not configured|disabled) on this bucket.*");
+  public static final Pattern HEADER_MALFORMED_ERROR_PATTERN =
+    Pattern.compile("The authorization header is malformed; the region \\'.+\\' is wrong; expecting \\'(.+)\\'");
+  public static final String AUTHORIZATION_HEADER_MALFORMED_CODE = "AuthorizationHeaderMalformed";
   private static final Pattern BEGIN_MATCHER = Pattern.compile("^(-----BEGIN[\\w\\s]+-----)\\n?");
   private static final Pattern END_MATCHER = Pattern.compile("\\n?(-----END[\\w\\s]+-----)$");
   @NotNull
@@ -482,10 +485,11 @@ public final class S3Util {
     @Nullable final S3Exception awsException = e instanceof S3Exception ? (S3Exception)e : ExceptionUtil.getCause(e, S3Exception.class);
     if (awsException != null && TeamCityProperties.getBooleanOrTrue("teamcity.internal.storage.s3.autoCorrectRegion") && awsException.awsErrorDetails() != null) {
       final SdkHttpResponse response = awsException.awsErrorDetails().sdkHttpResponse();
-      return response.firstMatchingHeader("Region").orElse(response.firstMatchingHeader("x-amz-bucket-region").orElse(null));
-    } else {
-      return null;
+      if (response != null) {
+        return response.firstMatchingHeader("x-amz-bucket-region").orElseGet(() -> extractRegionIfMalformedHeaderException(awsException));
+      }
     }
+    return null;
   }
 
   public static boolean isAllowPlainHttpUpload(Map<String, String> params) {
@@ -494,6 +498,14 @@ public final class S3Util {
     }
 
     return TeamCityProperties.getBoolean(ALLOW_HTTP_CONNECTION_FOR_UPLOAD, false);
+  }
+
+  public static String extractRegionIfMalformedHeaderException(S3Exception awsException) {
+    if (!AUTHORIZATION_HEADER_MALFORMED_CODE.equals(awsException.awsErrorDetails().errorCode())) {
+      return null;
+    }
+    Matcher m = HEADER_MALFORMED_ERROR_PATTERN.matcher(awsException.awsErrorDetails().errorMessage());
+    return m.matches() ? m.group(1) : null;
   }
 
   @Deprecated

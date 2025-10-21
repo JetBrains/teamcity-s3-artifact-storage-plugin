@@ -50,6 +50,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 import static jetbrains.buildServer.artifacts.s3.S3Constants.S3_ENABLE_ACCELERATE_MODE;
 import static jetbrains.buildServer.artifacts.s3.S3Util.disablePathStyleAccess;
+import static jetbrains.buildServer.artifacts.s3.S3Util.extractRegionIfMalformedHeaderException;
 import static jetbrains.buildServer.artifacts.s3.S3Util.isAccelerateModeEnabled;
 import static jetbrains.buildServer.artifacts.s3.S3Util.patchAWSClientsSsl;
 import static jetbrains.buildServer.artifacts.s3.S3Util.TRANSFER_ACC_ERROR_PATTERN;
@@ -81,8 +82,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       && awsException.awsErrorDetails() != null) {
       SdkHttpResponse sdkHttpResponse = awsException.awsErrorDetails().sdkHttpResponse();
       if (sdkHttpResponse != null) {
-        return sdkHttpResponse.firstMatchingHeader("x-amz-bucket-region")
-          .orElse(null);
+        return sdkHttpResponse.firstMatchingHeader("x-amz-bucket-region").orElseGet(() -> extractRegionIfMalformedHeaderException(awsException));
       }
     }
 
@@ -246,7 +246,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
 
     // No call has been made to S3, we make one to verify the quality of the settings
     withS3ClientShuttingDownImmediately(storageSettings, projectId, client ->
-      client.getBucketLocation(builder -> builder.bucket(bucketName))
+      client.headBucket(builder -> builder.bucket(bucketName))
     );
 
     return extractCachedCorrectedSettings(storageSettings, projectId);
