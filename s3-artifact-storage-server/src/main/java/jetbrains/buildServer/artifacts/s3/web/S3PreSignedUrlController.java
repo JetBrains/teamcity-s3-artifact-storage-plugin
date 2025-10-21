@@ -160,11 +160,14 @@ public class S3PreSignedUrlController extends BaseController {
     final Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(build);
     final String customPrefix = storageSettings.getOrDefault(S3_PATH_PREFIX_SETTING, "");
 
-    final String prefix = S3ArtifactUtil.getPathPrefix(customPrefix, projectId, build.getBuildTypeExternalId(), build.getBuildId());
     for (PresignedUrlRequestDto request : urlsRequest.getPresignedUrlRequests()) {
       String key = request.getObjectKey();
-      if (key == null || !key.startsWith(prefix)) {
-        throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "Invalid URLs request: object key '" + key + "' does not start with '" + prefix + "' for build id " + build.getBuildId());
+
+      if (key == null)
+        throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "Invalid URLs request: no object key provided for the build " + build.getBuildId());
+
+      if (!S3ArtifactUtil.matchBuildId(customPrefix, key, build.getBuildId())) {
+        throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, "Invalid URLs request: object key '" + key + "' does not contain build id " + build.getBuildId());
       }
     }
   }
