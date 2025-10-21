@@ -28,7 +28,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import software.amazon.awssdk.http.SdkHttpMethod;
 import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.services.s3.model.GetBucketLocationResponse;
+import software.amazon.awssdk.services.s3.model.HeadBucketResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -113,7 +113,7 @@ public class PresignedUrlsProviderDownloadTest extends BaseTestCase {
     int expectedTtlSeconds = ( fileSize > Math.pow(2, 30) * TeamCityProperties.getInteger(S3_DOWNLOAD_THRESHOLD_FOR_PRESIGN_URL_EXTENSION_IN_GB) ) ? myS3Settings.getUrlExtendedTtlSeconds() : myS3Settings.getUrlTtlSeconds();
     TimeService timeService = new MockTimeService();
     Map<String, String> settings = myS3Settings.toRawSettings();
-    Mockito.when(myAmazonS3Provider.withS3ClientShuttingDownImmediately(Mockito.eq(settings), Mockito.eq(PROJECT_ID), Mockito.any(WithS3Client.class))).thenReturn(objectMetadata, objectMetadata, GetBucketLocationResponse.builder().build());
+    Mockito.when(myAmazonS3Provider.withS3ClientShuttingDownImmediately(Mockito.eq(settings), Mockito.eq(PROJECT_ID), Mockito.any(WithS3Client.class))).thenReturn(objectMetadata, objectMetadata, HeadBucketResponse.builder().build());
     Mockito.when(myAmazonS3Provider.withS3PresignerShuttingDownImmediately(Mockito.eq(BUCKET_NAME), Mockito.eq(settings), Mockito.eq(PROJECT_ID), Mockito.any(WithS3Presigner.class))).thenReturn(PRESIGNED_URL);
     Map<String, List<String >> headers = new HashMap<>();
     headers.put("host", Arrays.asList(DOMAIN));
