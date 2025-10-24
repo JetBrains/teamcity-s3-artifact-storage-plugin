@@ -292,7 +292,7 @@ public final class S3Util {
     return Arrays.stream(ObjectCannedACL.values())
                  .filter(v -> v.toString().equals(acl) || v.name().equals(acl))
                  .findFirst()
-                 .orElseThrow(() -> new IllegalArgumentException("Non-existent ACL provided: " + acl));
+                 .orElseGet(() -> aclToV2(acl));
   }
 
   public static boolean disablePathStyleAccess(@NotNull final Map<String, String> properties) {
@@ -316,6 +316,31 @@ public final class S3Util {
   @Deprecated
   public static <T, E extends Throwable> T withCloudFrontClient(@NotNull final Map<String, String> params, @NotNull final WithCloudFront<T, E> withClient) throws E {
     return withCloudFrontClient(params, withClient, false);
+  }
+
+  private static ObjectCannedACL aclToV2(String aclV1) {
+    if (aclV1 == null) {
+      return null;
+    }
+
+    switch (aclV1) {
+      case "Private":
+        return ObjectCannedACL.PRIVATE;
+      case "PublicRead":
+        return ObjectCannedACL.PUBLIC_READ;
+      case "PublicReadWrite":
+        return ObjectCannedACL.PUBLIC_READ_WRITE;
+      case "AuthenticatedRead":
+        return ObjectCannedACL.AUTHENTICATED_READ;
+      case "AwsExecRead":
+        return ObjectCannedACL.AWS_EXEC_READ;
+      case "BucketOwnerRead":
+        return ObjectCannedACL.BUCKET_OWNER_READ;
+      case "BucketOwnerFullControl":
+        return ObjectCannedACL.BUCKET_OWNER_FULL_CONTROL;
+      default:
+        throw new IllegalArgumentException("Non-existent ACL provided: " + aclV1);
+    }
   }
 
   @Deprecated
