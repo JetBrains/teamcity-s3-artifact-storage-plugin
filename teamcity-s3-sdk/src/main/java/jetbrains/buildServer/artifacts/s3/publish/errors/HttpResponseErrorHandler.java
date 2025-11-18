@@ -7,7 +7,7 @@ import org.jetbrains.annotations.NotNull;
 
 public interface HttpResponseErrorHandler {
   @NotNull
-  static final HashSet<Integer> OUR_RECOVERABLE_STATUS_CODES = new HashSet<>(Arrays.asList(500, 502, 503, 504));
+  static final HashSet<Integer> OUR_RECOVERABLE_STATUS_CODES = new HashSet<>(Arrays.asList(0, 500, 502, 503, 504));
 
   public boolean canHandle(@NotNull ResponseAdapter responseWrapper);
 
