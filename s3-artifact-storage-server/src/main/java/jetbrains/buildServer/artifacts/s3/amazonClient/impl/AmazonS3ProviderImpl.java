@@ -6,6 +6,7 @@ import com.amazonaws.services.cloudfront.AmazonCloudFrontClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.HeadBucketRequest;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.intellij.openapi.util.Pair;
@@ -203,7 +204,7 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     }
 
     // No call has been made to S3, we make one to verify the quality of the settings 
-    withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.getBucketLocation(bucketName)));
+    withS3ClientShuttingDownImmediately(storageSettings, projectId, client -> getRegionName(client.headBucket(new HeadBucketRequest(bucketName)).getBucketRegion()));
 
     return extractCachedCorrectedSettings(storageSettings, projectId);
   }
