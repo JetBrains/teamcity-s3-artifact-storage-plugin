@@ -19,14 +19,16 @@ teamcity {
 }
 
 dependencies {
+    provided("com.zaxxer:HikariCP:4.0.3")
+    implementation(platform("org.jetbrains.teamcity:bom:$teamcityVersion"))
     implementation project(':s3-artifact-storage-common')
-    provided(group: 'org.jetbrains.teamcity.internal', name: 'server', version: "${teamcityVersion}") {
+    provided(group: 'org.jetbrains.teamcity.internal', name: 'server') {
       exclude group: 'org.apache.httpcomponents', module: 'httpclient'
       exclude group: 'org.apache.httpcomponents', module: 'httpcore'
       exclude group: 'commons-codec', module: 'commons-codec'
     }
     implementation "software.amazon.awssdk:iam-policy-builder:2.33.2"
-    provided "org.jetbrains.teamcity:connections-api:${teamcityVersion}"
+    provided "org.jetbrains.teamcity:connections-api"
 
     implementation "org.bouncycastle:bcprov-jdk18on:1.78"
 
