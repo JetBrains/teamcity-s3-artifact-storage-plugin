@@ -1,0 +1,100 @@
+
+<%@ page import="java.util.Map" %>
+<%@ page import="jetbrains.buildServer.util.amazon.AWSCommonParams" %>
+<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.regions.AWSRegions" %>
+<%@ page import="jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants" %>
+
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%@ taglib prefix="props" tagdir="/WEB-INF/tags/props" %>
+
+<jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
+
+<%
+    final Map<String, String> params = ((jetbrains.buildServer.controllers.BasePropertiesBean)request.getAttribute("propertiesBean")).getProperties();
+
+    if (params.containsKey(AWSCommonParams.REGION_NAME_PARAM_OLD)) {
+      params.put(AWSCommonParams.REGION_NAME_PARAM, params.get(AWSCommonParams.REGION_NAME_PARAM_OLD));
+      params.remove(AWSCommonParams.REGION_NAME_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.CREDENTIALS_TYPE_PARAM_OLD)) {
+      String credentialsType = params.get(AWSCommonParams.CREDENTIALS_TYPE_PARAM_OLD);
+      if (AWSCommonParams.TEMP_CREDENTIALS_OPTION_OLD.equals(credentialsType)) {
+        credentialsType = AWSCommonParams.TEMP_CREDENTIALS_OPTION;
+      } else if (AWSCommonParams.ACCESS_KEYS_OPTION_OLD.equals(credentialsType)) {
+        credentialsType = AWSCommonParams.ACCESS_KEYS_OPTION;
+      }
+      params.put(AWSCommonParams.CREDENTIALS_TYPE_PARAM, credentialsType);
+      params.remove(AWSCommonParams.CREDENTIALS_TYPE_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.ACCESS_KEY_ID_PARAM_OLD)) {
+        params.put(AWSCommonParams.ACCESS_KEY_ID_PARAM, params.get(AWSCommonParams.ACCESS_KEY_ID_PARAM_OLD));
+        params.remove(AWSCommonParams.ACCESS_KEY_ID_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.SECRET_ACCESS_KEY_PARAM_OLD)) {
+        params.put(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM, params.get(AWSCommonParams.SECRET_ACCESS_KEY_PARAM_OLD));
+        params.remove(AWSCommonParams.SECRET_ACCESS_KEY_PARAM_OLD);
+    } else if (params.containsKey(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM_OLD)) {
+        params.put(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM, params.get(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM_OLD));
+        params.remove(AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.IAM_ROLE_ARN_PARAM_OLD)) {
+        params.put(AWSCommonParams.IAM_ROLE_ARN_PARAM, params.get(AWSCommonParams.IAM_ROLE_ARN_PARAM_OLD));
+        params.remove(AWSCommonParams.IAM_ROLE_ARN_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.EXTERNAL_ID_PARAM_OLD)) {
+        params.put(AWSCommonParams.EXTERNAL_ID_PARAM, params.get(AWSCommonParams.EXTERNAL_ID_PARAM_OLD));
+        params.remove(AWSCommonParams.EXTERNAL_ID_PARAM_OLD);
+    }
+
+    if (params.containsKey(AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM_OLD)) {
+        params.put(AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM, params.get(AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM_OLD));
+        params.remove(AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM_OLD);
+    }
+%>
+
+<c:set var="environment_name_param" value="<%=AWSCommonParams.ENVIRONMENT_NAME_PARAM%>"/>
+<c:set var="environment_name_label" value="<%=AWSCommonParams.ENVIRONMENT_NAME_LABEL%>"/>
+<c:set var="environment_type_custom" value="<%=AWSCommonParams.ENVIRONMENT_TYPE_CUSTOM%>"/>
+
+<c:set var="service_endpoint_param" value="<%=AWSCommonParams.SERVICE_ENDPOINT_PARAM%>"/>
+<c:set var="service_endpoint_label" value="<%=AWSCommonParams.SERVICE_ENDPOINT_LABEL%>"/>
+
+<c:set var="allRegions" value="<%=AWSRegions.getAllRegions()%>"/>
+
+<c:set var="region_name_param" value="<%=AWSCommonParams.REGION_NAME_PARAM%>"/>
+<c:set var="region_name_label" value="<%=AWSCommonParams.REGION_NAME_LABEL%>"/>
+<c:set var="region_name_default" value="<%=AWSRegions.DEFAULT_REGION%>"/>
+
+<c:set var="credentials_type_param" value="<%=AWSCommonParams.CREDENTIALS_TYPE_PARAM%>"/>
+<c:set var="credentials_type_label" value="<%=AWSCommonParams.CREDENTIALS_TYPE_LABEL%>"/>
+
+<c:set var="temp_credentials_option" value="<%=AWSCommonParams.TEMP_CREDENTIALS_OPTION%>"/>
+<c:set var="temp_credentials_label" value="<%=AWSCommonParams.TEMP_CREDENTIALS_LABEL%>"/>
+
+<c:set var="access_keys_option" value="<%=AWSCommonParams.ACCESS_KEYS_OPTION%>"/>
+<c:set var="access_keys_label" value="<%=AWSCommonParams.ACCESS_KEYS_LABEL%>"/>
+
+<c:set var="access_key_id_param" value="<%=AWSCommonParams.ACCESS_KEY_ID_PARAM%>"/>
+<c:set var="access_key_id_label" value="<%=AWSCommonParams.ACCESS_KEY_ID_LABEL%>"/>
+
+<c:set var="secure_secret_access_key_param" value="<%=AWSCommonParams.SECURE_SECRET_ACCESS_KEY_PARAM%>"/>
+<c:set var="secret_access_key_param" value="<%=AWSCommonParams.SECRET_ACCESS_KEY_PARAM%>"/>
+<c:set var="secret_access_key_label" value="<%=AWSCommonParams.SECRET_ACCESS_KEY_LABEL%>"/>
+
+<c:set var="iam_role_arn_param" value="<%=AWSCommonParams.IAM_ROLE_ARN_PARAM%>"/>
+<c:set var="iam_role_arn_label" value="<%=AWSCommonParams.IAM_ROLE_ARN_LABEL%>"/>
+
+<c:set var="external_id_param" value="<%=AWSCommonParams.EXTERNAL_ID_PARAM%>"/>
+<c:set var="external_id_label" value="<%=AWSCommonParams.EXTERNAL_ID_LABEL%>"/>
+
+<c:set var="use_default_cred_chain_param" value="<%=AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_PARAM%>"/>
+<c:set var="use_default_cred_chain_label" value="<%=AWSCommonParams.USE_DEFAULT_CREDENTIAL_PROVIDER_CHAIN_LABEL%>"/>
+
+<c:set var="default_cred_chain_disabled" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_DISABLED_PARAM %>"/>
+<c:set var="default_cred_chain_hidden" value="<%= AWSCommonParams.DEFAULT_CREDENTIALS_PROVIDER_CHAIN_HIDDEN_PARAM %>"/>
+<c:set var="default_cred_chain_enabled" value="<%= AwsCloudConnectorConstants.DEFAULT_CREDS_PROVIDER_FEATURE_PROPERTY_NAME %>"/>
