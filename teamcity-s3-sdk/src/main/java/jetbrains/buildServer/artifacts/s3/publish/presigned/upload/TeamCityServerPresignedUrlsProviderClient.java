@@ -3,7 +3,6 @@ package jetbrains.buildServer.artifacts.s3.publish.presigned.upload;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import java.io.IOException;
-import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -11,7 +10,6 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
-import javax.net.ssl.SSLException;
 import jetbrains.buildServer.artifacts.ArtifactTransportAdditionalHeadersProvider;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.publish.errors.CompositeHttpRequestErrorHandler;
@@ -26,10 +24,9 @@ import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.ExceptionUtil;
 import jetbrains.buildServer.util.HTTPRequestBuilder;
 import jetbrains.buildServer.util.StringUtil;
+import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
 import jetbrains.buildServer.util.http.EntityProducer;
 import jetbrains.buildServer.util.retry.Retrier;
-import jetbrains.buildServer.util.retry.impl.AbortingListener;
-import jetbrains.buildServer.util.retry.impl.LoggingRetrierListener;
 import jetbrains.buildServer.xmlrpc.NodeIdCookie;
 import jetbrains.buildServer.xmlrpc.NodeIdHolder;
 import jetbrains.buildServer.xmlrpc.XmlRpcConstants;
@@ -82,9 +79,7 @@ public class TeamCityServerPresignedUrlsProviderClient implements PresignedUrlsP
     myNodeIdHolder = teamCityConnectionConfiguration.getNodeIdHolder();
     myServerUrl = teamCityConnectionConfiguration.getTeamCityUrl();
 
-    myRetrier = Retrier.withRetries(myTeamCityConnectionConfiguration.getRetriesNum(), Retrier.DelayStrategy.linearBackOff(myTeamCityConnectionConfiguration.getRetryDelay()))
-                       .registerListener(new LoggingRetrierListener(LOGGER))
-                       .registerListener(new AbortingListener(ExecutionException.class, SSLException.class, UnknownHostException.class, SocketException.class, InterruptedIOException.class, InterruptedException.class, IOException.class));
+    myRetrier = AmazonRetrier.defaultAwsRetrier(myTeamCityConnectionConfiguration.getRetriesNum(), myTeamCityConnectionConfiguration.getRetryDelay(), LOGGER);
   }
 
   @Override
