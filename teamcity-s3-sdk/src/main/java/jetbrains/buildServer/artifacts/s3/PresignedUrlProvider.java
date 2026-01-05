@@ -10,6 +10,8 @@ import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
+import jetbrains.buildServer.util.amazon.retry.AmazonRetrier;
+import jetbrains.buildServer.util.retry.Retrier;
 import org.jetbrains.annotations.NotNull;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
@@ -49,25 +51,34 @@ public abstract class PresignedUrlProvider {
     }
   }
 
-  protected  <T> T callS3(@NotNull final Function<S3Client, T> callable, @NotNull final S3Settings settings) throws IOException {
+  protected <T> T callS3(@NotNull final Function<S3Client, T> callable, @NotNull final S3Settings settings) throws IOException {
     try {
       String projectId = settings.getProjectId();
       if (projectId == null) {
         throw new ConnectionCredentialsException("Cannot generate PresignedUrl, project ID is not provided");
       }
-      return myAmazonS3Provider.withS3ClientShuttingDownImmediately(
-        settings.toRawSettings(),
-        projectId,
-        client -> {
-          try {
-            return callable.apply(client);
-          } catch (final Throwable t) {
-            throw new IOException(t);
-          }
-        });
+      return createRetrier(settings)
+        .execute(() -> myAmazonS3Provider.withS3ClientShuttingDownImmediately(
+          settings.toRawSettings(),
+          projectId,
+          client -> {
+            try {
+              return callable.apply(client);
+            } catch (final Throwable t) {
+              throw new IOException(t);
+            }
+          })
+        );
     } catch (ConnectionCredentialsException e) {
       throw new IOException(e);
     }
+  }
+
+  private Retrier createRetrier(@NotNull S3Settings settings){
+    int numRetries = S3Util.getNumberOfRetries(settings.getProjectSettings());
+    int delayMillis = S3Util.getRetryDelayInMs(settings.getProjectSettings());
+
+    return AmazonRetrier.defaultAwsRetrier(numRetries, delayMillis, LOG);
   }
 
   protected int getUrlTtlSeconds(@NotNull String objectKey, @NotNull S3Settings settings, boolean isDownload) {
