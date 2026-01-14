@@ -39,6 +39,9 @@ dependencies {
     testImplementation("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
       changing = true
     }
+    runtimeOnly ("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
+      transitive = false
+    }
 }
 
 serverPlugin.version = null
