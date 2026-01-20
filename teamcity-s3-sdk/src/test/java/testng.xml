@@ -1,8 +1,0 @@
-<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="S3 Agent Tests">
-  <test name="S3 agent tests">
-    <classes>
-      <class name="jetbrains.buildServer.artifacts.s3.publish.presigned.upload.TeamCityServerPresignedUrlsProviderClientTest"/>
-    </classes>
-  </test>
-</suite>

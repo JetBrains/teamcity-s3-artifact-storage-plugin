@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
   compileOnly "org.jetbrains.teamcity:common-api:${teamcityVersion}"
-  api project(':teamcity-s3-sdk')
+  api "org.jetbrains.teamcity.internal:teamcity-s3-sdk:${teamcityVersion}"
   testImplementation "org.testng:testng:6.8.21"
   testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
   testImplementation group: 'org.mockito', name: 'mockito-core', version: '3.12.1'
