@@ -196,7 +196,7 @@
         <span class="error" id="error_${params.multipartUploadThreshold}"></span>
         <bs:smallNote>Initiates multipart upload for files larger than the specified value. Minimum value is 5MB. Allowed suffixes:
           <it>KB, MB, GB, TB</it>
-          . Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+          . Leave empty to use the default value. <bs:help file="Amazon+S3+and+S3-compatible+Storages#multipartUpload"/></bs:smallNote>
       </td>
     </tr>
     <tr class="advancedSetting noBorder">
@@ -206,7 +206,7 @@
         <span class="error" id="error_${params.multipartUploadPartSize}"></span>
         <bs:smallNote>Specify the maximum allowed part size. Minimum value is 5MB. Allowed suffixes:
           <it>KB, MB, GB, TB</it>
-          . Leave empty to use the default value. <bs:help file="Configuring+Artifacts+Storage#multipartUpload"/></bs:smallNote>
+          . Leave empty to use the default value. <bs:help file="Amazon+S3+and+S3-compatible+Storages#multipartUpload"/></bs:smallNote>
       </td>
     </tr>
   </c:if>
