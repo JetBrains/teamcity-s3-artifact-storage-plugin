@@ -3,7 +3,9 @@ plugins {
 }
 
 dependencies {
-  implementation "org.jetbrains.teamcity.internal:teamcity-s3-sdk:${teamcityVersion}"
+  implementation("org.jetbrains.teamcity.internal:teamcity-s3-sdk:${teamcityVersion}") {
+    transitive = false
+  }
   compileOnly "org.jetbrains.teamcity:agent-openapi:${teamcityVersion}"
   compileOnly "org.jetbrains.teamcity:web-openapi:${teamcityVersion}"
   testImplementation "org.testng:testng:6.8.21"
