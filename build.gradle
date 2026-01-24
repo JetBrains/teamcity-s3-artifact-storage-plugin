@@ -6,6 +6,8 @@ plugins {
     id "com.github.jk1.dependency-license-report" version "1.17"
 }
 
+initializeWorkspace()
+
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
@@ -15,7 +17,6 @@ ext {
   spaceUsername = findProperty("space.repository.user") ?: findProperty("spaceUsername")
   spacePassword = findProperty("space.repository.password") ?: findProperty("spacePassword")
   localRepo = anyParamPath('TC_LOCAL_REPO')
-  localAwsRepo = anyParamPath('TC_AWS_LOCAL_REPO') ?: anyParamPath('TC_LOCAL_REPO')
 }
 
 group = projectIds.group
@@ -33,12 +34,6 @@ allprojects {
       maven {
         name = "local-teamcity-artifacts"
         url "file:///${localRepo}"
-      }
-    }
-    if (localAwsRepo) {
-      maven {
-        name = "local-aws-teamcity-artifacts"
-        url "file:///${localAwsRepo}"
       }
     }
     maven { url "https://repo.labs.intellij.net/teamcity" }
@@ -109,4 +104,19 @@ def anyParam(String... names) {
     println("AnyParam: $names -> $param")
   }
   return param
+}
+
+def initializeWorkspace() {
+  if (System.getProperty("idea.active") != null) {
+    println "Attempt to configure workspace in IDEA"
+    def coreVersionProperties = project.projectDir.toPath().parent.parent.resolve(".version.properties")
+    if (coreVersionProperties.toFile().exists()) {
+      def p = new Properties().tap {
+        it.load(new FileInputStream(coreVersionProperties.toFile()))
+      }
+      p.forEach { k,v ->
+        System.setProperty(k, v);
+      }
+    }
+  }
 }
