@@ -33,7 +33,6 @@ dependencies {
     implementation "org.bouncycastle:bcprov-jdk18on:1.78"
 
     testImplementation "org.testcontainers:localstack:1.21.3"
-    testImplementation "org.mockito:mockito-core:2.1.0"
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
     server group: 'commons-codec', name: 'commons-codec', version: '1.13'
     testImplementation("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
@@ -44,5 +43,4 @@ dependencies {
     }
 }
 
-serverPlugin.version = null
-serverPlugin.baseName = projectIds.artifact
+serverPlugin.archiveFileName = projectIds.artifact + ".zip"

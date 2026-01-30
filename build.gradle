@@ -3,7 +3,7 @@ import com.github.jk1.license.render.JsonReportRenderer
 import com.github.jk1.license.filter.LicenseBundleNormalizer
 
 plugins {
-    id "com.github.jk1.dependency-license-report" version "1.17"
+    id "com.github.jk1.dependency-license-report" version "2.9"
 }
 
 initializeWorkspace()
@@ -56,7 +56,7 @@ subprojects {
   apply plugin: 'java-library'
 
   test.useTestNG()
-  jar.version = null
+  jar.archiveVersion = null
 
   dependencies{
     compileOnly ("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {

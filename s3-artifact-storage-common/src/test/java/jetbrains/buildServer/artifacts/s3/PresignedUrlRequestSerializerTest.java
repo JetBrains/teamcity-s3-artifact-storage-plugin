@@ -81,8 +81,8 @@ public class PresignedUrlRequestSerializerTest extends BaseTestCase {
 
   public void testResponseBackwardsCompatibilityWith_2020_2() throws MalformedURLException {
     final HashMap<String, URL> initialMap = new HashMap<String, URL>() {{
-      put("some key", new URL("http://some url"));
-      put("another key", new URL("http://another url"));
+      put("some key", new URL("http://some%20url"));
+      put("another key", new URL("http://another%20url"));
     }};
     final Collection<String> initialKeys = initialMap.keySet();
     final Collection<String> initialUrls = initialMap.values().stream().map(Objects::toString).collect(Collectors.toList());
