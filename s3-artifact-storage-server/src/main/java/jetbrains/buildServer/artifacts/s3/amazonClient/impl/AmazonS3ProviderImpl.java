@@ -18,10 +18,7 @@ import jetbrains.buildServer.clouds.amazon.connector.utils.clients.ClientConfigu
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.ParamUtil;
 import jetbrains.buildServer.log.Loggers;
-import jetbrains.buildServer.serverSide.IOGuard;
-import jetbrains.buildServer.serverSide.ProjectManager;
-import jetbrains.buildServer.serverSide.SProject;
-import jetbrains.buildServer.serverSide.TeamCityProperties;
+import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentials;
 import jetbrains.buildServer.serverSide.connections.credentials.ConnectionCredentialsException;
 import jetbrains.buildServer.serverSide.connections.credentials.ProjectConnectionCredentialsManager;
@@ -471,8 +468,21 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
     }
 
     // TW-94823 Subprojects might use this connection and require access to the credentials
-    additionalParameters.put(AwsCloudConnectorConstants.ALLOWED_IN_SUBPROJECTS_PARAM, "true");
+    if (isConnectionDefinedInParent(project, s3Settings)) {
+      additionalParameters.put(AwsCloudConnectorConstants.ALLOWED_IN_SUBPROJECTS_PARAM, "true");
+    }
 
     return myProjectConnectionCredentialsManager.requestConnectionCredentials(project, linkedAwsConnectionId, additionalParameters);
+  }
+
+  private boolean isConnectionDefinedInParent(@NotNull SProject project, @NotNull Map<String, String> s3Settings) {
+    final String featureId = s3Settings.get(ArtifactStorageSettings.STORAGE_FEATURE_ID);
+    if (StringUtils.isBlank(featureId)) {
+      return false;
+    }
+
+    // Search only finds own features
+    final SProjectFeatureDescriptor s3FeatureDescriptor = project.findFeatureById(featureId);
+    return s3FeatureDescriptor == null;
   }
 }
