@@ -5,6 +5,7 @@ package jetbrains.buildServer.artifacts.s3.web;
 import java.util.HashMap;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
+import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.ParamUtil;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
 import jetbrains.buildServer.serverSide.crypt.RSACipher;
 import jetbrains.buildServer.util.StringUtil;
@@ -50,7 +51,7 @@ public class S3StoragePropertiesUtil {
   }
 
   private static boolean useDefaultEnvironment(@NotNull final Map<String, String> properties) {
-    return StringUtil.isEmpty(properties.get(AWSCommonParams.ENVIRONMENT_NAME_PARAM));
+    return StringUtil.isEmpty(properties.get(AWSCommonParams.ENVIRONMENT_NAME_PARAM)) && !ParamUtil.withAwsConnectionId(properties);
   }
 
   private static void bindProperties(@NotNull final BasePropertiesBean bean, @NotNull final Map<String, String> properties) {
