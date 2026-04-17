@@ -51,7 +51,7 @@ function BucketsContextProvider({ children }: { children: React.ReactNode }) {
   } = useBucketLocation(bucketOptions);
 
   React.useEffect(() => {
-    if (!isBucketLocationLoading) {
+    if (!isBucketLocationLoading && bucketLocation && !bucketLocationErrors) {
       setValue(FormFields.CUSTOM_AWS_REGION, bucketLocation);
     }
   }, [bucketLocation, isBucketLocationLoading, setValue]);
