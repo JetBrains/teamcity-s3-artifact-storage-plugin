@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3.amazonClient.impl;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +42,7 @@ import software.amazon.awssdk.http.apache.ApacheHttpClient;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudfront.CloudFrontClient;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3ClientBuilder;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -102,16 +104,22 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
       regionName = s3Settings.get(AWSCommonParams.REGION_NAME_PARAM);
     }
 
-    return S3Presigner.builder()
-                      .region(Region.of(regionName))
-                      .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
-                      .serviceConfiguration(
-                        S3Configuration.builder()
-                                       .accelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
-                                       .pathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
-                                       .build()
-                      )
-                      .build();
+    S3Presigner.Builder s3PresignerBuilder = S3Presigner.builder()
+                                                        .region(Region.of(regionName))
+                                                        .credentialsProvider(awsConnectionCredentials.toAWSCredentialsProvider())
+                                                        .serviceConfiguration(
+                                                          S3Configuration.builder()
+                                                                         .accelerateModeEnabled(isAccelerateModeEnabled(s3Settings))
+                                                                         .pathStyleAccessEnabled(!disablePathStyleAccess(s3Settings))
+                                                                         .build()
+                                                        );
+
+    String serviceEndpoint = s3Settings.get(AWSCommonParams.SERVICE_ENDPOINT_PARAM);
+    if (StringUtils.isNotBlank(serviceEndpoint)) {
+      s3PresignerBuilder.endpointOverride(URI.create(serviceEndpoint));
+    }
+
+    return s3PresignerBuilder.build();
   }
 
   public <T, E extends Exception> T withS3ClientShuttingDownImmediately(@NotNull final Map<String, String> params,
@@ -387,16 +395,20 @@ public class AmazonS3ProviderImpl implements AmazonS3Provider {
           if (credentials == null) {
             throw new ConnectionCredentialsException("Cannot generate presigned url, no AWS credentials provided");
           }
-          final S3Presigner s3Presigner = S3Presigner.builder()
-                                                     .region(Region.of(clients.getRegion()))
-                                                     .credentialsProvider(StaticCredentialsProvider.create(credentials))
-                                                     .serviceConfiguration(
-                                                       S3Configuration.builder()
-                                                                      .accelerateModeEnabled(isAccelerateModeEnabled(correctedSettings))
-                                                                      .pathStyleAccessEnabled(!disablePathStyleAccess(correctedSettings))
-                                                                      .build()
-                                                     )
-                                                     .build();
+          S3Presigner.Builder s3PresignerBuilder = S3Presigner.builder()
+                                                              .region(Region.of(clients.getRegion()))
+                                                              .credentialsProvider(StaticCredentialsProvider.create(credentials))
+                                                              .serviceConfiguration(
+                                                                S3Configuration.builder()
+                                                                               .accelerateModeEnabled(isAccelerateModeEnabled(correctedSettings))
+                                                                               .pathStyleAccessEnabled(!disablePathStyleAccess(correctedSettings))
+                                                                               .build()
+                                                              );
+          String serviceEndpoint = correctedSettings.get(AWSCommonParams.SERVICE_ENDPOINT_PARAM);
+          if (StringUtils.isNotBlank(serviceEndpoint)) {
+            s3PresignerBuilder.endpointOverride(URI.create(serviceEndpoint));
+          }
+          S3Presigner s3Presigner = s3PresignerBuilder.build();
           try {
             return withS3Presigner.execute(s3Presigner);
           } finally {
