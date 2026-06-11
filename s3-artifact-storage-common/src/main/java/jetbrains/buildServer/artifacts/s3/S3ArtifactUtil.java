@@ -2,6 +2,7 @@ package jetbrains.buildServer.artifacts.s3;
 
 import java.util.ArrayList;
 import java.util.List;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -23,6 +24,7 @@ public class S3ArtifactUtil {
 
   public static boolean matchBuildId(String prefix, String key, long buildId) {
     int idx;
+    prefix = StringUtil.removeTailingSlash(prefix);
     if (isEmpty(prefix)) {
       idx = 0;
     } else if (key.startsWith(prefix + "/")) {
