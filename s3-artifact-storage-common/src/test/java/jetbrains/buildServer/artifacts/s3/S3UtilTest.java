@@ -41,4 +41,13 @@ public class S3UtilTest {
     then(S3ArtifactUtil.getPathPrefix("a/", "x", "y", 1)).isEqualTo("a/x/y/1/");
     then(S3ArtifactUtil.getPathPrefix("/a/", "x", "y", 1)).isEqualTo("a/x/y/1/");
   }
+
+  @Test
+  @TestFor(issues = "TW-101373")
+  public void test_getPathPrefix_withLeadingSlash() {
+    // &#039;s3-files/PublishToS3basckslashes/PublishToS3basckslashes_CreateAndPublishFile/403/build.txt&#039; does not contain build id 403
+    String objectKey = "s3-files/PublishToS3basckslashes/PublishToS3basckslashes_CreateAndPublishFile/403/build.txt";
+    then(S3ArtifactUtil.matchBuildId("s3-files", objectKey, 403)).isTrue();
+    then(S3ArtifactUtil.matchBuildId("s3-files/", objectKey, 403)).isTrue();
+  }
 }
