@@ -84,6 +84,7 @@ export default function useS3Form() {
       [FormFields.S3_BUCKET_NAME]: config.bucket,
       [FormFields.S3_BUCHET_PATH_PREFIX]: config.bucketPathPrefix,
       [FormFields.CLOUD_FRONT_TOGGLE]: config.useCloudFront,
+      [FormFields.CLOUD_FRONT_UPLOAD_USE_S3]: config.cloudFrontUseS3Upload,
       [FormFields.CLOUD_FRONT_PRIVATE_KEY]: config.cloudFrontPrivateKey,
       [FormFields.CONNECTION_PRESIGNED_URL_TOGGLE]:
         config.usePresignUrlsForUpload,
