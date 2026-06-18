@@ -111,6 +111,7 @@
       bucketPathPrefix: "<bs:forJs>${propertiesBean.properties[params.pathPrefix]}</bs:forJs>",
 
       useCloudFront: "<bs:forJs>${propertiesBean.properties[params.cloudFrontEnabled]}</bs:forJs>" === "true",
+      cloudFrontUseS3Upload: "<bs:forJs>${propertiesBean.properties[params.cloudFrontUploadUseS3]}</bs:forJs>" === "true",
       cloudFrontUploadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontUploadDistribution]}</bs:forJs>",
       cloudFrontDownloadDistribution: "<bs:forJs>${propertiesBean.properties[params.cloudFrontDownloadDistribution]}</bs:forJs>",
       cloudFrontPublicKeyId: "<bs:forJs>${propertiesBean.properties[params.cloudFrontPublicKeyId]}</bs:forJs>",

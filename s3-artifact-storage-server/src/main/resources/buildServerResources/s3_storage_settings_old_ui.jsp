@@ -112,6 +112,12 @@
     </tr>
     <tbody id="${params.cloudFrontSettingsGroup}">
     <tr class="noBorder">
+      <th><label for="${params.cloudFrontUploadUseS3}">Use S3 for uploads: </label></th>
+      <td>
+        <props:checkboxProperty name="${params.cloudFrontUploadUseS3}" id="${params.cloudFrontUploadUseS3}"/>
+      </td>
+    </tr>
+    <tr class="noBorder" id="cloudFrontUploadDistributionRow">
       <th><label for="${cloudfrontUploadDistributionSelect}">Distribution for uploads: <l:star/></label></th>
       <td>
         <div class="posRel">
@@ -233,6 +239,8 @@
     var $createDistributionButton = $j(BS.Util.escapeId('${params.cloudFrontCreateDistribution}'));
     var $distributionUploadInput = $j(BS.Util.escapeId('${params.cloudFrontUploadDistribution}'));
     var $distributionUploadSelect = $j(BS.Util.escapeId('${cloudfrontUploadDistributionSelect}'));
+    var $cloudFrontUploadUseS3 = $j(BS.Util.escapeId('${params.cloudFrontUploadUseS3}'));
+    var $cloudFrontUploadDistributionRow = $j('#cloudFrontUploadDistributionRow');
     var $distributionDownloadInput = $j(BS.Util.escapeId('${params.cloudFrontDownloadDistribution}'));
     var $distributionDownloadSelect = $j(BS.Util.escapeId('${cloudfrontDownloadDistributionSelect}'));
 
@@ -481,6 +489,11 @@
       } else {
         BS.Util.hide('${params.cloudFrontSettingsGroup}');
       }
+      if ($cloudFrontUploadUseS3.is(':checked')) {
+        $cloudFrontUploadDistributionRow.hide();
+      } else {
+        $cloudFrontUploadDistributionRow.show();
+      }
     }
 
     $j(document).on('change', keyId + ', ' + keySecret, function () {
@@ -529,6 +542,9 @@
       redrawPrivateKeyUploader();
     });
     $j(BS.Util.escapeId('${params.cloudFrontEnabled}')).change(function () {
+      updateCloudFrontVisibility()
+    });
+    $cloudFrontUploadUseS3.change(function () {
       updateCloudFrontVisibility()
     });
 

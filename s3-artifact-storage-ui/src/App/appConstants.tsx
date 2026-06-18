@@ -22,6 +22,7 @@ export enum FormFields {
   S3_BUCKET_NAME = 'prop:storage_s3_bucket_name',
   S3_BUCHET_PATH_PREFIX = 'prop:storage_s3_bucket_prefix',
   CLOUD_FRONT_TOGGLE = 'prop:storage_s3_cloudfront_enabled',
+  CLOUD_FRONT_UPLOAD_USE_S3 = 'prop:storage_s3_cloudfront_upload_s3_enabled',
   CLOUD_FRONT_UPLOAD_DISTRIBUTION = 'prop:storage_s3_cloudfront_upload_distribution',
   CLOUD_FRONT_DOWNLOAD_DISTRIBUTION = 'prop:storage_s3_cloudfront_download_distribution',
   CLOUD_FRONT_PUBLIC_KEY_ID = 'prop:storage_s3_cloudfront_publicKeyId',
