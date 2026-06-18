@@ -8,6 +8,19 @@ plugins {
 
 initializeWorkspace()
 
+tasks.register("installS3StorageUi", Exec) {
+  onlyIf { shouldBuildS3StorageUi() }
+  workingDir = file("s3-artifact-storage-ui")
+  commandLine yarnCommand(), "install"
+}
+
+tasks.register("buildS3StorageUi", Exec) {
+  onlyIf { shouldBuildS3StorageUi() }
+  dependsOn tasks.named("installS3StorageUi")
+  workingDir = file("s3-artifact-storage-ui")
+  commandLine yarnCommand(), "build"
+}
+
 ext {
   versionNumber = project.hasProperty('versionNumber') ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
   projectIds = ['group': 'teamcity-s3-storage', 'version': versionNumber, 'artifact': 's3-artifact-storage']
@@ -78,6 +91,14 @@ subprojects {
   }
 }
 
+project(":s3-artifact-storage-server") {
+  if (isIdeaActive()) {
+    tasks.named("processResources") {
+      dependsOn rootProject.tasks.named("buildS3StorageUi")
+    }
+  }
+}
+
 licenseReport {
     renderers = [new JsonReportRenderer('third-party-libraries.json')]
     excludes = ["org.jetbrains.*", "com.jetbrains.*", ".*jackson-bom*"]
@@ -107,7 +128,7 @@ def anyParam(String... names) {
 }
 
 def initializeWorkspace() {
-  if (System.getProperty("idea.active") != null) {
+  if (isIdeaActive()) {
     println "Attempt to configure workspace in IDEA"
     def coreVersionProperties = project.projectDir.toPath().parent.parent.resolve(".version.properties")
     if (coreVersionProperties.toFile().exists()) {
@@ -119,4 +140,41 @@ def initializeWorkspace() {
       }
     }
   }
+}
+
+def isIdeaActive() {
+  return System.getProperty("idea.active") != null
+}
+
+def shouldBuildS3StorageUi() {
+  return isIdeaActive() && isYarnAvailable()
+}
+
+def isYarnAvailable() {
+  if (project.ext.has("s3StorageUiYarnAvailable")) {
+    return project.ext.s3StorageUiYarnAvailable
+  }
+
+  try {
+    def output = new ByteArrayOutputStream()
+    def result = exec {
+      commandLine yarnCommand(), "--version"
+      standardOutput = output
+      errorOutput = output
+      ignoreExitValue = true
+    }
+    project.ext.s3StorageUiYarnAvailable = result.exitValue == 0
+  } catch (Exception ignored) {
+    project.ext.s3StorageUiYarnAvailable = false
+  }
+
+  if (!project.ext.s3StorageUiYarnAvailable) {
+    logger.lifecycle("Yarn is not available, skipping S3 storage UI build")
+  }
+
+  return project.ext.s3StorageUiYarnAvailable
+}
+
+def yarnCommand() {
+  return System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows") ? "yarn.cmd" : "yarn"
 }
