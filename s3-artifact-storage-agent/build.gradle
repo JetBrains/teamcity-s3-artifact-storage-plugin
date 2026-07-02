@@ -17,6 +17,9 @@ dependencies {
     provided ("org.jetbrains.teamcity:agent-api:${teamcityVersion}"){
         exclude group: 'org.jetbrains.teamcity', module: 'common-api'
     }
+    runtimeOnly ("org.jetbrains.teamcity.plugins:aws-core-common:$awsCoreVersion") {
+      transitive = false
+    }
 
     testImplementation "org.jetbrains.teamcity:tests-support:${teamcityVersion}"
     testImplementation 'org.testcontainers:testcontainers:1.20.4'
