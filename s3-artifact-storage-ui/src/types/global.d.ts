@@ -17,6 +17,5 @@ declare global {
       };
     };
     $j: JQueryStatic;
-    __secretKey: string | null | undefined;
   }
 }
