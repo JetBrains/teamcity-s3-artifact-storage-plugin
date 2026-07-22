@@ -1,5 +1,10 @@
 package jetbrains.buildServer.artifacts.s3.web;
 
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.artifacts.s3.orphans.S3OrphanedArtifactsScanner;
 import jetbrains.buildServer.controllers.AuthorizationInterceptor;
 import jetbrains.buildServer.controllers.BaseController;
@@ -12,19 +17,10 @@ import jetbrains.buildServer.serverSide.auth.Permission;
 import jetbrains.buildServer.users.SUser;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import jetbrains.buildServer.web.util.SessionUser;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.servlet.ModelAndView;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.security.Provider;
-import java.security.Security;
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import software.amazon.awssdk.http.SdkHttpMethod;
 
 /**
@@ -59,11 +55,6 @@ public class S3OrphanedArtifactsController extends BaseController {
         throw new AccessDeniedException(holder, "Authorised user lacks permissions for project " + projectId);
       }
     });
-
-    Provider provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME);
-    if (provider == null) {
-      Security.addProvider(new BouncyCastleProvider());
-    }
   }
 
   @Nullable

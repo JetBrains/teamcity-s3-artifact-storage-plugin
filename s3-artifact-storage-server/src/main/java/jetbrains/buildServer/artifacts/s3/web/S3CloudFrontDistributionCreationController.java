@@ -125,10 +125,6 @@ public class S3CloudFrontDistributionCreationController extends BaseFormXmlContr
     myAccessChecker = accessChecker;
     final String path = descriptor.getPluginResourcesPath("cloudFront/createDistribution.html");
     controllerManager.registerController(path, this);
-    Provider provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME);
-    if (provider == null) {
-      Security.addProvider(new BouncyCastleProvider());
-    }
   }
 
   @Override
