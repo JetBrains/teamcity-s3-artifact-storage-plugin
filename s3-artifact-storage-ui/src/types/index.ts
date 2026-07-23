@@ -34,6 +34,7 @@ export type Config = {
   bucket: string;
   bucketPathPrefix: string;
   useCloudFront: boolean;
+  cloudFrontUseS3Upload: boolean;
   cloudFrontUploadDistribution: string;
   cloudFrontDownloadDistribution: string;
   cloudFrontPublicKeyId: string;
@@ -73,6 +74,7 @@ export interface S3FormInput {
   [FormFields.S3_BUCKET_NAME]: string | Option;
   [FormFields.S3_BUCHET_PATH_PREFIX]: string;
   [FormFields.CLOUD_FRONT_TOGGLE]: boolean;
+  [FormFields.CLOUD_FRONT_UPLOAD_USE_S3]: boolean;
   [FormFields.CLOUD_FRONT_UPLOAD_DISTRIBUTION]: DistributionItem;
   [FormFields.CLOUD_FRONT_DOWNLOAD_DISTRIBUTION]: DistributionItem;
   [FormFields.CLOUD_FRONT_PUBLIC_KEY_ID]: Option;
