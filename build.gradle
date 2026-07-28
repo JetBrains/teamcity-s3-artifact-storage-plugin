@@ -81,6 +81,16 @@ subprojects {
     }
   }
 
+  configurations.all {
+    resolutionStrategy.eachDependency { details ->
+      if ((details.requested.group == 'org.jetbrains.teamcity' || details.requested.group == 'org.jetbrains.teamcity.internal') &&
+          !details.requested.version) {
+        details.useVersion project.teamcityVersion
+        details.because "TeamCity artifacts inherit core module versions from the TeamCity BOM"
+      }
+    }
+  }
+
   tasks.withType(JavaCompile) {
     sourceCompatibility = "1.8"
     targetCompatibility = "1.8"
