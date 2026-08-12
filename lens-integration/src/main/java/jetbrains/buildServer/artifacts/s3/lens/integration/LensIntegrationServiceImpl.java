@@ -14,6 +14,7 @@ import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.util.StringUtil;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public class LensIntegrationServiceImpl implements LensIntegrationService {
 
@@ -26,32 +27,41 @@ public class LensIntegrationServiceImpl implements LensIntegrationService {
                                    @NotNull final Collection<UploadStatistics> statistics,
                                    @NotNull final Duration totalUploadDuration,
                                    @NotNull final TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
-    // if lens plugin is unavailable, ignore the call
-    LowLevelLensClient lensClient = new LowLevelLensClient(teamCityConnectionConfiguration);
-    if (!isLensPluginInstalled(lensClient)) {
-      Loggers.AGENT.debug("Lens plugin is not installed, ignoring the call to generate upload events");
-      return;
-    }
-
-    long buildId = build.getBuildId();
-    UploadInfoEvent uploadInfoEvent = buildUploadInfoEvent(statistics, totalUploadDuration);
 
     try {
       // send complete event
       if (isLensUploadInfoEventsEnabled(build)) {
-        lensClient.publishUploadInfoEvent(buildId, uploadInfoEvent).get();
+        LowLevelLensClient lensClient = createAndValidateLensClient(teamCityConnectionConfiguration);
+        if (lensClient == null) return;
+
+        UploadInfoEvent uploadInfoEvent = buildUploadInfoEvent(statistics, totalUploadDuration);
+        lensClient.publishUploadInfoEvent(build.getBuildId(), uploadInfoEvent).get();
       }
+
       // send inidivitual events
       if (isLensUploadFileEventsEnabled(build)) {
-        CompletableFuture[] futures = sendFileEvents(statistics, lensClient, buildId);
+        LowLevelLensClient lensClient = createAndValidateLensClient(teamCityConnectionConfiguration);
+        if (lensClient == null) return;
+
+        CompletableFuture[] futures = sendFileEvents(statistics, lensClient, build.getBuildId());
         CompletableFuture.allOf(futures).get();
       }
     } catch (Exception e) {
       Loggers.AGENT.warnAndDebugDetails(
         String.format(
           "Failed to publish some of the events to the lens: buildId=%d",
-          buildId), e);
+          build.getBuildId()), e);
     }
+  }
+
+  @Nullable
+  private LowLevelLensClient createAndValidateLensClient(@NotNull TeamCityConnectionConfiguration teamCityConnectionConfiguration) {
+    LowLevelLensClient lensClient = new LowLevelLensClient(teamCityConnectionConfiguration);
+    if (!isLensPluginInstalled(lensClient)) {
+      Loggers.AGENT.debug("Lens plugin is not installed, ignoring the call to generate upload events");
+      return null;
+    }
+    return lensClient;
   }
 
   private boolean isLensUploadFileEventsEnabled(AgentRunningBuild build) {
