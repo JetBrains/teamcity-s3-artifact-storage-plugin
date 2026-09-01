@@ -4,6 +4,7 @@ import java.security.PrivateKey;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
+import jetbrains.buildServer.artifacts.s3.CloudFrontS3UploadSettings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.ValidateCloudFrontKeys;
 import jetbrains.buildServer.serverSide.InvalidProperty;
@@ -18,7 +19,8 @@ public class CloudFrontPropertiesProcessor implements PropertiesProcessor {
   public Collection<InvalidProperty> process(Map<String, String> params) {
     final ArrayList<InvalidProperty> invalids = new ArrayList<>();
 
-    if (StringUtil.isEmptyOrSpaces(S3Util.getCloudFrontUploadDistribution(params))) {
+    if (!CloudFrontS3UploadSettings.useS3ForUpload(params) &&
+        StringUtil.isEmptyOrSpaces(S3Util.getCloudFrontUploadDistribution(params))) {
       invalids.add(new InvalidProperty(S3_CLOUDFRONT_UPLOAD_DISTRIBUTION, "CloudFront distribution for upload should not be empty"));
     }
 

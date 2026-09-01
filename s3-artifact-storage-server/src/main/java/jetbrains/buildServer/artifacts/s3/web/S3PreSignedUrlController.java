@@ -17,10 +17,14 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.BuildAuthUtil;
 import jetbrains.buildServer.artifacts.ServerArtifactStorageSettingsProvider;
+import jetbrains.buildServer.artifacts.s3.CloudFrontS3UploadSettings;
 import jetbrains.buildServer.artifacts.s3.PresignedUrlWithTtl;
 import jetbrains.buildServer.artifacts.s3.S3ArtifactUtil;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
+import jetbrains.buildServer.artifacts.s3.S3PresignedUrlProvider;
+import jetbrains.buildServer.artifacts.s3.S3Settings;
 import jetbrains.buildServer.artifacts.s3.S3Util;
+import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontEnabledPresignedUrlProvider;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontSettings;
 import jetbrains.buildServer.artifacts.s3.cloudfront.RequestMetadata;
@@ -65,6 +69,8 @@ public class S3PreSignedUrlController extends BaseController {
   @NotNull
   private final CloudFrontEnabledPresignedUrlProvider myPreSignedManager;
   @NotNull
+  private final S3PresignedUrlProvider myS3PreSignedManager;
+  @NotNull
   private final ServerArtifactStorageSettingsProvider myStorageSettingsProvider;
   @NotNull
   private final ProjectManagerEx myProjectManager;
@@ -72,10 +78,12 @@ public class S3PreSignedUrlController extends BaseController {
   public S3PreSignedUrlController(@NotNull WebControllerManager web,
                                   @NotNull RunningBuildsManagerEx runningBuildsManager,
                                   @NotNull CloudFrontEnabledPresignedUrlProvider preSignedManager,
+                                  @NotNull S3PresignedUrlProvider s3PreSignedManager,
                                   @NotNull ServerArtifactStorageSettingsProvider storageSettingsProvider,
                                   @NotNull ProjectManagerEx projectManager) {
     myRunningBuildsManager = runningBuildsManager;
     myPreSignedManager = preSignedManager;
+    myS3PreSignedManager = s3PreSignedManager;
     myStorageSettingsProvider = storageSettingsProvider;
     myProjectManager = projectManager;
     web.registerController(ARTEFACTS_S3_UPLOAD_PRESIGN_URLS_HTML, this);
@@ -111,14 +119,14 @@ public class S3PreSignedUrlController extends BaseController {
         throw new HttpServerErrorException(HttpStatus.UNAUTHORIZED, "Invalid credentials provided");
       }
 
-      final Pair<RequestType, CloudFrontSettings> request = parseRequest(httpServletRequest, runningBuild);
+      final Pair<RequestType, PresignedUrlSettings> request = parseRequest(httpServletRequest, runningBuild);
 
       httpServletResponse.setContentType("application/xml; charset=" + StandardCharsets.UTF_8.name());
       if (request.getFirst() == RequestType.FINISH_MULTIPART_UPLOAD) {
         finishMultipartUpload(httpServletRequest, request.getSecond());
         httpServletResponse.setStatus(HttpServletResponse.SC_OK);
       } else {
-        final CloudFrontSettings settings = request.getSecond();
+        final PresignedUrlSettings settings = request.getSecond();
         final PresignedUrlListRequestDto urlsRequest = PresignedUrlRequestSerializer.deserializeRequest(StreamUtil.readTextFrom(httpServletRequest.getReader()));
 
         if(TeamCityProperties.getBooleanOrTrue(S3_VALIDATE_KEYS))
@@ -220,7 +228,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   @NotNull
-  private Pair<RequestType, CloudFrontSettings> parseRequest(@NotNull final HttpServletRequest request, RunningBuildEx runningBuild) {
+  private Pair<RequestType, PresignedUrlSettings> parseRequest(@NotNull final HttpServletRequest request, RunningBuildEx runningBuild) {
     final Map<String, String> storageSettings = myStorageSettingsProvider.getStorageSettings(runningBuild);
     try {
       S3Util.validateParameters(storageSettings);
@@ -243,19 +251,36 @@ public class S3PreSignedUrlController extends BaseController {
       projectParameters.putAll(project.getParameters());
     }
 
-    return Pair.create(RequestType.fromRequest(request), myPreSignedManager.settings(storageSettings, projectParameters, RequestMetadata.from(requestRegion, userAgent)));
+    return Pair.create(RequestType.fromRequest(request), new PresignedUrlSettings(
+      myPreSignedManager.settings(cloudFrontSettings(storageSettings), projectParameters, RequestMetadata.from(requestRegion, userAgent)),
+      myS3PreSignedManager.settings(storageSettings, projectParameters),
+      CloudFrontS3UploadSettings.useS3ForUpload(storageSettings)
+    ));
+  }
+
+  @NotNull
+  private Map<String, String> cloudFrontSettings(@NotNull Map<String, String> storageSettings) {
+    if (!CloudFrontS3UploadSettings.useS3ForUpload(storageSettings) ||
+        StringUtil.isNotEmpty(S3Util.getCloudFrontUploadDistribution(storageSettings))) {
+      return storageSettings;
+    }
+
+    Map<String, String> normalizedSettings = new HashMap<>(storageSettings);
+    normalizedSettings.put(CloudFrontConstants.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION,
+                           StringUtil.emptyIfNull(S3Util.getCloudFrontDownloadDistribution(storageSettings)));
+    return normalizedSettings;
   }
 
   @NotNull
   private String presignedUrlsV2(@NotNull final PresignedUrlListRequestDto requestList,
-                                 @NotNull final CloudFrontSettings settings) {
+                                 @NotNull final PresignedUrlSettings settings) {
     String multipartContentType = requestList.getMultipartContentType();
     final List<PresignedUrlDto> responses = requestList.getPresignedUrlRequests().stream().map(request -> {
       try {
         if (request.getDigests() != null && request.getDigests().size() > 1) {
           String uploadId;
           if (request.getUploadId() == null) {
-            uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
+            uploadId = startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
           } else {
             uploadId = request.getUploadId();
           }
@@ -264,7 +289,7 @@ public class S3PreSignedUrlController extends BaseController {
             final String digest = request.getDigests().get(i);
             int partNumber = i + 1;
             try {
-              final String url = myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), digest, partNumber, uploadId, settings);
+              final String url = generateUploadUrlForPart(request.getObjectKey(), digest, partNumber, uploadId, settings);
               presignedUrls.add(new PresignedUrlPartDto(url, partNumber));
             } catch (IOException e) {
               LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
@@ -273,10 +298,10 @@ public class S3PreSignedUrlController extends BaseController {
           }
           return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
         } else if (request.getNumberOfParts() > 1) {
-          final String uploadId = myPreSignedManager.startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
+          final String uploadId = startMultipartUpload(request.getObjectKey(), multipartContentType, settings);
           final List<PresignedUrlPartDto> presignedUrls = IntStream.rangeClosed(1, request.getNumberOfParts()).mapToObj(partNumber -> {
             try {
-              return new PresignedUrlPartDto(myPreSignedManager.generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);
+              return new PresignedUrlPartDto(generateUploadUrlForPart(request.getObjectKey(), null, partNumber, uploadId, settings), partNumber);
             } catch (IOException e) {
               LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url for part: " + e.getMessage(), e);
               throw new RuntimeException(e);
@@ -284,12 +309,12 @@ public class S3PreSignedUrlController extends BaseController {
           }).collect(Collectors.toList());
           return PresignedUrlDto.multiPart(request.getObjectKey(), uploadId, presignedUrls);
         } else if (request.getDigests() != null && request.getDigests().size() == 1) {
-          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
+          return PresignedUrlDto.singlePart(request.getObjectKey(), generateUploadUrl(request.getObjectKey(), request.getDigests().get(0), settings));
         } else if (request.getHttpMethod() != null) {
-          PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedManager.generateDownloadUrl(SdkHttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings);
+          PresignedUrlWithTtl presignedUrlWithTtl = myPreSignedManager.generateDownloadUrl(SdkHttpMethod.valueOf(request.getHttpMethod()), request.getObjectKey(), settings.myCloudFrontSettings);
           return PresignedUrlDto.singlePart(request.getObjectKey(), presignedUrlWithTtl.getUrl());
         } else {
-          return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
+          return PresignedUrlDto.singlePart(request.getObjectKey(), generateUploadUrl(request.getObjectKey(), null, settings));
         }
       } catch (Exception e) {
         LOG.infoAndDebugDetails(() -> "Got exception while trying to generate presigned url: " + e.getMessage(), e);
@@ -301,10 +326,10 @@ public class S3PreSignedUrlController extends BaseController {
 
   @NotNull
   private String presignedUrlsV1(@NotNull final PresignedUrlListRequestDto requests,
-                                 @NotNull final CloudFrontSettings settings) {
+                                 @NotNull final PresignedUrlSettings settings) {
     return serializeResponseV1(PresignedUrlListResponseDto.createV1(requests.getPresignedUrlRequests().stream().map(request -> {
       try {
-        return PresignedUrlDto.singlePart(request.getObjectKey(), myPreSignedManager.generateUploadUrl(request.getObjectKey(), null, settings));
+        return PresignedUrlDto.singlePart(request.getObjectKey(), generateUploadUrl(request.getObjectKey(), null, settings));
       } catch (IOException e) {
         LOG.infoAndDebugDetails("Got exception while generating presigned URL: " + e.getMessage(), e);
         throw new RuntimeException(e);
@@ -313,7 +338,7 @@ public class S3PreSignedUrlController extends BaseController {
   }
 
   private void finishMultipartUpload(@NotNull final HttpServletRequest httpServletRequest,
-                                     @NotNull final CloudFrontSettings settings) throws Exception {
+                                     @NotNull final PresignedUrlSettings settings) throws Exception {
     final String objectKeyBase64 = new String(getDecoder().decode(StringUtil.emptyIfNull(httpServletRequest.getParameter(OBJECT_KEY + "_BASE64"))), StandardCharsets.UTF_8);
     final String objectKey = StringUtil.isNotEmpty(objectKeyBase64) ? objectKeyBase64 : httpServletRequest.getParameter(OBJECT_KEY);
     if (StringUtil.isEmpty(objectKey)) {
@@ -328,7 +353,40 @@ public class S3PreSignedUrlController extends BaseController {
     if (isSuccessful && (eTags == null || eTags.length < 1)) {
       throw new HttpServerErrorException(HttpStatus.BAD_REQUEST, ETAGS + " should be present");
     }
-    myPreSignedManager.finishMultipartUpload(uploadId, objectKey, settings, eTags, isSuccessful);
+    if (settings.myUseS3ForUpload) {
+      myS3PreSignedManager.finishMultipartUpload(uploadId, objectKey, settings.myS3Settings, eTags, isSuccessful);
+    } else {
+      myPreSignedManager.finishMultipartUpload(uploadId, objectKey, settings.myCloudFrontSettings, eTags, isSuccessful);
+    }
+  }
+
+  @NotNull
+  private String generateUploadUrl(@NotNull String objectKey,
+                                   @Nullable String digest,
+                                   @NotNull PresignedUrlSettings settings) throws IOException {
+    return settings.myUseS3ForUpload
+           ? myS3PreSignedManager.generateUploadUrl(objectKey, digest, settings.myS3Settings)
+           : myPreSignedManager.generateUploadUrl(objectKey, digest, settings.myCloudFrontSettings);
+  }
+
+  @NotNull
+  private String generateUploadUrlForPart(@NotNull String objectKey,
+                                          @Nullable String digest,
+                                          int partNumber,
+                                          @NotNull String uploadId,
+                                          @NotNull PresignedUrlSettings settings) throws IOException {
+    return settings.myUseS3ForUpload
+           ? myS3PreSignedManager.generateUploadUrlForPart(objectKey, digest, partNumber, uploadId, settings.myS3Settings)
+           : myPreSignedManager.generateUploadUrlForPart(objectKey, digest, partNumber, uploadId, settings.myCloudFrontSettings);
+  }
+
+  @NotNull
+  private String startMultipartUpload(@NotNull String objectKey,
+                                      @Nullable String contentType,
+                                      @NotNull PresignedUrlSettings settings) throws Exception {
+    return settings.myUseS3ForUpload
+           ? myS3PreSignedManager.startMultipartUpload(objectKey, contentType, settings.myS3Settings)
+           : myPreSignedManager.startMultipartUpload(objectKey, contentType, settings.myCloudFrontSettings);
   }
 
   @Nullable
@@ -348,6 +406,22 @@ public class S3PreSignedUrlController extends BaseController {
     @NotNull
     public static RequestType fromRequest(@NotNull final HttpServletRequest request) {
       return StringUtil.isNotEmpty(request.getParameter(FINISH_UPLOAD)) ? FINISH_MULTIPART_UPLOAD : GENERATE_PRESIGNED_URLS;
+    }
+  }
+
+  private static class PresignedUrlSettings {
+    @NotNull
+    private final CloudFrontSettings myCloudFrontSettings;
+    @NotNull
+    private final S3Settings myS3Settings;
+    private final boolean myUseS3ForUpload;
+
+    private PresignedUrlSettings(@NotNull CloudFrontSettings cloudFrontSettings,
+                                 @NotNull S3Settings s3Settings,
+                                 boolean useS3ForUpload) {
+      myCloudFrontSettings = cloudFrontSettings;
+      myS3Settings = s3Settings;
+      myUseS3ForUpload = useS3ForUpload;
     }
   }
 }
