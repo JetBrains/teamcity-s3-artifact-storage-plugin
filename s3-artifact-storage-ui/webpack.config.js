@@ -18,7 +18,8 @@ const createConfig = getWebpackConfig({
     useTypeScript: true
 });
 
-const config = createConfig();
-config.plugins.push(createLicenseChecker('../../../../../s3-artifact-storage-ui/js-related-libraries.json'))
-
-module.exports = config;
+module.exports = env => {
+    const config = createConfig(env);
+    config.plugins.push(createLicenseChecker('../../../../../s3-artifact-storage-ui/js-related-libraries.json'))
+    return config;
+};
