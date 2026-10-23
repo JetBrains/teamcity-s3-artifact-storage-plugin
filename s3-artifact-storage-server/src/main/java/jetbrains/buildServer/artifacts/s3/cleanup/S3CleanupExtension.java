@@ -4,6 +4,7 @@ package jetbrains.buildServer.artifacts.s3.cleanup;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
+import com.intellij.openapi.util.Pair;
 import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.*;
@@ -19,7 +20,6 @@ import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.S3Util;
 import jetbrains.buildServer.artifacts.s3.amazonClient.AmazonS3Provider;
 import jetbrains.buildServer.artifacts.s3.amazonClient.impl.AmazonS3ProviderImpl;
-import jetbrains.buildServer.artifacts.s3.exceptions.InvalidSettingsException;
 import jetbrains.buildServer.artifacts.s3.util.ParamUtil;
 import jetbrains.buildServer.serverSide.*;
 import jetbrains.buildServer.serverSide.artifacts.ServerArtifactHelper;
@@ -41,13 +41,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.Delete;
-import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
-import software.amazon.awssdk.services.s3.model.DeletedObject;
-import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
-import software.amazon.awssdk.services.s3.model.S3Error;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.*;
 
 import static jetbrains.buildServer.log.Loggers.CLEANUP;
 
@@ -132,21 +126,27 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     if (buildStorageInfos == null) {
       throw new IllegalStateException("Extension data should have been initialized during `prepareBuildsData` stage.");
     }
+    // builds sharing a connection project and storage settings are cleaned with one S3 client and share DeleteObjects requests
+    Map<Pair<String, Map<String, String>>, List<BuildStorageInfo>> groups = new LinkedHashMap<>();
     for (long buildId : cleanupContext.getBuildIds()) {
       BuildStorageInfo buildStorageInfo = buildStorageInfos.remove(buildId);
       if (buildStorageInfo != null) {
-        cleanupContext.getCleanupState().throwIfInterrupted();
         SFinishedBuild build = buildStorageInfo.myBuild;
-        try {
-          doClean(cleanupContext, build, buildStorageInfo.myPathPrefix, buildStorageInfo.myPathsToDelete, buildStorageInfo.myStorageSettings);
-        } catch (IOException e) {
-          CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
-          cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
-        } catch (RuntimeException e) {
-          CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
-          cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
+        SProject project = findProjectToGetConnection(build);
+        if (project == null) {
+          String errMsg = String.format("Failed to cleanup S3 objects from %s bucket, project is not specified to get correct Connection",
+                                        S3Util.getBucketName(buildStorageInfo.myStorageSettings));
+          CLEANUP.warn(errMsg);
+          cleanupContext.onBuildCleanupError(this, build, errMsg);
+          continue;
         }
+        buildStorageInfo.myProject = project;
+        groups.computeIfAbsent(Pair.create(project.getProjectId(), buildStorageInfo.myStorageSettings), key -> new ArrayList<>()).add(buildStorageInfo);
       }
+    }
+    for (List<BuildStorageInfo> group : groups.values()) {
+      cleanupContext.getCleanupState().throwIfInterrupted();
+      doClean(cleanupContext, group);
     }
   }
 
@@ -155,53 +155,61 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     return TeamCityProperties.getInteger(CONCURRENCY_LEVEL_PROPERTY, 2);
   }
 
-  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull SFinishedBuild build, @NotNull String pathPrefix, @NotNull List<String> pathsToDelete,
-                       @NotNull Map<String, String> storageSettings) throws IOException, InvalidSettingsException {
+  private void doClean(@NotNull BuildCleanupContext cleanupContext, @NotNull List<BuildStorageInfo> buildStorageInfos) {
+    SProject project = buildStorageInfos.get(0).myProject;
+    Map<String, String> storageSettings = buildStorageInfos.get(0).myStorageSettings;
     String bucketName = S3Util.getBucketName(storageSettings);
     assert bucketName != null;
 
-
-    SProject project = findProjectToGetConnection(build);
-    if (project == null) {
-      String errMsg = String.format("Failed to cleanup S3 objects from %s bucket, project is not specified to get correct Connection", bucketName);
-      CLEANUP.warn(errMsg);
-      cleanupContext.onBuildCleanupError(this, build, errMsg);
-      return;
+    Map<String, Pair<BuildStorageInfo, String>> objectsByKey = new LinkedHashMap<>();
+    for (BuildStorageInfo buildStorageInfo : buildStorageInfos) {
+      for (String path : buildStorageInfo.myPathsToDelete) {
+        String key = buildStorageInfo.myPathPrefix + path;
+        Pair<BuildStorageInfo, String> previous = objectsByKey.put(key, Pair.create(buildStorageInfo, path));
+        if (previous != null) {
+          CLEANUP.warn("S3 object " + key + " in bucket [" + bucketName + "] is listed in artifacts of builds " + LogUtil.describe(previous.first.myBuild) +
+                       " and " + LogUtil.describe(buildStorageInfo.myBuild) + ", its removal result is reported for the latter build only");
+        }
+      }
     }
-    String projectId = project.getProjectId();
+    List<String> keysToDelete = new ArrayList<>(objectsByKey.keySet());
 
-    Map<String, String> settings = new HashMap<>(storageSettings);
-    ParamUtil.putSslValues(myServerPaths, settings);
-
-    String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + pathPrefix + "]";
-
-    AtomicInteger succeededNum = new AtomicInteger();
-    AtomicInteger errorNum = new AtomicInteger();
     AtomicReference<List<String>> currentPart = new AtomicReference<>(Collections.emptyList());
-    List<String> pathsFailedToDelete = new ArrayList<>();
+    // a retry with corrected region or acceleration resumes from the first key not deleted yet
+    AtomicInteger firstUnsentKey = new AtomicInteger();
 
     try {
-      myAmazonS3Provider.withCorrectingRegionAndAcceleration(settings, projectId, client -> {
+      Map<String, String> settings = new HashMap<>(storageSettings);
+      ParamUtil.putSslValues(myServerPaths, settings);
+      myAmazonS3Provider.withCorrectingRegionAndAcceleration(settings, project.getProjectId(), client -> {
         int batchSize = TeamCityProperties.getInteger(S3Constants.S3_CLEANUP_BATCH_SIZE, 1000);
-        List<List<String>> partitions = Lists.partition(pathsToDelete, batchSize);
+        List<List<String>> partitions = Lists.partition(keysToDelete.subList(firstUnsentKey.get(), keysToDelete.size()), batchSize);
         AtomicInteger processedChunksNum = new AtomicInteger();
+        AtomicInteger succeededNum = new AtomicInteger();
         for (List<String> part : partitions) {
           currentPart.set(part);
-          Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(build, pathsToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
+          Disposable threadName = NamedThreadFactory.patchThreadName(progressMessage(buildStorageInfos.size(), bucketName, keysToDelete, succeededNum, processedChunksNum, partitions.size(), part.size()));
           try {
             // recreate retrier every time to ensure we can quickly adjust its parameters in runtime
-            DeleteObjectsResponse response = createRetrier(project).execute(() -> deleteChunk(pathPrefix, bucketName, client, part));
+            DeleteObjectsResponse response = createRetrier(project).execute(() -> deleteChunk(bucketName, client, part));
             List<DeletedObject> deleted = response.deleted();
             succeededNum.addAndGet(deleted.size());
 
-            List<S3Error> errors = response.errors();
+            deleted.forEach(object -> {
+              Pair<BuildStorageInfo, String> buildObject = objectsByKey.get(object.key());
+              if (buildObject != null) {
+                buildObject.first.mySucceededNum++;
+              }
+            });
 
-            errors
+            response.errors()
               .forEach(error -> {
                 String key = error.key();
-                if (key.startsWith(pathPrefix)) {
+                Pair<BuildStorageInfo, String> buildObject = objectsByKey.get(key);
+                if (buildObject != null) {
                   CLEANUP.info(() -> "Failed to remove " + key + " from S3 bucket " + bucketName + ": " + error.message());
-                  pathsFailedToDelete.add(key.substring(pathPrefix.length()));
+                  buildObject.first.myPathsFailedToDelete.add(buildObject.second);
+                  buildObject.first.myErrorNum++;
                   myCleanupListeners.forEach(listener ->
                     listener.onError(
                       S3Exception.builder()
@@ -212,13 +220,11 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
                 }
               });
 
-            errorNum.addAndGet(errors.size());
-
             deleted
               .stream()
               .map(DeletedObject::key)
               .forEach(key -> myCleanupListeners.forEach(listener -> listener.onSuccess(key)));
-
+            firstUnsentKey.addAndGet(part.size());
           } finally {
             threadName.dispose();
           }
@@ -235,25 +241,47 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
       } else {
         CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + currentPart.get(), e);
       }
-      errorNum.addAndGet(currentPart.get().size());
+      markNotDeleted(objectsByKey, keysToDelete.subList(firstUnsentKey.get(), keysToDelete.size()));
       myCleanupListeners.forEach(listener -> listener.onError(e, false));
     } catch (Exception e) {
       CLEANUP.warnAndDebugDetails(EXCEPTION_MESSAGE + currentPart.get(), e);
-      errorNum.addAndGet(currentPart.get().size());
+      markNotDeleted(objectsByKey, keysToDelete.subList(firstUnsentKey.get(), keysToDelete.size()));
       myCleanupListeners.forEach(listener -> listener.onError(e, false));
     }
 
-    if (errorNum.get() > 0) {
-      CLEANUP.warn("Failed to remove [" + errorNum + "] S3 " + StringUtil.pluralize("object", errorNum.get()) + suffix);
-      cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
+    for (BuildStorageInfo buildStorageInfo : buildStorageInfos) {
+      SFinishedBuild build = buildStorageInfo.myBuild;
+      String suffix = " from S3 bucket [" + bucketName + "]" + " from path [" + buildStorageInfo.myPathPrefix + "]";
+      List<String> pathsToDelete = buildStorageInfo.myPathsToDelete;
+
+      if (buildStorageInfo.myErrorNum > 0) {
+        CLEANUP.warn("Failed to remove [" + buildStorageInfo.myErrorNum + "] S3 " + StringUtil.pluralize("object", buildStorageInfo.myErrorNum) + suffix);
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove some S3 objects.");
+      }
+
+      CLEANUP.info(() -> "Removed [" + buildStorageInfo.mySucceededNum + "] S3 " + StringUtil.pluralize("object", buildStorageInfo.mySucceededNum) + suffix);
+
+      if (!buildStorageInfo.myPathsFailedToDelete.isEmpty())
+        pathsToDelete.removeAll(buildStorageInfo.myPathsFailedToDelete);
+
+      try {
+        myHelper.removeFromArtifactList(build, pathsToDelete);
+      } catch (IOException e) {
+        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to IO error.");
+      } catch (RuntimeException e) {
+        CLEANUP.warn("Failed to remove S3 artifacts: " + e.getMessage());
+        cleanupContext.onBuildCleanupError(this, build, "Failed to remove S3 artifacts due to unexpected error.");
+      }
     }
+  }
 
-    CLEANUP.info(() -> "Removed [" + succeededNum + "] S3 " + StringUtil.pluralize("object", succeededNum.get()) + suffix);
-
-    if (!pathsFailedToDelete.isEmpty())
-      pathsToDelete.removeAll(pathsFailedToDelete);
-
-    myHelper.removeFromArtifactList(build, pathsToDelete);
+  private static void markNotDeleted(@NotNull Map<String, Pair<BuildStorageInfo, String>> objectsByKey, @NotNull List<String> keys) {
+    for (String key : keys) {
+      Pair<BuildStorageInfo, String> buildObject = objectsByKey.get(key);
+      buildObject.first.myErrorNum++;
+      buildObject.first.myPathsFailedToDelete.add(buildObject.second);
+    }
   }
 
   @NotNull
@@ -300,17 +328,17 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
   }
 
   @NotNull
-  private String progressMessage(@NotNull SFinishedBuild build, @NotNull List<String> pathsToDelete, @NotNull AtomicInteger succeededNum,
+  private String progressMessage(int buildsNum, @NotNull String bucketName, @NotNull List<String> keysToDelete, @NotNull AtomicInteger succeededNum,
                                  @NotNull AtomicInteger currentChunkNumber, int size, int chunkSize) {
     return String.format(
-      "Cleaning artifacts of Build %s: S3Client deleting chunk #%d/%d of %d/%d objects",
-      LogUtil.describe(build), currentChunkNumber.incrementAndGet(), size, chunkSize, pathsToDelete.size() - succeededNum.get());
+      "Cleaning artifacts of %d builds in S3 bucket [%s]: S3Client deleting chunk #%d/%d of %d/%d objects",
+      buildsNum, bucketName, currentChunkNumber.incrementAndGet(), size, chunkSize, keysToDelete.size() - succeededNum.get());
   }
 
-  private DeleteObjectsResponse deleteChunk(@NotNull String pathPrefix, @NotNull String bucketName, @NotNull S3Client client, @NotNull List<String> part) {
+  private DeleteObjectsResponse deleteChunk(@NotNull String bucketName, @NotNull S3Client client, @NotNull List<String> part) {
     List<ObjectIdentifier> objectKeys = part.stream()
-      .map(path -> ObjectIdentifier.builder()
-        .key(pathPrefix + path)
+      .map(key -> ObjectIdentifier.builder()
+        .key(key)
         .build()
       )
       .collect(Collectors.toList());
@@ -347,6 +375,12 @@ public class S3CleanupExtension implements BuildsCleanupExtension {
     final List<String> myPathsToDelete;
     @NotNull
     final Map<String, String> myStorageSettings;
+    // filled during cleanupBuildsData
+    SProject myProject;
+    int mySucceededNum;
+    int myErrorNum;
+    @NotNull
+    final List<String> myPathsFailedToDelete = new ArrayList<>();
 
     BuildStorageInfo(@NotNull SFinishedBuild build,
                      @NotNull String pathPrefix,
