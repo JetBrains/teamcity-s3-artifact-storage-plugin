@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Air cloud startup script for teamcity-s3-storage.
 #
-# Prepares the toolchain the build needs (Temurin JDK 17 for Gradle 8.14,
+# Prepares the toolchain the build needs (Temurin JDK 21 for Gradle 8.14,
 # yarn for the s3-artifact-storage-ui module) and, on warmup runs, primes
 # the Gradle and yarn caches by building the plugin.
 #
@@ -21,13 +21,14 @@ ENV_FILE="$HOME/.air-env.sh"
 if [ "${AIR_STARTUP_MODE:-}" = warmup ]; then WARMUP=1; else WARMUP=; fi
 log "mode=${AIR_STARTUP_MODE:-unset} repo=$REPO_ROOT"
 
-# --- JDK 17 (Gradle 8.14 cannot run on the preinstalled JDK 25) ---
+# --- JDK 21 (Gradle 8.14 cannot run on the preinstalled JDK 25,
+# and the TeamCity 2026.2-SNAPSHOT artifacts are Java 21 bytecode) ---
 if [ ! -x "$JDK_DIR/bin/java" ]; then
-  log "installing Temurin JDK 17 into $JDK_DIR"
+  log "installing Temurin JDK 21 into $JDK_DIR"
   mkdir -p "$JDK_DIR"
-  curl -fsSL "https://api.adoptium.net/v3/binary/latest/17/ga/linux/x64/jdk/hotspot/normal/eclipse" -o /tmp/air-jdk17.tar.gz
-  tar -xzf /tmp/air-jdk17.tar.gz -C "$JDK_DIR" --strip-components=1
-  rm -f /tmp/air-jdk17.tar.gz
+  curl -fsSL "https://api.adoptium.net/v3/binary/latest/21/ga/linux/x64/jdk/hotspot/normal/eclipse" -o /tmp/air-jdk21.tar.gz
+  tar -xzf /tmp/air-jdk21.tar.gz -C "$JDK_DIR" --strip-components=1
+  rm -f /tmp/air-jdk21.tar.gz
   log "JDK installed: $("$JDK_DIR/bin/java" -version 2>&1 | head -1)"
 else
   log "JDK already present: $("$JDK_DIR/bin/java" -version 2>&1 | head -1)"
@@ -89,7 +90,7 @@ warm_build() {
 # --- healthcheck: assert the environment works the way a real task needs ---
 healthcheck() {
   log "healthcheck: verifying JDK"
-  "$JDK_DIR/bin/java" -version 2>&1 | grep -q 'version "17' || { log "healthcheck FAILED: JDK 17 not usable"; return 1; }
+  "$JDK_DIR/bin/java" -version 2>&1 | grep -q 'version "21' || { log "healthcheck FAILED: JDK 21 not usable"; return 1; }
   log "healthcheck: verifying yarn"
   "$NPM_PREFIX/bin/yarn" --version >/dev/null || { log "healthcheck FAILED: yarn not usable"; return 1; }
   cd "$REPO_ROOT"
