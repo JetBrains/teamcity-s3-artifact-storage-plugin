@@ -1,5 +1,6 @@
 import { React } from '@jetbrains/teamcity-api';
 import {
+  FormCheckbox,
   Option,
   SectionHeader,
   Switcher,
@@ -29,12 +30,19 @@ import TrustedKeyGroup from './components/TrustedKeyGroup';
 
 function CloudFrontLoaderWrapper() {
   const { isInitialized } = useCloudFrontDistributionsContext();
+  const { control, watch } = useFormContext<IFormInput>();
+  const useS3Upload = watch(FormFields.CLOUD_FRONT_UPLOAD_USE_S3);
 
   if (isInitialized) {
     return (
       <>
         <DownloadDistribution />
-        <UploadDistribution />
+        <FormCheckbox
+          name={FormFields.CLOUD_FRONT_UPLOAD_USE_S3}
+          control={control}
+          label="Use S3 for uploads"
+        />
+        {!useS3Upload && <UploadDistribution />}
         <TrustedKeyGroup />
       </>
     );
