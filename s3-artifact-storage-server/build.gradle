@@ -30,7 +30,7 @@ dependencies {
     implementation "software.amazon.awssdk:iam-policy-builder:2.33.2"
     provided "org.jetbrains.teamcity:connections-api"
 
-    implementation "org.bouncycastle:bcprov-jdk18on:1.78"
+    implementation "org.bouncycastle:bcprov-jdk18on:1.85"
 
     testImplementation "org.testcontainers:localstack:1.21.3"
     agent project(path: ':s3-artifact-storage-agent', configuration: 'plugin')
