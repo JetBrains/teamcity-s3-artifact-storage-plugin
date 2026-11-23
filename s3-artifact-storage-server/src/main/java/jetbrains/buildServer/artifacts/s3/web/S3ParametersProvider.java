@@ -5,6 +5,7 @@ package jetbrains.buildServer.artifacts.s3.web;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+import jetbrains.buildServer.artifacts.s3.CloudFrontS3UploadSettings;
 import jetbrains.buildServer.artifacts.s3.S3Constants;
 import jetbrains.buildServer.artifacts.s3.cloudfront.CloudFrontConstants;
 import jetbrains.buildServer.clouds.amazon.connector.utils.parameters.AwsCloudConnectorConstants;
@@ -64,6 +65,10 @@ public class S3ParametersProvider {
 
   public String getCloudFrontUploadDistribution() {
     return CloudFrontConstants.S3_CLOUDFRONT_UPLOAD_DISTRIBUTION;
+  }
+
+  public String getCloudFrontUploadUseS3() {
+    return CloudFrontS3UploadSettings.S3_CLOUDFRONT_UPLOAD_USE_S3;
   }
 
   public String getCloudFrontDownloadDistribution() {

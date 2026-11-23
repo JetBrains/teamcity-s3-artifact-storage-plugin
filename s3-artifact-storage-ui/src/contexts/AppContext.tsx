@@ -30,6 +30,7 @@ const AppContext = React.createContext<Config>({
   bucket: '',
   bucketPathPrefix: '',
   useCloudFront: false,
+  cloudFrontUseS3Upload: false,
   cloudFrontUploadDistribution: '',
   cloudFrontDownloadDistribution: '',
   cloudFrontPublicKeyId: '',
