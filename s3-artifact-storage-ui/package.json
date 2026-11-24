@@ -65,7 +65,7 @@
     "prettier": "^2.8.7",
     "stylelint": "^14.16.0",
     "ts-loader": "^9.4.1",
-    "webpack": "^5.76.0",
+    "webpack": "^5.104.1",
     "webpack-bundle-analyzer": "^4.6.1",
     "webpack-cli": "^4.10.0",
     "webpack-dev-server": "^4.11.1",
